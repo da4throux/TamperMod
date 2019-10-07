@@ -203,7 +203,7 @@ function simulateMouseEvent(target, type, x, y) {
 };
 
 const timeStep = 0.2; // minimum step for each action (every .2s I would change the volume knob)
-const continuoStep = 500;
+const continuoStep = 2000;
 const maxPeriod = 10000; //any action taking more than a second should be reduce to this xx ms - I'm thinking of turning the knob for a fadeOut
 const logLevel = 0; const logFocus = 'focus';
 var page_title, page_title_original, x = 0, y = 0;
@@ -249,6 +249,7 @@ volumes_families.Gain = {
         low: 0,
         mid: 24,
         high: 32,
+        size: 98
     }
 };
 
@@ -286,7 +287,7 @@ for (var key of Object.keys(volumes)) {
 
 //if (!GM_getValue('config')) {
     config_default.actions = {};
-    config_default.actions.keydown13 = [{
+    config_default.actions.keydown13x = [{
         type: 'fade',
         description: 'Enter: fade to target -> 0dB on 2 bars loop volume',
         instance: "/graph/Gain",
@@ -296,7 +297,7 @@ for (var key of Object.keys(volumes)) {
         steps: 65, //? 65 should be defaut value if not indicated, most knobs have 65 steps to move from min to max -> I should find it my own though
         size: 98, //pixel size of the knob to calculate what is the current step
     }];
-    config_default.actions.keydown32 = [{ //space bar
+    config_default.actions.keydown32x = [{ //space bar
         type: 'fade',
         description: 'space: fade-out on 2 bars loop volume set on the right',
         instance: "/graph/Gain",
@@ -306,7 +307,7 @@ for (var key of Object.keys(volumes)) {
         steps: 65, //? 65 should be defaut value if not indicated, most knobs have 65 steps to move from min to max -> I should find it my own though
         size: 98, //pixel size of the knob to calculate what is the current step
     }];
-    config_default.actions.keydown65 = [{ //a (as keydown it's 65, but as keypress it's 97) // let's make it an array of functions to allow overload
+    config_default.actions.keydown65x = [{ //a (as keydown it's 65, but as keypress it's 97) // let's make it an array of functions to allow overload
         type: 'fade',
         description: 'a: fade-out on 4 bars loop volume set on the right',
         instance: "/graph/Gain_1",
@@ -316,7 +317,7 @@ for (var key of Object.keys(volumes)) {
         steps: 65, //? 65 should be defaut value if not indicated, most knobs have 65 steps to move from min to max -> I should find it my own though
         size: 98, //pixel size of the knob to calculate what is the current step
     }];
-    config_default.actions.keydown66 = [{ //a (as keydown it's 65, but as keypress it's 97) // let's make it an array of functions to allow overload
+    config_default.actions.keydown66x = [{ //a (as keydown it's 65, but as keypress it's 97) // let's make it an array of functions to allow overload
         type: 'fade',
         description: 'b: fade back on 4 bars loop volume set on the right',
         instance: "/graph/Gain_1",
@@ -457,54 +458,58 @@ function moveMouse(port, stepsToTarget) {
     ["mouseup", "click"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
 }
 
-function getContinuoSize(continuo) {
+function getContinuoSize(continuo) { //number of different sections in the continuo
     continuo.size = 0;
-    for (let section of Object.values(sections)) {
-        if (section.continuo == continuo.name) {
+    var trackedSection = [];
+    for (let instrument of Object.values(instruments)) {
+        if (instrument.continuo.name == continuo.name && trackedSection.indexOf(instrument.section.name) == -1) {
+            trackedSection.push(instrument.section.name);
             continuo.size++;
         }
     }
-    return true;
+    return continuo.size;
+}
+
+function modulo(a, b) {
+    var modulo;
+    modulo = ((a % b) + b) % b;
+    return modulo;
 }
 
 function goThroughContinuos() {
-    return;
-    var bpm, continuo, currentSection, currentVolume, instrument, k, period, periodShift, port, rank, stepsToTarget, targetVolume, timePosition, volumes;
+    var bpm, continuo, continuoPeriod, currentSection, currentVolume, instrument, k, period, periodShift, port, rank, stepsToTarget, targetVolume, timePosition, volumes;
     bpm = parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
-    period = 60 * 4 / bpm * 4;
+    period = 60 * 4 / bpm * 4; // 4 black notes, 4 times -> second length
     periodShift = 1 / continuosAction.length; //so that continuos have an equal repartition on a period //*** a bit unsure about that though, not all are used...
     for (let instrument of Object.values(instruments)) {
         continuo = instrument.continuo;
-        if (!continuo.size) { getContinuoSize(continuo)}
+        timePosition = (( Date.now() - (continuo.startTime || 0 )) / 1000 / period) % (4 * continuo.size);
+        log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
+        if (!continuo.size) { getContinuoSize(continuo); }
         if (continuo.mode != 'pause' && continuo.size > 0) {
             volumes = instrument.volumes || volumes_families[instrument.symbol].volumes;
             port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
             currentVolume = Math.round(parseInt(port.style.backgroundPositionX) / -1 / volumes.size);
+            log('timePosition: ' + timePosition);
             if (continuo.size == 1) {
                 targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high; //else it would be a too extreme change
             } else {
-                log ('getting there: ' + timePosition);
-                rank = instrument.sectionRank;
+                continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
+                rank = 4 * instrument.sectionRank; //in that case will be 0 & 4
                 switch (true) {
-                    case (timePosition < (4 * rank - 2)):
-                        targetVolume = currentVolume > volumes.mid ? volumes.mid : volumes.low;
-                        break;
-                    case (timePosition < (4 * rank - 1)):
-                        targetVolume = volumes.mid;
-                        break;
-                    case (timePosition < (4 * rank + 3)):
+                    case ((timePosition > rank) && (timePosition < (rank + 3))):
                         targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high;
                         break;
-                    case (timePosition < (4 * rank + 4)):
+                    case ((timePosition > (rank + 3)) && (timePosition <= rank + 4)):
                         targetVolume = volumes.mid;
                         break;
-                    case (timePosition < (4 * rank + 6)):
+                    case (timePosition > modulo(rank + 4,continuoPeriod)) && (timePosition <= modulo(rank - 2, continuoPeriod)):
                         targetVolume = currentVolume > volumes.mid ? volumes.mid : volumes.low;
                         break;
-                    case (timePosition < (4 * rank + 7)):
+                    case (timePosition > modulo(rank - 2, continuoPeriod) && timePosition <= modulo(rank - 1, continuoPeriod)):
                         targetVolume = volumes.mid;
                         break;
-                    case (timePosition < (4 * rank + 8)):
+                    case (timePosition > modulo(rank - 1, continuoPeriod) && timePosition <= (rank || continuoPeriod)):
                         targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high;
                         break;
                     default:
@@ -513,7 +518,7 @@ function goThroughContinuos() {
                 }
             }
             stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
-            log (instrument.description + ' : ' + currentVolume + ' -> ' + targetVolume + ' : ' + stepsToTarget + ' y=' + y);
+            log('gTC: ' + instrument.keyboard + ': ' + rank + '/' + timePosition + ' : ' + currentVolume + ' -> ' + targetVolume + ' : ' + stepsToTarget + ' y=' + y);
             moveMouse (port, stepsToTarget);
         }
     }
@@ -591,6 +596,9 @@ function updateInstrumentAfterSectionChange(instrument, newSection, newContinuo)
     instrument.section = newSection;
     instrument.continuo = newContinuo;
     emptyOldSection = isSectionEmpty(oldSection, oldContinuo);
+    if (emptyOldSection) {
+        oldContinuo.size--;
+    }
     for (let inst of Object.values(instruments)) {
         if (inst.name != instrument.name) {
             if (inst.continuo.name == oldContinuo.name && emptyOldSection && inst.sectionRank > oldSectionRank) { // if oldSection disappear
@@ -611,6 +619,7 @@ function updateInstrumentAfterSectionChange(instrument, newSection, newContinuo)
     }
     if (aloneInNewSection) {
         instrument.sectionRank = maxRank + 1;
+        newContinuo.size++;
     }
 }
 
