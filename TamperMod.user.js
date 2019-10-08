@@ -15,10 +15,9 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
-//*** n cannot be the action to add a new knob, and remove an existing instrument...
-//*** I have a poor mix up of objects and array on which I rely on positions... I have to get rid of the latter: continuo, sections, ...
-//*** what resistance to a modification of continuo, section, while it's alternating
+//*** be able to action on a loop from keyboard, maybe have the same name for the loop and its volume
 //*** need to add continuos.mode: alternate, focus on section, fade to New level, pause
+//** n cannot be the action to add a new knob, and remove an existing instrument...
 
 const MaterialIcons = GM_getResourceText("MaterialIcons");
 GM_addStyle (MaterialIcons);
@@ -189,7 +188,7 @@ function triggerEvent(target, type){
 function simulateMouseEvent(target, type, x, y) {
     //https://stackoverflow.com/questions/9749910/programmatically-triggering-mouse-move-event-in-javascript
     var rect = target.getBoundingClientRect();
-    log (typeof unsafeWindow);
+    log ('SME - unsafeWindow: ' + typeof unsafeWindow);
     log (unsafeWindow);
     var event = new MouseEvent(type, {
         'view': unsafeWindow,
@@ -209,7 +208,7 @@ const logLevel = 0; const logFocus = 'focus';
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
-    volumes, volumes_families = {}; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
+    volumes, volumes_families = {}, loopers; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
 // I need to build this from configuration:
 // document.querySelector('[mod-instance="/graph/Gain_1"][class="mod-pedal ui-draggable"]').querySelector('[mod-port="/graph/Gain_1/Gain"]')
 // when browsing above a pedal, get all its potential control:
@@ -272,83 +271,96 @@ volumes = {
     },
 };
 
-var instruments = {}, instrumentsAction = [];
-for (var key of Object.keys(volumes)) {
-    instruments[key.toUpperCase().charCodeAt(0)] = {};
-    instruments[key.toUpperCase().charCodeAt(0)].instance = volumes[key].instance;
-    instruments[key.toUpperCase().charCodeAt(0)].symbol = volumes[key].symbol;
-    instruments[key.toUpperCase().charCodeAt(0)].description = volumes[key].description;
-    instruments[key.toUpperCase().charCodeAt(0)].key = key.toUpperCase().charCodeAt(0);
-    instruments[key.toUpperCase().charCodeAt(0)].type = 'instrument';
-    instruments[key.toUpperCase().charCodeAt(0)].volume = key;
-    instruments[key.toUpperCase().charCodeAt(0)].name = volumes[key].description;
-    instruments[key.toUpperCase().charCodeAt(0)].keyboard = key;
-    instruments[key.toUpperCase().charCodeAt(0)].section = sections[sectionsAction[instrumentsAction.length]];
-    instruments[key.toUpperCase().charCodeAt(0)].continuo = continuos[continuosAction[instrumentsAction.length]];
-    instruments[key.toUpperCase().charCodeAt(0)].sectionRank = 0;
-    instrumentsAction.push(instruments[key.toUpperCase().charCodeAt(0)]);
-}
+loopers = {
+    0: {
+        instance: "/graph/alo_2", //querySelector('[mod-instance="/graph/alo_2"]'),
+        symbol: "loop1", //querySelector('[mod-port-symbol="loop1"]'),
+        clickedStyle: '-71px 0px', //the backgroundPosition when clicked
+    },
+};
 
+var instruments = {}, instrumentsAction = [];
+var pads = {}, padsAction = [];
 //continuos = [[0, 1]]; // instruments from section 0 & 1 are alternating in one continuo
 
 //if (!GM_getValue('config')) {
-    config_default.actions = {};
-    config_default.actions.keydown13x = [{
-        type: 'fade',
-        description: 'Enter: fade to target -> 0dB on 2 bars loop volume',
-        instance: "/graph/Gain",
-        symbol: 'Gain',
-        target: 32, // for a knob that goes in 64 steps: 0 minimum, 64 maximum
-        timespan: 30, //0 for instantaneous (in 10 seconds the sound will be at minimal level)
-        steps: 65, //? 65 should be defaut value if not indicated, most knobs have 65 steps to move from min to max -> I should find it my own though
-        size: 98, //pixel size of the knob to calculate what is the current step
-    }];
-    config_default.actions.keydown32x = [{ //space bar
-        type: 'fade',
-        description: 'space: fade-out on 2 bars loop volume set on the right',
-        instance: "/graph/Gain",
-        symbol: 'Gain',
-        target: 10, // for a knob that goes in 64 steps: 0 minimum, 64 maximum
-        timespan: 30, //0 for instantaneous (in 10 seconds the sound will be at minimal level)
-        steps: 65, //? 65 should be defaut value if not indicated, most knobs have 65 steps to move from min to max -> I should find it my own though
-        size: 98, //pixel size of the knob to calculate what is the current step
-    }];
-    config_default.actions.keydown65x = [{ //a (as keydown it's 65, but as keypress it's 97) // let's make it an array of functions to allow overload
-        type: 'fade',
-        description: 'a: fade-out on 4 bars loop volume set on the right',
-        instance: "/graph/Gain_1",
-        symbol: 'Gain',
-        target: 10, // for a knob that goes in 64 steps: 0 minimum, 64 maximum
-        timespan: 30, //0 for instantaneous (in 10 seconds the sound will be at minimal level)
-        steps: 65, //? 65 should be defaut value if not indicated, most knobs have 65 steps to move from min to max -> I should find it my own though
-        size: 98, //pixel size of the knob to calculate what is the current step
-    }];
-    config_default.actions.keydown66x = [{ //a (as keydown it's 65, but as keypress it's 97) // let's make it an array of functions to allow overload
-        type: 'fade',
-        description: 'b: fade back on 4 bars loop volume set on the right',
-        instance: "/graph/Gain_1",
-        symbol: 'Gain',
-        target: 32, // for a knob that goes in 64 steps: 0 minimum, 64 maximum
-        timespan: 30, //0 for instantaneous (in 10 seconds the sound will be at minimal level)
-        steps: 65, //? 65 should be defaut value if not indicated, most knobs have 65 steps to move from min to max -> I should find it my own though
-        size: 98, //pixel size of the knob to calculate what is the current step
-    }];
-    config_default.actions.keydown67AndMore = [{
-        type: 'inAndOut',
-        description: 'c: in&out',
-//        instance: "/graph/Gain2x2",
-        instance: "/graph/Gain_1",
-        symbol: 'Gain',
-        low: 0,
-        mid: 24,
-        high: 32,
-        steps: 65,
-        size: 98
-    }];
-    config_default = JSON.stringify(config_default);
-    GM_setValue('config', config_default);
+config_default.actions = {};
+var generalActions = {};
+generalActions['32'] = { //V3 off button toogle
+    type: 'action',
+    keyboard: 'space',
+    description: 'pause all v3, or only for a continuo, a section, an instrument',
+    name: 'pausePlayToggle',
+};
+generalActions['76'] = {
+    type: 'action',
+    keyboard: 'l',
+    description: 'toggle the associated loop',
+    name: 'loopClick',
+};
+generalActions['222'] = {
+    type: 'action',
+    keyboard: '~', //Alt + ;
+    description: 'rotating section for continuo mode',
+    name: 'rotate',
+}
+generalActions['187'] = {
+    type: 'action',
+    keyboard: '=', //more based on the + sign above: toggle
+    description: 'one Click - could be starting or stopping a loop immediately',
+    name: 'toggle',
+}
+generalActions['189'] = {
+    type: 'action',
+    keyboard: '-', //-_ silence before recording
+    description: 'double click silence, and will start recording on the 4th beat',
+    name: 'record',
+}
+config_default = JSON.stringify(config_default);
+GM_setValue('config', config_default);
 log ('GM_setValue done', config_default, typeof GM_setValue.then); //
 //}
+
+function buildConfigAndActions(){
+    var i;
+//    investigationOfModPorts();
+    page_title_original = document.getElementById('pedalboard-info').children[0].innerHTML;
+    page_title = document.getElementById('pedalboard-info').children[0];
+    page_title.style.textTransform = 'none';
+    for (let key of Object.keys(volumes)) { //**** need to insert copy of object
+        let instrument = instruments[key.toUpperCase().charCodeAt(0)] = Object.assign({}, volumes[key]);
+        instrument.continuo = continuos[continuosAction[instrumentsAction.length]];
+        instrument.key = key.toUpperCase().charCodeAt(0);
+        instrument.keyboard = key;
+        instrument.name = volumes[key].description;
+        instrument.section = sections[sectionsAction[instrumentsAction.length]];
+        instrument.sectionRank = 0;
+        instrument.type = 'instrument';
+        instrument.volume = key;
+        instrumentsAction.push(instruments[key.toUpperCase().charCodeAt(0)]);
+    }
+    for (let key of Object.keys(loopers)) {
+        let pad;
+        pad = pads[key.toUpperCase().charCodeAt(0)] = Object.assign({}, loopers[key]);
+        pad.bars = parseInt(document.querySelector('[mod-instance="' + pad.instance + '"]').querySelector('[mod-port-symbol="bars"][class="mod-knob-value"]').innerText);
+        pad.button = document.querySelector('[mod-instance="' + pad.instance + '"]').querySelector('[mod-port-symbol="' + pad.symbol + '"]');
+        pad.key = key.toUpperCase().charCodeAt(0);
+        pad.type = 'pad';
+        pad.keyboard = key;
+    }
+    log(pads);
+    updateInstrumentsLabel();
+    config = JSON.parse(GM_getValue('config'));
+    config.pauseAll = true;
+    log ('buildConfigAndAction loaded');
+    setInterval (actionLoop, continuoStep);
+}
+
+function actionLoop() {
+    if (!config.pauseAll) {
+        goThroughContinuos();
+    }
+}
 
 function investigationOfModPorts() { //look for all possible value of mod-port
     //many many different names: no logic I can see me exploit
@@ -420,44 +432,6 @@ function updateInstrumentsLabel() {
     }
 }
 
-function buildConfigAndActions(){
-    var i;
-//    investigationOfModPorts();
-    page_title_original = document.getElementById('pedalboard-info').children[0].innerHTML;
-    page_title = document.getElementById('pedalboard-info').children[0];
-    page_title.style.textTransform = 'none';
-    updateInstrumentsLabel();
-    config = JSON.parse(GM_getValue('config'));
-    appendIconNode('face', 'pink');
-    appendIconNode('call_made', 'purple');
-    for (let [actionKeyCode, key_actions] of Object.entries(config.actions)) {
-        actions[actionKeyCode]=[];
-        key_actions.forEach((key_action, index) => {
-          if (document.querySelector('[mod-instance="' + key_action.instance + '"][class="mod-pedal ui-draggable"]')) {
-            actions[actionKeyCode][index]={};
-            switch(key_action.type) {
-                case 'fade':
-                case 'fade-out':
-                case 'inAndOut':
-                    actions[actionKeyCode][index].port = document.querySelector('[mod-instance="' + key_action.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
-                    actions[actionKeyCode][index].port.title += actions[actionKeyCode][index].port.title ? '\n' + key_action.description : key_action.description;
-                    actions[actionKeyCode][index].port.style.filter = default_filter;
-                    actions[actionKeyCode][index].portName = key_action.instance + '/' + key_action.symbol;
-                    actions[actionKeyCode][index].portSize = parseInt(window.getComputedStyle(actions[actionKeyCode][index].port).backgroundSize.match(/\d+/)[0]);
-                    actions[actionKeyCode][index].port.style.color = 'lime';
-                    actions[actionKeyCode][index].port.style.font = 'bold 50px arial,serif';
-                    actions[actionKeyCode][index].title = actions[actionKeyCode][index].port;
-                    break;
-                default:
-                    log ('buildActions:', key_action.type,'not handled');
-            }
-          }
-        })
-    }
-    log ('buildConfigAndAction loaded');
-    setInterval (goThroughContinuos, continuoStep);
-}
-
 function moveMouse(port, stepsToTarget) {
     ["mouseover", "mousedown"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
     simulateMouseEvent(port, 'mousemove', x , y + 2 * stepsToTarget);
@@ -494,16 +468,15 @@ function goThroughContinuos() {
         timePosition = (( Date.now() - (continuo.startTime || 0 )) / 1000 / period) % (4 * continuo.size);
         log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
         if (!continuo.size) { getContinuoSize(continuo); }
-        if (continuo.mode != 'pause' && continuo.size > 0) {
+        if (!continuo.pause && continuo.size > 0) {
             volumes = instrument.volumes || volumes_families[instrument.symbol].volumes;
             port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
             currentVolume = Math.round(parseInt(port.style.backgroundPositionX) / -1 / volumes.size);
-            log('timePosition: ' + timePosition);
+            continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
+            rank = 4 * instrument.sectionRank; //in that case will be 0 & 4
             if (continuo.size == 1) {
                 targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high; //else it would be a too extreme change
             } else {
-                continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
-                rank = 4 * instrument.sectionRank; //in that case will be 0 & 4
                 switch (true) {
                     case ((timePosition > rank) && (timePosition < (rank + 3))):
                         targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high;
@@ -524,47 +497,21 @@ function goThroughContinuos() {
             }
             stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
             log('gTC: ' + instrument.keyboard + ': ' + rank + '/' + timePosition + ' : ' + currentVolume + ' -> ' + targetVolume + ' : ' + stepsToTarget + ' y=' + y);
-            moveMouse (port, stepsToTarget);
+            moveMouse(port, stepsToTarget);
+        }
+        if (continuo.pause) {
+            moveMouse(port, currentVolume);
         }
     }
-}
-
-function highLowGetCurrent(context) {
-    //send the context necessary to calculate the next level based on the current time
-    var bpm, level, period, timePosition;
-    bpm = parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
-    period = 60 * 4 / bpm * 4;
-    timePosition = ((Date.now() - context.startTime) / 1000 / period) % 6;
-    switch (Math.floor(timePosition)) {
-        case 0:
-            level = context.low + (context.mid - context.low) * (timePosition % 1);
-            break;
-        case 1:
-            level = context.mid + (context.high - context.mid) * (timePosition % 1);
-            break;
-        case 2:
-        case 3:
-            level = context.high;
-            break;
-        case 4:
-            level = context.high - (context.high - context.mid) * (timePosition % 1);
-            break;
-        case 5:
-            level = context.mid - (context.mid - context.low) * (timePosition % 1);
-            break;
-        default:
-            log('highLowGetCurrent not working: ' + Math.floor(timePosition));
-    }
-    return level;
 }
 
 function updateTitle(clicked) {
     page_title.innerHTML = '';
     if (clicked.instrument != null) {
-        page_title.appendChild(createTextNode(clicked.instrument.name + ' instrument ' + clicked.instrument.keyboard + ' - press n to remove, '));
+        page_title.appendChild(createTextNode(clicked.instrument.name + ' instrument ' + clicked.instrument.keyboard + ', '));
     }
     if (clicked.newInstrument != null) {
-        page_title.appendChild(createTextNode(clicked.newInstrument.symbol + ' ' + clicked.newInstrument.instance + ' press n to create, '));
+        page_title.appendChild(createTextNode(clicked.newInstrument.symbol + ' ' + clicked.newInstrument.instance + ', '));
     }
     if (clicked.continuo != null) {
         log('continuo found');
@@ -628,7 +575,28 @@ function updateInstrumentAfterSectionChange(instrument, newSection, newContinuo)
     }
 }
 
-function checkActionable(clicked) {
+function buttonDoubleClick (button, beat) {
+    beat = beat || 0;
+    setTimeout(function() {button.click();}, 0);
+    setTimeout(function() {button.click();}, 250);
+    return true;
+}
+
+function buttonBlink (button) {
+    button.style.boxShadow = 'inset 0 0 0 100px rgba(255,0,150,0.3)';
+    setTimeout(function() { button.style.boxShadow = 'none'}, 100);
+}
+
+function clickIn4Beats (button) {
+    var bpm = parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
+    var beat = 60 / bpm;
+    buttonBlink(button);
+    setTimeout(function() {buttonBlink(button);}, beat * 1000);
+    setTimeout(function() {buttonBlink(button);}, 2 * beat * 1000);
+    setTimeout(function() {button.click();}, 3 * beat * 1000);
+}
+
+function checkActionable (clicked) {
     if (clicked.section != null && clicked.instrument != null) { //changing an instrument section
         if (clicked.section.name != clicked.instrument.section.name) {
             updateInstrumentAfterSectionChange(clicked.instrument, clicked.section, clicked.instrument.continuo);
@@ -656,6 +624,49 @@ function checkActionable(clicked) {
             delete clicked.instrument;
             delete clicked.continuo;
         }
+    }
+    if (clicked.action != null && clicked.action.name == 'record' && clicked.instrument != null && pads[clicked.instrument.key]) {
+        let button = pads[clicked.instrument.key].button;
+        clicked.text = clicked.instrument.name + ': ';
+        if (button.style.backgroundPosition == pads[clicked.instrument.key].clickedStyle) {
+            button.click();
+            clicked.text += 'silent - ';
+        }
+        buttonDoubleClick(button);
+        clickIn4Beats(button);
+        clicked.text += 'emptied & recording on 4th beat';
+        delete clicked.instrument;
+        delete clicked.action;
+    }
+    if (clicked.action != null && clicked.action.name == 'toggle' && clicked.instrument != null && pads[clicked.instrument.key]) {
+        let pad = pads[clicked.instrument.key];
+        clicked.text = clicked.instrument.name + ' ';
+        log(pad.button.style.backgroundPosition);
+        clicked.text += (pad.button.style.backgroundPosition == pad.clickedStyle) ? 'silent' : 'playing or recording';
+        pads[clicked.instrument.key].button.click();
+        delete clicked.instrument;
+        delete clicked.action;
+    }
+    if (clicked.action != null && clicked.action.name == 'pausePlayToggle') {
+        switch (true) {
+            case clicked.instrument:
+                clicked.instrument.pause = clicked.instrument.pause ? false: true;
+                updateInstrumentsLabel();
+                clicked.text = clicked.instrument.name;
+                break;
+            case clicked.section:
+                break;
+            case clicked.continuo:
+                clicked.continuo.pause = clicked.continuo.pause ? false: true;
+                clicked.text = clicked.continuo.name;
+                break;
+            default:
+                config.pauseAll = config.pauseAll ? false : true;
+                clicked.text = 'all instruments'; //*** not really though, need to set all volumes to 0, maybe found a restore also
+                break;
+        }
+        clicked.text += ' paused';
+        delete clicked.action;
     }
     return true;
 }
@@ -700,7 +711,11 @@ function checkActionable(clicked) {
         // https://unicode-table.com/en/#control-character
         // https://unicodelookup.com/
         if (instruments[keyEvent.keyCode]) {
-            clicked.instrument = instruments[keyEvent.keyCode];
+            if (clicked.instrument && clicked.instrument.key == keyEvent.keyCode) {
+                delete clicked.instrument;
+            } else {
+                clicked.instrument = instruments[keyEvent.keyCode];
+            }
         }
         if (sectionsAction.indexOf(keyEvent.keyCode) > -1) {
             clicked.section = sections[keyEvent.keyCode];
@@ -708,114 +723,8 @@ function checkActionable(clicked) {
         if (continuosAction.indexOf(keyEvent.keyCode) > -1) {
             clicked.continuo = continuos[keyEvent.keyCode];
         }
-        if (actions['keydown'+keyEvent.keyCode]) {
-            actions['keydown'+keyEvent.keyCode].forEach(function (action, index) {
-                conf = config.actions['keydown'+keyEvent.keyCode][index];
-                log(' Finally doing an action from the loaded configuration:');
-                log(conf);
-                log(action);
-                switch(conf.type) {
-                    case 'inAndOut':
-                        port = action.port;
-                        conf.startTime = Date.now();
-                        id = active_actions[action.portName].id = setInterval(function(){
-                            var countdown = action.port;
-                            var current_level = Math.round(parseInt(port.style.backgroundPositionX) / -98);
-                            var target_level = Math.round(highLowGetCurrent(conf));
-                            var effect_type = conf.type;
-                            if (target_level != current_level) {
-                                log(current_level + ' -> ' + target_level);
-                                var steps_to_target = current_level - target_level;
-                                ["mouseover", "mousedown"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
-                                simulateMouseEvent(port, 'mousemove', x , y + 2 * steps_to_target);
-                                ["mouseup", "click"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
-                                //countdown.innerText = (steps_to_target).toFixed(1) + 'steps';
-                            }
-                        }, period);
-                        break;
-                    case 'fade':
-                    case 'fade-out':
-                        (function () { //? want to create a scope as I'm itirating through all actions, but is it really necessary ?
-                            //!!! need to push the id to a separate array, that would be externally cleaned if there is concurrency, and internally clean if everything workout right
-                            port = action.port;
-                            if (active_actions[action.portName]) {
-                                if (active_actions[action.portName].trigger == 'keydown' + keyEvent.keyCode) {
-                                    active_actions[action.portName].pause = !active_actions[action.portName].pause;
-                                    //toggle pause for an exting running/active action for that button
-                                } else {
-                                    var action_to_replace = active_actions[action.portName].id;
-                                    clearInterval(action_to_replace);
-                                    active_actions[action.portName] = null;
-                                    //if there's already a different action running for that button, then kill it
-                                }
-                            }
-                            if (!active_actions[action.portName]) {
-                                period = Math.min(conf.timespan * 1000 / Math.abs(parseInt(port.style.backgroundPositionX) / -98 - conf.target + 0.1), maxPeriod);
-                                fade_direction = parseInt(port.style.backgroundPositionX) / -98 > conf.target ? 1 : -1; // fade-out = 1, fade-in = -1
-                                log('period: ' + period);
-                                log('port to fade-out * ' + fade_direction + ' to ' + conf.target);
-                                log(port);
-                                active_actions[action.portName] = {
-                                    trigger: 'keydown' + keyEvent.keyCode
-                                };
-                                id = active_actions[action.portName].id = setInterval(function(){
-                                    if (!active_actions[action.portName].pause) {
-                                        var effect_type = conf.type;
-                                        var steps_to_target = Math.abs(parseInt(port.style.backgroundPositionX) / -98 - conf.target);
-                                        var countdown = action.port;
-                                        ["mouseover", "mousedown"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
-                                        simulateMouseEvent(port, 'mousemove', x , y + 2 * fade_direction);
-                                        ["mouseup", "click"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
-                                        log ('gain: ' + (parseInt(port.style.backgroundPositionX) + 3136) / 3136 * -40 + 'dB');
-                                        log('calling:' + port_style(steps_to_target, fade_direction));
-                                        port.style.filter = port_style(steps_to_target, fade_direction);
-                                        countdown.innerText = (steps_to_target * period / 1000).toFixed(1) + 's';
-                                    }
-                                    if (steps_to_target <= 1.5) {
-                                        active_actions[action.portName] = null;
-                                        clearInterval(id);
-                                        log(effect_type,'finished');
-                                        countdown.innerText = '';
-                                        port.style.filter = default_filter;
-                                    } // !!! 'reached the timeout, or request overide' ?
-                                }, period);
-                            }
-                        })();
-                        break;
-                    default:
-                        log('unknown action type:',conf.type);
-                }
-            });
-        }
-        if (keyEvent.keyCode === 666) {
-            log (' -> volume up');
-            document.querySelectorAll('[mod-uri="http%3A//moddevices.com/plugins/mod-devel/Gain"]')[0].getElementsByClassName('mod-footswitch')[0].click();
-            knob = document.querySelectorAll('[mod-uri="http%3A//moddevices.com/plugins/mod-devel/Gain"]')[0].getElementsByClassName('mod-knob-image')[0];
-            ["mouseover", "mousedown"].forEach(function(eventType) { triggerMouseEvent(knob, eventType);});
-            simulateMouseEvent(knob, 'mousemove', x , y + 2);
-            ["mouseup", "click"].forEach(function(eventType) { triggerMouseEvent(knob, eventType);});
-            log ('Gain: ', (parseInt(knob.style.backgroundPositionX) + 3136) / 3136 * -40, 'dB');
-        }
-        if (keyEvent.keyCode === 67.1) { //c volume down
-            log ('"c" was pressed');
-            document.querySelectorAll('[mod-uri="http%3A//moddevices.com/plugins/mod-devel/Gain"]')[0].getElementsByClassName('mod-footswitch')[0].click();
-            knob = document.querySelectorAll('[mod-uri="http%3A//moddevices.com/plugins/mod-devel/Gain"]')[0].getElementsByClassName('mod-knob-image')[0];
-            ["mouseover", "mousedown"].forEach(function(eventType) { triggerMouseEvent(knob, eventType);});
-            simulateMouseEvent(knob, 'mousemove', x , y - 2);
-            ["mouseup", "click"].forEach(function(eventType) { triggerMouseEvent(knob, eventType);});
-            log ('Gain: ', (parseInt(knob.style.backgroundPositionX) + 3136) / 3136 * -40, 'dB');
-        }
-        if (keyEvent.keyCode === 69) { //e Fail: try directly modifying the value
-            log ('d:  modify the Gain numerically in the setting box - does not work if the setting box is hidden');
-            knob = document.querySelector('[mod-instance="/graph/Gain"][class="mod-settings"]').querySelector('[mod-role="input-control-value"]');
-//            ["mouseover", "mousedown", "focus", "mouseup", "click"].forEach(function(eventType) { triggerMouseEvent(knob, eventType);});
-            knob.innerText = "0dB";
-            ["focus", "change"].forEach(function(eventType) { triggerEvent(knob, eventType);});
-            setTimeout(function() {
-                knob.focus();
-                knob.innerText = "0dB";
-                knob.blur();
-            }, 0);
+        if (generalActions[keyEvent.keyCode]) {
+            clicked.action = generalActions[keyEvent.keyCode];
         }
         checkActionable(clicked); //??? why the object is not updated ?!
         updateTitle(clicked);
