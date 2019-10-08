@@ -264,8 +264,14 @@ volumes = {
         instance: "/graph/Gain",
         symbol: "Gain",
         description: "V3 pedal BOTTOM looper"
-    }
+    },
+    2: {
+        instance: "/graph/Gain_2",
+        symbol: "Gain",
+        description: "V3 direct"
+    },
 };
+
 var instruments = {}, instrumentsAction = [];
 for (var key of Object.keys(volumes)) {
     instruments[key.toUpperCase().charCodeAt(0)] = {};
@@ -481,6 +487,8 @@ function goThroughContinuos() {
     bpm = parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
     period = 60 * 4 / bpm * 4; // 4 black notes, 4 times -> second length
     periodShift = 1 / continuosAction.length; //so that continuos have an equal repartition on a period //*** a bit unsure about that though, not all are used...
+    // shouldn t timePosition be based on the continuo, its size, and its reference start point (to take in account pause, and change)
+    // some part of rank should be based on continuo.size, and its position in the period should be based on sectionrank (and this should be section.rank)
     for (let instrument of Object.values(instruments)) {
         continuo = instrument.continuo;
         timePosition = (( Date.now() - (continuo.startTime || 0 )) / 1000 / period) % (4 * continuo.size);
@@ -503,9 +511,6 @@ function goThroughContinuos() {
                     case ((timePosition > (rank + 3)) && (timePosition <= rank + 4)):
                         targetVolume = volumes.mid;
                         break;
-                    case (timePosition > modulo(rank + 4,continuoPeriod)) && (timePosition <= modulo(rank - 2, continuoPeriod)):
-                        targetVolume = currentVolume > volumes.mid ? volumes.mid : volumes.low;
-                        break;
                     case (timePosition > modulo(rank - 2, continuoPeriod) && timePosition <= modulo(rank - 1, continuoPeriod)):
                         targetVolume = volumes.mid;
                         break;
@@ -513,7 +518,7 @@ function goThroughContinuos() {
                         targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high;
                         break;
                     default:
-                        log('goThroughContinuos: error timePosition not well calibrated');
+                        targetVolume = currentVolume > volumes.mid ? volumes.mid : volumes.low;
                         break;
                 }
             }
