@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.1
+// @version      0.3.2
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -15,93 +15,113 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
-//*** be able to action on a loop from keyboard, maybe have the same name for the loop and its volume
+//*** two types of pause: one silent, one just pause all movement to allow interaction with the interface
 //*** need to add continuos.mode: alternate, focus on section, fade to New level, pause
+//*** keyboard map - how to present the actions (how does it change from one machine to another)
+//** reselecting a looper currently deselect it, but it might more intuitive that it press on the button
 //** n cannot be the action to add a new knob, and remove an existing instrument...
+//** do I need to keep the addition of elements
+//** Could investigate an auto enagement: as soon as the mouse is touched: disengage, and re-engage with no movement for 2 seconds
+//** Could image the mouse as a way to control some type of engagement
+
+// Test Transfer
+// replaced keydown handling with code instead of keycode (deprecated)
+// space to engage / disengage tampermod
 
 const MaterialIcons = GM_getResourceText("MaterialIcons");
 GM_addStyle (MaterialIcons);
 // https://material.io/resources/icons/?style=baseline
 // <i class="material-icons">aspect_ratio</i>
-const icons = {
+const icons = { // https://keycode.info/
     a : {
         name: 'arrow',
-        material: 'call_made'
+        material: 'call_made',
+        code: 'KeyA'
     },
     c : {
         name: 'circle',
-        material: 'fiber_manual_record'
+        material: 'fiber_manual_record',
+        code: 'KeyC',
     },
     e : {
         name: 'eye',
-        material: 'visibility'
+        material: 'visibility',
+        code: 'KeyE'
     },
     h : {
         name: 'heart',
-        material: 'favorite'
+        material: 'favorite',
+        code: 'KeyH'
     },
     m : {
         name: 'mobile',
-        material: 'stay_primary_portrait'
+        material: 'stay_primary_portrait',
+        code: 'KeyM'
     },
     s : {
         name: 'star',
-        material: 'grade'
+        material: 'grade',
+        code: 'KeyS'
     },
-    t : {
-        name: 'thumb',
-        material: 'thumb_up'
+    f : {
+        name: 'facebook',
+        material: 'thumb_up',
+        code: 'KeyF'
     },
     v : { //could be a toggle - or should the icon be greyed
         name: 'volume Off',
-        material: 'volume_off'
+        material: 'volume_off',
+        code: 'KeyV'
     }
 };
 var continuosAction = [];
 var continuos = {};
 for (const key of Object.keys(icons)) {
-    continuos[key.toUpperCase().charCodeAt(0)] = {};
-    continuos[key.toUpperCase().charCodeAt(0)].name = icons[key].name;
-    continuos[key.toUpperCase().charCodeAt(0)].material = icons[key].material
-    continuos[key.toUpperCase().charCodeAt(0)].action = key.toUpperCase().charCodeAt(0);
-    continuos[key.toUpperCase().charCodeAt(0)].type = 'continuo';
-    continuos[key.toUpperCase().charCodeAt(0)].icon = key;
-    continuos[key.toUpperCase().charCodeAt(0)].keyboard = key;
-    continuosAction.push(key.toUpperCase().charCodeAt(0));
+    let code = icons[key].code;
+    continuos[code] = Object.assign({}, icons[key]);
+    continuos[code].type = 'continuo';
+    continuos[code].keyboard = key;
+    continuosAction.push(code);
 }
 
 const colors = {
     b : {
-        name: 'blue'
+        name: 'blue',
+        code: 'KeyB'
     },
     g : {
-        name: 'green'
+        name: 'green',
+        code: 'KeyG'
     },
     o : {
-        name: 'orange'
+        name: 'orange',
+        code: 'KeyO'
     },
     p : {
-        name: 'purple'
+        name: 'purple',
+        code: 'KeyP'
     },
     r : {
-        name: 'red'
+        name: 'red',
+        code: 'KeyR'
     },
     w : {
         name: 'white',
+        code: 'KeyW'
     },
     y : {
-        name: 'yellow'
+        name: 'yellow',
+        code: 'KeyY'
     }
 };
 var sectionsAction = [], sections = {};
 for (const key of Object.keys(colors)) {
-    sections[key.toUpperCase().charCodeAt(0)] = {};
-    sections[key.toUpperCase().charCodeAt(0)].action = key.toUpperCase().charCodeAt(0);
-    sections[key.toUpperCase().charCodeAt(0)].color = colors[key].color ? colors[key].color : colors[key].name
-    sections[key.toUpperCase().charCodeAt(0)].name = colors[key].name;
-    sections[key.toUpperCase().charCodeAt(0)].type = 'section';
-    sections[key.toUpperCase().charCodeAt(0)].keyboard = key;
-    sectionsAction.push(key.toUpperCase().charCodeAt(0));
+    let code = colors[key].code;
+    sections[code] = Object.assign({}, colors[key]);
+    sections[code].color = colors[key].color ? colors[key].color : colors[key].name
+    sections[code].type = 'section';
+    sections[code].keyboard = key;
+    sectionsAction.push(code);
 }
 // impossible to use a knob the regular way through the web interface
 // 32: stop all actions
@@ -208,7 +228,7 @@ const logLevel = 0; const logFocus = 'focus';
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
-    volumes, volumes_families = {}, loopers; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
+    volumes, pedals_families = {}, loopers; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
 // I need to build this from configuration:
 // document.querySelector('[mod-instance="/graph/Gain_1"][class="mod-pedal ui-draggable"]').querySelector('[mod-port="/graph/Gain_1/Gain"]')
 // when browsing above a pedal, get all its potential control:
@@ -238,17 +258,24 @@ function port_style (remaining_steps, direction) { //number of steps away from t
     return _style;
 }
 
-volumes_families.Gain = {
-    symbol: 'Gain',
-    description: 'simple V3 pedal, v3 knob',
-    type: 'knob',
-    steps: 65,
-    size: 98,
-    volumes: {
-        low: 0,
-        mid: 24,
-        high: 32,
-        size: 98
+pedals_families = {
+    Gain: {
+        symbol: 'Gain',
+        description: 'simple V3 pedal, v3 knob',
+        type: 'knob',
+        steps: 65,
+        size: 98,
+        volumes: {
+            low: 0,
+            mid: 24,
+            high: 32,
+            size: 98
+        },
+    },
+    Alo: {
+        clickedStyle: '-71px 0px', //the backgroundPosition when clicked
+        symbol: "loop1",
+        color: "yellow",
     }
 };
 
@@ -258,16 +285,22 @@ volumes = {
         instance: "/graph/Gain_1",
         symbol: "Gain",
         description: "V3 pedal TOP looper",
+        family: "Gain",
+        code: "Digit0"
     },
     1: {
         instance: "/graph/Gain",
         symbol: "Gain",
-        description: "V3 pedal BOTTOM looper"
+        description: "V3 pedal BOTTOM looper",
+        family: "Gain",
+        code: "Digit1"
     },
     2: {
         instance: "/graph/Gain_2",
         symbol: "Gain",
-        description: "V3 direct"
+        description: "V3 direct",
+        family: "Gain",
+        code: "Digit2"
     },
 };
 
@@ -275,46 +308,79 @@ loopers = {
     0: {
         instance: "/graph/alo_2", //querySelector('[mod-instance="/graph/alo_2"]'),
         symbol: "loop1", //querySelector('[mod-port-symbol="loop1"]'),
-        clickedStyle: '-71px 0px', //the backgroundPosition when clicked
+        family: "Alo",
+        code: "Digit0"
+    },
+    1: {
+        instance: "/graph/alo_1",
+        family: "Alo",
+        code: "Digit1",
+    },
+    2: {
+        instance: "/graph/alo",
+        description: "bar 2 raw looper",
+        family: "Alo",
+        kind: "raw",
+        code: "Digit2"
     },
 };
 
+
 var instruments = {}, instrumentsAction = [];
-var pads = {}, padsAction = [];
+var pads = {};
 //continuos = [[0, 1]]; // instruments from section 0 & 1 are alternating in one continuo
 
 //if (!GM_getValue('config')) {
 config_default.actions = {};
 var generalActions = {};
-generalActions['32'] = { //V3 off button toogle
+generalActions['Space'] = { //V3 off button toogle
     type: 'action',
     keyboard: 'space',
-    description: 'pause all v3, or only for a continuo, a section, an instrument',
-    name: 'pausePlayToggle',
+    code: 'Space',
+    description: 'toggle tamperMod engagement (recommended for web page direct interaction)',
+    name: 'engagement',
 };
-generalActions['76'] = {
+generalActions['keyL'] = {
     type: 'action',
     keyboard: 'l',
+    code: 'KeyL',
     description: 'toggle the associated loop',
     name: 'loopClick',
 };
-generalActions['222'] = {
+generalActions['Backquote'] = {
     type: 'action',
     keyboard: '~', //Alt + ;
+    code: 'Backquote',
     description: 'rotating section for continuo mode',
     name: 'rotate',
 }
-generalActions['187'] = {
+generalActions['Equal'] = {
     type: 'action',
     keyboard: '=', //more based on the + sign above: toggle
+    code: 'Equal',
     description: 'one Click - could be starting or stopping a loop immediately',
     name: 'toggle',
 }
-generalActions['189'] = {
+generalActions['Minus'] = {
     type: 'action',
     keyboard: '-', //-_ silence before recording
+    code: 'Minus',
     description: 'double click silence, and will start recording on the 4th beat',
     name: 'record',
+}
+generalActions['KeyT'] = {
+    type: 'action',
+    keyboard: 't', //**** t for transfert but might be better to find a key next
+    description: 'transfer raw loop', //there's only one compatible raw loop, so it can be selected automatically
+    name: 'transfer',
+    code: 'KeyT'
+}
+generalActions['Backspace'] = {
+    type: 'action',
+    keyboard: 'backspace',
+    description: 'silence toggle',
+    name: 'pausePlayToggle',
+    code: 'Backspace'
 }
 config_default = JSON.stringify(config_default);
 GM_setValue('config', config_default);
@@ -323,12 +389,12 @@ log ('GM_setValue done', config_default, typeof GM_setValue.then); //
 
 function buildConfigAndActions(){
     var i;
-//    investigationOfModPorts();
+    //    investigationOfModPorts();
     page_title_original = document.getElementById('pedalboard-info').children[0].innerHTML;
     page_title = document.getElementById('pedalboard-info').children[0];
     page_title.style.textTransform = 'none';
-    for (let key of Object.keys(volumes)) { //**** need to insert copy of object
-        let instrument = instruments[key.toUpperCase().charCodeAt(0)] = Object.assign({}, volumes[key]);
+    for (let key of Object.keys(volumes)) {
+        let instrument = instruments[volumes[key].code] = Object.assign({}, volumes[key]);
         instrument.continuo = continuos[continuosAction[instrumentsAction.length]];
         instrument.key = key.toUpperCase().charCodeAt(0);
         instrument.keyboard = key;
@@ -337,27 +403,40 @@ function buildConfigAndActions(){
         instrument.sectionRank = 0;
         instrument.type = 'instrument';
         instrument.volume = key;
-        instrumentsAction.push(instruments[key.toUpperCase().charCodeAt(0)]);
+        instrumentsAction.push(instrument.code);
     }
     for (let key of Object.keys(loopers)) {
-        let pad;
-        pad = pads[key.toUpperCase().charCodeAt(0)] = Object.assign({}, loopers[key]);
+        let pad, selector;
+        pad = pads[loopers[key].code] = Object.assign({}, pedals_families[loopers[key].family] || {}, loopers[key]);;
         pad.bars = parseInt(document.querySelector('[mod-instance="' + pad.instance + '"]').querySelector('[mod-port-symbol="bars"][class="mod-knob-value"]').innerText);
         pad.button = document.querySelector('[mod-instance="' + pad.instance + '"]').querySelector('[mod-port-symbol="' + pad.symbol + '"]');
         pad.key = key.toUpperCase().charCodeAt(0);
         pad.type = 'pad';
         pad.keyboard = key;
+        selector = '[mod-instance="' + pad.instance + '"][class="mod-pedal ui-draggable"]';
+        pad.anchor = document.querySelector(selector).querySelector('[class="mod-drag-handle"]');
+        pad.anchor.appendChild(document.createElement('h1'));
+        pad.textNode = pad.anchor.children[0];
+        pad.textNode.style.textAlign = 'center';
+        pad.textNode.style.textShadow = '-1px 0 black, 0 1px black, 1px 0 black, 0 -1px black';
+        if (pad.kind) {
+            log('kind triggered with: ' + pad.kind);
+            pads[pad.bars + pad.kind] = pad; //creating access like 2raw to facilitate transfer
+        }
+        if (instruments[pad.code]) {
+            instruments[pad.code].pad = pad;
+            pad.instrument = instruments[pad.code];
+        }
     }
-    log(pads);
     updateInstrumentsLabel();
     config = JSON.parse(GM_getValue('config'));
-    config.pauseAll = true;
-    log ('buildConfigAndAction loaded');
-    setInterval (actionLoop, continuoStep);
+    config.engaged = false; //**** for testing purpose
+    log('buildConfigAndAction loaded');
+    setInterval(actionLoop, continuoStep);
 }
 
 function actionLoop() {
-    if (!config.pauseAll) {
+    if (config.engaged) {
         goThroughContinuos();
     }
 }
@@ -427,8 +506,14 @@ function updateInstrumentsLabel() {
         inst.textNode = document.querySelector(selector).querySelector('[class="mod-plugin-brand"]').children[0]; //h1
         inst.textNode.innerHTML = '';
         appendTextNode(inst.textNode, inst.keyboard, 'white');
+        log('uI: inst ' + inst.key + ' : ' + inst.continuo.name);
         appendIconNode(inst.continuo.material, inst.section.color, inst.textNode);
         appendTextNode(inst.textNode, inst.continuo.keyboard + inst.section.keyboard, 'white');
+    }
+    for (let pad of Object.values(pads)) {
+        pad.textNode.innerHTML = '';
+        log('uI: pad ' + pad.key + ' : ' + pad.keyboard);
+        appendTextNode(pad.textNode, pad.keyboard, pad.color);
     }
 }
 
@@ -456,9 +541,13 @@ function modulo(a, b) {
     return modulo;
 }
 
+function getBPM () {
+    return parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
+}
+
 function goThroughContinuos() {
     var bpm, continuo, continuoPeriod, currentSection, currentVolume, instrument, k, period, periodShift, port, rank, stepsToTarget, targetVolume, timePosition, volumes;
-    bpm = parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
+    bpm = getBPM();
     period = 60 * 4 / bpm * 4; // 4 black notes, 4 times -> second length
     periodShift = 1 / continuosAction.length; //so that continuos have an equal repartition on a period //*** a bit unsure about that though, not all are used...
     // shouldn t timePosition be based on the continuo, its size, and its reference start point (to take in account pause, and change)
@@ -469,7 +558,7 @@ function goThroughContinuos() {
         log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
         if (!continuo.size) { getContinuoSize(continuo); }
         if (!continuo.pause && continuo.size > 0) {
-            volumes = instrument.volumes || volumes_families[instrument.symbol].volumes;
+            volumes = instrument.volumes || pedals_families[instrument.family].volumes;
             port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
             currentVolume = Math.round(parseInt(port.style.backgroundPositionX) / -1 / volumes.size);
             continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
@@ -588,7 +677,7 @@ function buttonBlink (button) {
 }
 
 function clickIn4Beats (button) {
-    var bpm = parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
+    var bpm = getBPM();
     var beat = 60 / bpm;
     buttonBlink(button);
     setTimeout(function() {buttonBlink(button);}, beat * 1000);
@@ -597,6 +686,7 @@ function clickIn4Beats (button) {
 }
 
 function checkActionable (clicked) {
+    var bpm = getBPM();
     if (clicked.section != null && clicked.instrument != null) { //changing an instrument section
         if (clicked.section.name != clicked.instrument.section.name) {
             updateInstrumentAfterSectionChange(clicked.instrument, clicked.section, clicked.instrument.continuo);
@@ -625,10 +715,10 @@ function checkActionable (clicked) {
             delete clicked.continuo;
         }
     }
-    if (clicked.action != null && clicked.action.name == 'record' && clicked.instrument != null && pads[clicked.instrument.key]) {
-        let button = pads[clicked.instrument.key].button;
+    if (clicked.action != null && clicked.action.name == 'record' && clicked.instrument != null && clicked.instrument.pad) {
+        let button = clicked.instrument.pad.button;
         clicked.text = clicked.instrument.name + ': ';
-        if (button.style.backgroundPosition == pads[clicked.instrument.key].clickedStyle) {
+        if (button.style.backgroundPosition == clicked.instrument.pad.clickedStyle) {
             button.click();
             clicked.text += 'silent - ';
         }
@@ -638,35 +728,69 @@ function checkActionable (clicked) {
         delete clicked.instrument;
         delete clicked.action;
     }
-    if (clicked.action != null && clicked.action.name == 'toggle' && clicked.instrument != null && pads[clicked.instrument.key]) {
-        let pad = pads[clicked.instrument.key];
+    if (clicked.action != null && clicked.action.name == 'toggle' && clicked.instrument != null && clicked.instrument.pad) {
+        let pad = clicked.instrument.pad;
         clicked.text = clicked.instrument.name + ' ';
         log(pad.button.style.backgroundPosition);
         clicked.text += (pad.button.style.backgroundPosition == pad.clickedStyle) ? 'silent' : 'playing or recording';
-        pads[clicked.instrument.key].button.click();
+        pad.button.click();
         delete clicked.instrument;
         delete clicked.action;
     }
     if (clicked.action != null && clicked.action.name == 'pausePlayToggle') {
         switch (true) {
             case clicked.instrument:
-                clicked.instrument.pause = clicked.instrument.pause ? false: true;
-                updateInstrumentsLabel();
-                clicked.text = clicked.instrument.name;
+                clicked.text = clicked.instrument.name + ' pause not handled yet';
+                delete clicked.instrument;
                 break;
             case clicked.section:
+                clicked.text = clicked.section.name + ' pause not handled yet';
+                delete clicked.section;
                 break;
             case clicked.continuo:
                 clicked.continuo.pause = clicked.continuo.pause ? false: true;
                 clicked.text = clicked.continuo.name;
+                delete clicked.continuo;
                 break;
             default:
-                config.pauseAll = config.pauseAll ? false : true;
-                clicked.text = 'all instruments'; //*** not really though, need to set all volumes to 0, maybe found a restore also
+                clicked.text = ' everything pause not handled yet';
                 break;
         }
-        clicked.text += ' paused';
         delete clicked.action;
+    }
+    if (clicked.action != null && clicked.action.name == 'engagement') {
+        config.engaged = config.engaged ? false : true;
+        clicked.text = config.engaged ? 'tamperMod engaged' : 'tamperMod disengaged'; //*** not really though, need to set all volumes to 0, maybe found a restore also
+        delete clicked.action;
+    }
+    if (clicked.action != null && clicked.action.name == 'transfer' && clicked.instrument && clicked.instrument.pad) {
+        let pad = clicked.instrument.pad;
+        let raw = pads[pad.bars + 'raw'];
+        log('cA pad ' + pad.code + ' : ' + pad.bars + 'raw');
+        log(raw);
+        let instrumentName = clicked.instrument.name;
+        if (raw) {
+            if (raw.button.style.backgroundPosition != raw.clickedStyle) {
+                raw.button.click();
+            }
+            if (pad.button.style.backgroundPosition == pad.clickedStyle) {
+                pad.button.click();
+            }
+            buttonDoubleClick(pad.button);
+            pad.button.click(); //*** is the last click of the doubleclick before or after this click ? might be better to be in order
+            setTimeout(function(){
+                raw.button.click();
+                buttonDoubleClick(raw.button);
+                clicked.text = 'complete transfer of raw ' + pad.bars + ' to ' + instrumentName + ' and clean up';
+                updateTitle(clicked);
+            }, pad.bars * 60 / bpm * 1000); //**** is this timing too strict ? does it have the right length
+            clicked.text = 'transferring raw ' + pad.bars + ' to ' + instrumentName + ' and cleaning it afterwards';
+            delete clicked.action;
+            delete clicked.instrument;
+        } else {
+            delete clicked.action;
+            clicked.text = 'transfer failed: no matching raw looper for ' + pad.bars + ' bars like ' + clicked.instrument.name;
+        }
     }
     return true;
 }
@@ -705,26 +829,26 @@ function checkActionable (clicked) {
     }, false);
     // https://stackoverflow.com/questions/2601097/how-to-get-the-mouse-position-without-events-without-moving-the-mouse
     //press 'a' for toggling the gain on/off
-    document.addEventListener('keydown', function (keyEvent) {
+    document.addEventListener('keydown', function (keyEvent) { //https://javascript.info/keyboard-events
         var conf, fade_direction, id, knob, period, port, instNumber;
-        log (keyEvent.keyCode + ' key was pressed.');
+        log (keyEvent.code + ' key was pressed.');
         // https://unicode-table.com/en/#control-character
         // https://unicodelookup.com/
-        if (instruments[keyEvent.keyCode]) {
-            if (clicked.instrument && clicked.instrument.key == keyEvent.keyCode) {
+        if (instruments[keyEvent.code]) {
+            if (clicked.instrument && clicked.instrument.code == keyEvent.code) {
                 delete clicked.instrument;
             } else {
-                clicked.instrument = instruments[keyEvent.keyCode];
+                clicked.instrument = instruments[keyEvent.code];
             }
         }
-        if (sectionsAction.indexOf(keyEvent.keyCode) > -1) {
-            clicked.section = sections[keyEvent.keyCode];
+        if (sectionsAction.indexOf(keyEvent.code) > -1) {
+            clicked.section = sections[keyEvent.code];
         }
-        if (continuosAction.indexOf(keyEvent.keyCode) > -1) {
-            clicked.continuo = continuos[keyEvent.keyCode];
+        if (continuosAction.indexOf(keyEvent.code) > -1) {
+            clicked.continuo = continuos[keyEvent.code];
         }
-        if (generalActions[keyEvent.keyCode]) {
-            clicked.action = generalActions[keyEvent.keyCode];
+        if (generalActions[keyEvent.code]) {
+            clicked.action = generalActions[keyEvent.code];
         }
         checkActionable(clicked); //??? why the object is not updated ?!
         updateTitle(clicked);
