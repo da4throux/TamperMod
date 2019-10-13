@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.2
+// @version      0.3.3
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -15,18 +15,18 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
+//** show the recording time on a looper
+//** increase decrease volume
+//** do I need to keep the addition of elements in the interface (it more feels like it's once and for all) -> I could have configurations based on the title of the session
 //*** two types of pause: one silent, one just pause all movement to allow interaction with the interface
 //*** need to add continuos.mode: alternate, focus on section, fade to New level, pause
 //*** keyboard map - how to present the actions (how does it change from one machine to another)
-//** reselecting a looper currently deselect it, but it might more intuitive that it press on the button
+//? reselecting a looper currently deselect it, but it might be more intuitive that it simulate pressing on the button + adding a button to clean the actions (Del)
+//? button to save the current setting, and then reload it in an instant
 //** n cannot be the action to add a new knob, and remove an existing instrument...
-//** do I need to keep the addition of elements
-//** Could investigate an auto enagement: as soon as the mouse is touched: disengage, and re-engage with no movement for 2 seconds
+//** Could investigate an auto engagement: as soon as the mouse is touched: disengage, and re-engage with no movement for 2 seconds
 //** Could image the mouse as a way to control some type of engagement
-
-// Test Transfer
-// replaced keydown handling with code instead of keycode (deprecated)
-// space to engage / disengage tampermod
+//** Could I show more clearly the elements in the same continuo + section
 
 const MaterialIcons = GM_getResourceText("MaterialIcons");
 GM_addStyle (MaterialIcons);
@@ -333,55 +333,72 @@ var pads = {};
 //if (!GM_getValue('config')) {
 config_default.actions = {};
 var generalActions = {};
-generalActions['Space'] = { //V3 off button toogle
-    type: 'action',
-    keyboard: 'space',
-    code: 'Space',
-    description: 'toggle tamperMod engagement (recommended for web page direct interaction)',
-    name: 'engagement',
-};
-generalActions['keyL'] = {
-    type: 'action',
-    keyboard: 'l',
-    code: 'KeyL',
-    description: 'toggle the associated loop',
-    name: 'loopClick',
-};
-generalActions['Backquote'] = {
-    type: 'action',
-    keyboard: '~', //Alt + ;
-    code: 'Backquote',
-    description: 'rotating section for continuo mode',
-    name: 'rotate',
+generalActions = {
+    Space : { //V3 off button toogle
+        type: 'action',
+        keyboard: 'space',
+        code: 'Space',
+        description: 'toggle tamperMod engagement (recommended for web page direct interaction)',
+        name: 'engagement',
+    },
+    keyL : {
+        type: 'action',
+        keyboard: 'l',
+        code: 'KeyL',
+        description: 'toggle the associated loop',
+        name: 'loopClick',
+    },
+    Backquote : {
+        type: 'action',
+        keyboard: '~', //Alt + ;
+        code: 'Backquote',
+        description: 'rotating section for continuo mode', //?
+        name: 'rotate',
+    },
+    Equal : {
+        type: 'action',
+        keyboard: '=', //more based on the + sign above: toggle
+        code: 'Equal',
+        description: 'one Click - could be starting or stopping a loop immediately',
+        name: 'toggle',
+    },
+    Minus: {
+        type: 'action',
+        keyboard: '-', //-_ silence before recording
+        code: 'Minus',
+        description: 'double click silence, and will start recording on the 4th beat',
+        name: 'record',
+    },
+    KeyT: {
+        type: 'action',
+        keyboard: 't', //**** t for transfert but might be better to find a key next
+        description: 'transfer raw loop', //there's only one compatible raw loop, so it can be selected automatically
+        name: 'transfer',
+        code: 'KeyT'
+    },
+    Backspace: {
+        type: 'action',
+        keyboard: 'backspace',
+        description: 'silence toggle',
+        name: 'pausePlayToggle',
+        code: 'Backspace'
+    },
+    ArrowUp: {
+        type: 'action',
+        keyboard: 'up',
+        description: 'increase volume',
+        name: 'increaseVolume',
+        code: 'ArrowUp'
+    },
+    ArrowDown: {
+        type: 'action',
+        keyboard: 'down',
+        description: 'decrease volume',
+        name: 'decreaseVolume',
+        code: 'ArrowDown'
+    }
 }
-generalActions['Equal'] = {
-    type: 'action',
-    keyboard: '=', //more based on the + sign above: toggle
-    code: 'Equal',
-    description: 'one Click - could be starting or stopping a loop immediately',
-    name: 'toggle',
-}
-generalActions['Minus'] = {
-    type: 'action',
-    keyboard: '-', //-_ silence before recording
-    code: 'Minus',
-    description: 'double click silence, and will start recording on the 4th beat',
-    name: 'record',
-}
-generalActions['KeyT'] = {
-    type: 'action',
-    keyboard: 't', //**** t for transfert but might be better to find a key next
-    description: 'transfer raw loop', //there's only one compatible raw loop, so it can be selected automatically
-    name: 'transfer',
-    code: 'KeyT'
-}
-generalActions['Backspace'] = {
-    type: 'action',
-    keyboard: 'backspace',
-    description: 'silence toggle',
-    name: 'pausePlayToggle',
-    code: 'Backspace'
-}
+
 config_default = JSON.stringify(config_default);
 GM_setValue('config', config_default);
 log ('GM_setValue done', config_default, typeof GM_setValue.then); //
@@ -397,6 +414,7 @@ function buildConfigAndActions(){
         let instrument = instruments[volumes[key].code] = Object.assign({}, volumes[key]);
         instrument.continuo = continuos[continuosAction[instrumentsAction.length]];
         instrument.key = key.toUpperCase().charCodeAt(0);
+        instrument.node = document.querySelector('[mod-instance="' + instrument.instance + '"]');
         instrument.keyboard = key;
         instrument.name = volumes[key].description;
         instrument.section = sections[sectionsAction[instrumentsAction.length]];
@@ -408,8 +426,9 @@ function buildConfigAndActions(){
     for (let key of Object.keys(loopers)) {
         let pad, selector;
         pad = pads[loopers[key].code] = Object.assign({}, pedals_families[loopers[key].family] || {}, loopers[key]);;
-        pad.bars = parseInt(document.querySelector('[mod-instance="' + pad.instance + '"]').querySelector('[mod-port-symbol="bars"][class="mod-knob-value"]').innerText);
-        pad.button = document.querySelector('[mod-instance="' + pad.instance + '"]').querySelector('[mod-port-symbol="' + pad.symbol + '"]');
+        pad.node = document.querySelector('[mod-instance="' + pad.instance + '"]');
+        pad.bars = parseInt(pad.node.querySelector('[mod-port-symbol="bars"][class="mod-knob-value"]').innerText);
+        pad.button = pad.node.querySelector('[mod-port-symbol="' + pad.symbol + '"]');
         pad.key = key.toUpperCase().charCodeAt(0);
         pad.type = 'pad';
         pad.keyboard = key;
@@ -558,7 +577,7 @@ function goThroughContinuos() {
         log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
         if (!continuo.size) { getContinuoSize(continuo); }
         if (!continuo.pause && continuo.size > 0) {
-            volumes = instrument.volumes || pedals_families[instrument.family].volumes;
+            volumes = instrument.volumes || pedals_families[instrument.family].volumes; //**** Where should it be stored, do continuo also have this
             port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
             currentVolume = Math.round(parseInt(port.style.backgroundPositionX) / -1 / volumes.size);
             continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
@@ -671,9 +690,18 @@ function buttonDoubleClick (button, beat) {
     return true;
 }
 
-function buttonBlink (button) {
-    button.style.boxShadow = 'inset 0 0 0 100px rgba(255,0,150,0.3)';
+function buttonBlink (button, r, g, b) {
+    button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || '255') + ',' + (g || '0') + ',' + (b || '150') + ',0.3)';
     setTimeout(function() { button.style.boxShadow = 'none'}, 100);
+}
+
+function highlight (element, off) {
+    if (off) {
+        element.style.boxShadow = null;
+    } else {
+        element.style.boxShadow = '0 0 0 10px red';
+    }
+    return true;
 }
 
 function clickIn4Beats (button) {
@@ -685,6 +713,13 @@ function clickIn4Beats (button) {
     setTimeout(function() {button.click();}, 3 * beat * 1000);
 }
 
+function deleteClickedInstrument (clicked) {
+    highlight(clicked.instrument.node, true);
+    highlight(clicked.instrument.pad.node, true);
+    delete clicked.instrument;
+    return true;
+}
+
 function checkActionable (clicked) {
     var bpm = getBPM();
     if (clicked.section != null && clicked.instrument != null) { //changing an instrument section
@@ -693,11 +728,11 @@ function checkActionable (clicked) {
             log('instrument sectionRank is: ' + clicked.instrument.sectionRank + ' in section ' + clicked.section.name);
             clicked.text = clicked.instrument.name +' instrument is now in section ' + clicked.instrument.section.name + ' of continuo ' + clicked.instrument.continuo.name;
             updateInstrumentsLabel();
-            delete clicked.instrument;
+            deleteClickedInstrument(clicked);
             delete clicked.section;
         } else {
             clicked.text = clicked.instrument.name + ' instrument already in section ' + clicked.section.name;
-            delete clicked.instrument;
+            deleteClickedInstrument(clicked);
             delete clicked.section;
         }
     }
@@ -707,11 +742,11 @@ function checkActionable (clicked) {
             updateInstrumentAfterSectionChange(clicked.instrument, clicked.instrument.section, clicked.continuo);
             clicked.text = clicked.instrument.name +' instrument is now in section ' + clicked.instrument.section.name + ' of continuo ' + clicked.instrument.continuo.name;
             updateInstrumentsLabel();
-            delete clicked.instrument;
+            deleteClickedInstrument(clicked);
             delete clicked.continuo;
         } else {
             clicked.text = clicked.instrument.name + ' instrument already in continuo ' + clicked.continuo.name;
-            delete clicked.instrument;
+            deleteClickedInstrument(clicked);
             delete clicked.continuo;
         }
     }
@@ -725,23 +760,35 @@ function checkActionable (clicked) {
         buttonDoubleClick(button);
         clickIn4Beats(button);
         clicked.text += 'emptied & recording on 4th beat';
-        delete clicked.instrument;
+        deleteClickedInstrument(clicked);
         delete clicked.action;
     }
     if (clicked.action != null && clicked.action.name == 'toggle' && clicked.instrument != null && clicked.instrument.pad) {
         let pad = clicked.instrument.pad;
+        let button = pad.button;
+        let bpm = getBPM(); let beat = 60 / bpm;
         clicked.text = clicked.instrument.name + ' ';
         log(pad.button.style.backgroundPosition);
-        clicked.text += (pad.button.style.backgroundPosition == pad.clickedStyle) ? 'silent' : 'playing or recording';
+        if (pad.button.style.backgroundPosition != pad.clickedStyle) {
+            for (let i = 0; i < pad.bars; i++) {
+                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 1) * beat * 1000);
+                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 2) * beat * 1000);
+                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 3) * beat * 1000);
+                setTimeout(function() {buttonBlink(pad.button, '0', '0', '255');}, ( 4 * i + 4) * beat * 1000);
+            }
+            clicked.text += 'playing or recording';
+        } else {
+            clicked.text += 'silent';
+        }
         pad.button.click();
-        delete clicked.instrument;
+        deleteClickedInstrument(clicked);
         delete clicked.action;
     }
     if (clicked.action != null && clicked.action.name == 'pausePlayToggle') {
         switch (true) {
             case clicked.instrument:
                 clicked.text = clicked.instrument.name + ' pause not handled yet';
-                delete clicked.instrument;
+                deleteClickedInstrument(clicked);
                 break;
             case clicked.section:
                 clicked.text = clicked.section.name + ' pause not handled yet';
@@ -786,7 +833,7 @@ function checkActionable (clicked) {
             }, pad.bars * 60 / bpm * 1000); //**** is this timing too strict ? does it have the right length
             clicked.text = 'transferring raw ' + pad.bars + ' to ' + instrumentName + ' and cleaning it afterwards';
             delete clicked.action;
-            delete clicked.instrument;
+            deleteClickedInstrument(clicked);
         } else {
             delete clicked.action;
             clicked.text = 'transfer failed: no matching raw looper for ' + pad.bars + ' bars like ' + clicked.instrument.name;
@@ -836,9 +883,11 @@ function checkActionable (clicked) {
         // https://unicodelookup.com/
         if (instruments[keyEvent.code]) {
             if (clicked.instrument && clicked.instrument.code == keyEvent.code) {
-                delete clicked.instrument;
+                deleteClickedInstrument(clicked);
             } else {
                 clicked.instrument = instruments[keyEvent.code];
+                highlight(clicked.instrument.node);
+                highlight(clicked.instrument.pad.node);
             }
         }
         if (sectionsAction.indexOf(keyEvent.code) > -1) {
