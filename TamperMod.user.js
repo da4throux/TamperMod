@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.3
+// @version      0.3.4
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -15,8 +15,8 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
-//** show the recording time on a looper
 //** increase decrease volume
+//*** what is the right maner to handle a pad withouth instrument (a looper without volume)
 //** do I need to keep the addition of elements in the interface (it more feels like it's once and for all) -> I could have configurations based on the title of the session
 //*** two types of pause: one silent, one just pause all movement to allow interaction with the interface
 //*** need to add continuos.mode: alternate, focus on section, fade to New level, pause
@@ -225,6 +225,7 @@ const timeStep = 0.2; // minimum step for each action (every .2s I would change 
 const continuoStep = 2000;
 const maxPeriod = 10000; //any action taking more than a second should be reduce to this xx ms - I'm thinking of turning the knob for a fadeOut
 const logLevel = 0; const logFocus = 'focus';
+var bpm, beat;
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
@@ -302,6 +303,13 @@ volumes = {
         family: "Gain",
         code: "Digit2"
     },
+    3: {
+        instance: "/graph/Gain_3",
+        symbol: "Gain",
+        description: "raw V3 ",
+        family: "Gain",
+        code: "Digit3"
+    }
 };
 
 loopers = {
@@ -316,12 +324,12 @@ loopers = {
         family: "Alo",
         code: "Digit1",
     },
-    2: {
+    3: {
         instance: "/graph/alo",
         description: "bar 2 raw looper",
         family: "Alo",
         kind: "raw",
-        code: "Digit2"
+        code: "Digit3"
     },
 };
 
@@ -337,35 +345,30 @@ generalActions = {
     Space : { //V3 off button toogle
         type: 'action',
         keyboard: 'space',
-        code: 'Space',
         description: 'toggle tamperMod engagement (recommended for web page direct interaction)',
         name: 'engagement',
     },
-    keyL : {
+    Period : {
         type: 'action',
-        keyboard: 'l',
-        code: 'KeyL',
+        keyboard: '.',
         description: 'toggle the associated loop',
         name: 'loopClick',
     },
     Backquote : {
         type: 'action',
         keyboard: '~', //Alt + ;
-        code: 'Backquote',
         description: 'rotating section for continuo mode', //?
         name: 'rotate',
     },
-    Equal : {
+    Minus : {
         type: 'action',
-        keyboard: '=', //more based on the + sign above: toggle
-        code: 'Equal',
+        keyboard: '-', //between - and _ (sound / no sound) //*** wouldn't it be better to play on the sound level instead ? that way the rythm is always shown
         description: 'one Click - could be starting or stopping a loop immediately',
         name: 'toggle',
     },
-    Minus: {
+    Equal: {
         type: 'action',
-        keyboard: '-', //-_ silence before recording
-        code: 'Minus',
+        keyboard: '=', //the + sign on top of it: adding a sound
         description: 'double click silence, and will start recording on the 4th beat',
         name: 'record',
     },
@@ -374,28 +377,24 @@ generalActions = {
         keyboard: 't', //**** t for transfert but might be better to find a key next
         description: 'transfer raw loop', //there's only one compatible raw loop, so it can be selected automatically
         name: 'transfer',
-        code: 'KeyT'
     },
     Backspace: {
         type: 'action',
         keyboard: 'backspace',
         description: 'silence toggle',
         name: 'pausePlayToggle',
-        code: 'Backspace'
     },
     ArrowUp: {
         type: 'action',
         keyboard: 'up',
         description: 'increase volume',
         name: 'increaseVolume',
-        code: 'ArrowUp'
     },
     ArrowDown: {
         type: 'action',
         keyboard: 'down',
         description: 'decrease volume',
         name: 'decreaseVolume',
-        code: 'ArrowDown'
     }
 }
 
@@ -406,6 +405,7 @@ log ('GM_setValue done', config_default, typeof GM_setValue.then); //
 
 function buildConfigAndActions(){
     var i;
+    bpm = getBPM(); beat = 60 / bpm * 1000; //beat is in ms
     //    investigationOfModPorts();
     page_title_original = document.getElementById('pedalboard-info').children[0].innerHTML;
     page_title = document.getElementById('pedalboard-info').children[0];
@@ -446,6 +446,12 @@ function buildConfigAndActions(){
             instruments[pad.code].pad = pad;
             pad.instrument = instruments[pad.code];
         }
+/*        else {
+            instruments[pad.code] = {};
+            instruments[pad.code].pad = pad;
+            pad.instrument = instruments[pad.code];
+        }
+*/
     }
     updateInstrumentsLabel();
     config = JSON.parse(GM_getValue('config'));
@@ -565,8 +571,7 @@ function getBPM () {
 }
 
 function goThroughContinuos() {
-    var bpm, continuo, continuoPeriod, currentSection, currentVolume, instrument, k, period, periodShift, port, rank, stepsToTarget, targetVolume, timePosition, volumes;
-    bpm = getBPM();
+    var continuo, continuoPeriod, currentSection, currentVolume, instrument, k, period, periodShift, port, rank, stepsToTarget, targetVolume, timePosition, volumes;
     period = 60 * 4 / bpm * 4; // 4 black notes, 4 times -> second length
     periodShift = 1 / continuosAction.length; //so that continuos have an equal repartition on a period //*** a bit unsure about that though, not all are used...
     // shouldn t timePosition be based on the continuo, its size, and its reference start point (to take in account pause, and change)
@@ -629,6 +634,9 @@ function updateTitle(clicked) {
     if (clicked.section != null) {
         page_title.appendChild(createTextNode(clicked.section.name + ' section, ', clicked.section.color));
     }
+    if (clicked.action != null) {
+        page_title.appendChild(createTextNode(' action:' + clicked.action.name + ', '));
+    }
     if (clicked.text != null) {
         page_title.appendChild(createTextNode(clicked.text));
         clicked.text = '';
@@ -683,8 +691,7 @@ function updateInstrumentAfterSectionChange(instrument, newSection, newContinuo)
     }
 }
 
-function buttonDoubleClick (button, beat) {
-    beat = beat || 0;
+function buttonDoubleClick (button) {
     setTimeout(function() {button.click();}, 0);
     setTimeout(function() {button.click();}, 250);
     return true;
@@ -704,24 +711,67 @@ function highlight (element, off) {
     return true;
 }
 
-function clickIn4Beats (button) {
-    var bpm = getBPM();
-    var beat = 60 / bpm;
-    buttonBlink(button);
-    setTimeout(function() {buttonBlink(button);}, beat * 1000);
-    setTimeout(function() {buttonBlink(button);}, 2 * beat * 1000);
-    setTimeout(function() {button.click();}, 3 * beat * 1000);
+function clickInBarsBeats (pad) {
+    setTimeout(function() {pad.button.click();}, 4 * pad.bars * beat);
+    for (let i = 0; i < 2 * pad.bars; i++) {
+        setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 1) * beat);
+        setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 2) * beat);
+        setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 3) * beat);
+        setTimeout(function() {buttonBlink(pad.button, '0', '0', '255');}, ( 4 * i + 4) * beat);
+    }
 }
 
 function deleteClickedInstrument (clicked) {
-    highlight(clicked.instrument.node, true);
-    highlight(clicked.instrument.pad.node, true);
+    if (clicked.instrument) {
+        highlight(clicked.instrument.node, true);
+        if (clicked.instrument.pad) {
+            highlight(clicked.instrument.pad.node, true);
+        }
+    }
     delete clicked.instrument;
     return true;
 }
 
+function updatePadBeat(pad) {
+    log('uPB start, beat = ' + beat);
+    if (pad.beat) {
+        let span = Date.now() - pad.beat.start;
+        let totalBeat = Math.round(span / beat);
+        let padBeat = span / beat % 4;
+        let padBeatProx = Math.round(padBeat);
+        let next;
+        log(span + ' ' + totalBeat + ' ' + padBeat + ' ' + padBeatProx);
+        pad.beat.time = padBeatProx;
+        if (Math.abs(padBeatProx - padBeat) < .2) {
+            if (pad.beat.clickOn && pad.beat.clickOn == totalBeat) {
+                pad.button.click();
+                delete pad.beat.clickOn;
+                log('uPB clicking');
+            }
+            if (padBeatProx == 0 || padBeatProx == 4) {
+                log('tempo blink')
+                buttonBlink(pad.button, '0', '0', '255');
+            } else {
+                log ('regular blink');
+                buttonBlink(pad.button);
+            }
+        } else {
+            log('uPB: far from target for ' + pad.instrument.name);
+            if (pad.beat.clickOn && totalBeat > pad.beat.clickOn) {
+                log('uPB: missed the clicking');
+            }
+        }
+        next = Math.round((Math.floor(span / beat + 1) * beat - Date.now() + pad.beat.start));
+        log('uPB, current beat: ' + pad.beat.time + ' next Beat in: ' + next);
+        setTimeout(function() {log('new beat'); updatePadBeat(pad);}, next);
+    }
+    return true;
+}
+
 function checkActionable (clicked) {
-    var bpm = getBPM();
+    bpm = getBPM();
+    log('cA clicked:');
+    log(clicked);
     if (clicked.section != null && clicked.instrument != null) { //changing an instrument section
         if (clicked.section.name != clicked.instrument.section.name) {
             updateInstrumentAfterSectionChange(clicked.instrument, clicked.section, clicked.instrument.continuo);
@@ -751,30 +801,40 @@ function checkActionable (clicked) {
         }
     }
     if (clicked.action != null && clicked.action.name == 'record' && clicked.instrument != null && clicked.instrument.pad) {
-        let button = clicked.instrument.pad.button;
+        let pad = clicked.instrument.pad;
+        let button = pad.button;
         clicked.text = clicked.instrument.name + ': ';
         if (button.style.backgroundPosition == clicked.instrument.pad.clickedStyle) {
             button.click();
             clicked.text += 'silent - ';
         }
         buttonDoubleClick(button);
-        clickIn4Beats(button);
+        pad.beat = {}; pad.beat.start = Date.now();
+        pad.beat.clickOn = 4;
+        //clickInBarsBeats(pad);
+        updatePadBeat(pad)
         clicked.text += 'emptied & recording on 4th beat';
         deleteClickedInstrument(clicked);
+        delete clicked.action;
+    }
+    if (clicked.action != null && clicked.action.name == 'loopClick' && clicked.instrument != null && clicked.instrument.pad) {
+        let pad = clicked.instrument.pad;
+        let button = pad.button;
+        clicked.text = clicked.instrument.name + ' clicked, ';
+        pad.button.click();
         delete clicked.action;
     }
     if (clicked.action != null && clicked.action.name == 'toggle' && clicked.instrument != null && clicked.instrument.pad) {
         let pad = clicked.instrument.pad;
         let button = pad.button;
-        let bpm = getBPM(); let beat = 60 / bpm;
         clicked.text = clicked.instrument.name + ' ';
         log(pad.button.style.backgroundPosition);
         if (pad.button.style.backgroundPosition != pad.clickedStyle) {
             for (let i = 0; i < pad.bars; i++) {
-                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 1) * beat * 1000);
-                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 2) * beat * 1000);
-                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 3) * beat * 1000);
-                setTimeout(function() {buttonBlink(pad.button, '0', '0', '255');}, ( 4 * i + 4) * beat * 1000);
+                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 1) * beat);
+                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 2) * beat);
+                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 3) * beat);
+                setTimeout(function() {buttonBlink(pad.button, '0', '0', '255');}, ( 4 * i + 4) * beat);
             }
             clicked.text += 'playing or recording';
         } else {
@@ -785,16 +845,22 @@ function checkActionable (clicked) {
         delete clicked.action;
     }
     if (clicked.action != null && clicked.action.name == 'pausePlayToggle') {
+        log('cA seen here');
         switch (true) {
-            case clicked.instrument:
-                clicked.text = clicked.instrument.name + ' pause not handled yet';
+            case (clicked.hasOwnProperty('instrument')):
+                log('cA and there');
+                clicked.text = clicked.instrument.name + ' reseted';
+                if (clicked.instrument.pad.button.style.backgroundPosition == clicked.instrument.pad.clickedStyle) {
+                    clicked.instrument.pad.button.click();
+                }
+                buttonDoubleClick(clicked.instrument.pad.button);
                 deleteClickedInstrument(clicked);
                 break;
-            case clicked.section:
+            case (clicked.hasOwnProperty('section')):
                 clicked.text = clicked.section.name + ' pause not handled yet';
                 delete clicked.section;
                 break;
-            case clicked.continuo:
+            case (clicked.hasOwnProperty('continuo')):
                 clicked.continuo.pause = clicked.continuo.pause ? false: true;
                 clicked.text = clicked.continuo.name;
                 delete clicked.continuo;
@@ -809,6 +875,16 @@ function checkActionable (clicked) {
         config.engaged = config.engaged ? false : true;
         clicked.text = config.engaged ? 'tamperMod engaged' : 'tamperMod disengaged'; //*** not really though, need to set all volumes to 0, maybe found a restore also
         delete clicked.action;
+    }
+    if (clicked.action != null && (clicked.action.name == 'increaseVolume' || clicked.action.name == 'decreaseVolume')) {
+        for (let inst of Object.values(instruments)) {
+            let changeVolume = false;
+            changeVolume = (clicked.instrument && clicked.instrument.name == inst.name);
+            changeVolume = changeVolume || (clicked.section && clicked.continuo && inst.section.name == clicked.section.name && inst.continuo.name == clicked.continuo.name);
+            changeVolume = changeVolume || (!clicked.section && clicked.continuo && inst.continuo.name == clicked.continuo.name);
+            changeVolume = changeVolume || (clicked.section && !clicked.continuo && inst.section.name == clicked.section.name);
+            //***** changeVolume true -> update instrument (it looks like a similar selection than for highlight box if needed)
+        }
     }
     if (clicked.action != null && clicked.action.name == 'transfer' && clicked.instrument && clicked.instrument.pad) {
         let pad = clicked.instrument.pad;
@@ -885,9 +961,14 @@ function checkActionable (clicked) {
             if (clicked.instrument && clicked.instrument.code == keyEvent.code) {
                 deleteClickedInstrument(clicked);
             } else {
+                if (clicked.instrument) {
+                    deleteClickedInstrument(clicked);
+                }
                 clicked.instrument = instruments[keyEvent.code];
                 highlight(clicked.instrument.node);
-                highlight(clicked.instrument.pad.node);
+                if (clicked.instrument.pad) {
+                    highlight(clicked.instrument.pad.node);
+                }
             }
         }
         if (sectionsAction.indexOf(keyEvent.code) > -1) {
@@ -897,7 +978,11 @@ function checkActionable (clicked) {
             clicked.continuo = continuos[keyEvent.code];
         }
         if (generalActions[keyEvent.code]) {
-            clicked.action = generalActions[keyEvent.code];
+            if (clicked.action && (clicked.action.name == generalActions[keyEvent.code].name)) {
+                delete clicked.action;
+            } else {
+                clicked.action = generalActions[keyEvent.code];
+            }
         }
         checkActionable(clicked); //??? why the object is not updated ?!
         updateTitle(clicked);
