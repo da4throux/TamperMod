@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.4
+// @version      0.3.5
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -184,11 +184,31 @@ for (const key of Object.keys(colors)) {
 //   - effect: fade in or out on Gain type knob
 //   - one key: start / pause the effect
 
+const logLevel = 10;
+const logFilter = "cA";
+const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel']; //FocusOnFilter: everything from the filter only goes through -
+const logMod = 0;
+
 function log (message, level) {
+    let origin, log;
+    //console.log (log.caller);
     //10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
-    level = level || 10;
-    if (typeof level == 'string' && level == logFocus || level >= logLevel) {
-        console.log (typeof message == 'string' ? 'TamperMod: ' + message : message);
+    log = false;
+    origin = typeof level == "string" ? level : "shouldNotBeLogged";
+    level = level || 0;
+    switch (logMod) {
+        case 0:
+            log = logFilter.includes(origin);
+            break;
+        case 1:
+            log = logFilter.includes(origin) || level >= logLevel;
+            break;
+        case 2:
+            log = logFilter.includes(origin) && level >= logLevel;
+            break;
+    }
+    if (log) {
+        console.log (typeof message == 'string' ? 'TamperMod-' + origin + ':' + message : message);
     }
 }
 
@@ -224,7 +244,6 @@ function simulateMouseEvent(target, type, x, y) {
 const timeStep = 0.2; // minimum step for each action (every .2s I would change the volume knob)
 const continuoStep = 2000;
 const maxPeriod = 10000; //any action taking more than a second should be reduce to this xx ms - I'm thinking of turning the knob for a fadeOut
-const logLevel = 0; const logFocus = 'focus';
 var bpm, beat;
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
@@ -455,7 +474,7 @@ function buildConfigAndActions(){
     }
     updateInstrumentsLabel();
     config = JSON.parse(GM_getValue('config'));
-    config.engaged = false; //**** for testing purpose
+    config.engaged = false; //by default no auto regulation
     log('buildConfigAndAction loaded');
     setInterval(actionLoop, continuoStep);
 }
@@ -582,7 +601,7 @@ function goThroughContinuos() {
         log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
         if (!continuo.size) { getContinuoSize(continuo); }
         if (!continuo.pause && continuo.size > 0) {
-            volumes = instrument.volumes || pedals_families[instrument.family].volumes; //**** Where should it be stored, do continuo also have this
+            volumes = instrument.volumes || pedals_families[instrument.family].volumes; //*** Where should it be stored, do continuo also have this
             port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
             currentVolume = Math.round(parseInt(port.style.backgroundPositionX) / -1 / volumes.size);
             continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
@@ -689,6 +708,28 @@ function updateInstrumentAfterSectionChange(instrument, newSection, newContinuo)
         instrument.sectionRank = maxRank + 1;
         newContinuo.size++;
     }
+}
+
+function cleanLoop (pad) {
+    if (pad.button.style.backgroundPosition == pad.clickedStyle) {
+        pad.button.click();
+    }
+    buttonDoubleClick(pad.button);
+    delete pad.beat;
+    return true;
+}
+
+function startLoop (pad, bars) {
+    pad.beat = {}; pad.beat.start = Date.now();
+    if (bars) {
+        pad.beat.clickOn = bars;
+    } else {
+        if (pad.button.style.backgroundPosition != pad.clickedStyle) {
+            pad.button.click();
+        }
+    }
+    updatePadBeat(pad)
+    return true;
 }
 
 function buttonDoubleClick (button) {
@@ -804,11 +845,7 @@ function checkActionable (clicked) {
         let pad = clicked.instrument.pad;
         let button = pad.button;
         clicked.text = clicked.instrument.name + ': ';
-        if (button.style.backgroundPosition == clicked.instrument.pad.clickedStyle) {
-            button.click();
-            clicked.text += 'silent - ';
-        }
-        buttonDoubleClick(button);
+        cleanLoop(pad);
         pad.beat = {}; pad.beat.start = Date.now();
         pad.beat.clickOn = 4;
         //clickInBarsBeats(pad);
@@ -850,10 +887,7 @@ function checkActionable (clicked) {
             case (clicked.hasOwnProperty('instrument')):
                 log('cA and there');
                 clicked.text = clicked.instrument.name + ' reseted';
-                if (clicked.instrument.pad.button.style.backgroundPosition == clicked.instrument.pad.clickedStyle) {
-                    clicked.instrument.pad.button.click();
-                }
-                buttonDoubleClick(clicked.instrument.pad.button);
+                cleanLoop(clicked.instrument.pad);
                 deleteClickedInstrument(clicked);
                 break;
             case (clicked.hasOwnProperty('section')):
@@ -883,30 +917,30 @@ function checkActionable (clicked) {
             changeVolume = changeVolume || (clicked.section && clicked.continuo && inst.section.name == clicked.section.name && inst.continuo.name == clicked.continuo.name);
             changeVolume = changeVolume || (!clicked.section && clicked.continuo && inst.continuo.name == clicked.continuo.name);
             changeVolume = changeVolume || (clicked.section && !clicked.continuo && inst.section.name == clicked.section.name);
-            //***** changeVolume true -> update instrument (it looks like a similar selection than for highlight box if needed)
+            //**** changeVolume true -> update instrument (it looks like a similar selection than for highlight box if needed)
         }
     }
     if (clicked.action != null && clicked.action.name == 'transfer' && clicked.instrument && clicked.instrument.pad) {
         let pad = clicked.instrument.pad;
         let raw = pads[pad.bars + 'raw'];
-        log('cA pad ' + pad.code + ' : ' + pad.bars + 'raw');
-        log(raw);
+        log('cA pad ' + pad.code + ' : ' + pad.bars + 'raw', 'cA');
+        log(raw, 'cA');
         let instrumentName = clicked.instrument.name;
         if (raw) {
+            let originKey = raw.keyboard;
+            let destinationKey = clicked.instrument.keyboard;
+            log(raw.button.style.backgroundPosition, 'cA');
             if (raw.button.style.backgroundPosition != raw.clickedStyle) {
                 raw.button.click();
+                log('clicked on raw', 'cA')
             }
-            if (pad.button.style.backgroundPosition == pad.clickedStyle) {
-                pad.button.click();
-            }
-            buttonDoubleClick(pad.button);
-            pad.button.click(); //*** is the last click of the doubleclick before or after this click ? might be better to be in order
+            cleanLoop(pad);
+            startLoop(pad);
             setTimeout(function(){
-                raw.button.click();
-                buttonDoubleClick(raw.button);
-                clicked.text = 'complete transfer of raw ' + pad.bars + ' to ' + instrumentName + ' and clean up';
+                cleanLoop(raw, pad.bars);
+                clicked.text = 'complete transfer of raw ' + originKey + ' to loop ' + destinationKey + ' and clean up';
                 updateTitle(clicked);
-            }, pad.bars * 60 / bpm * 1000); //**** is this timing too strict ? does it have the right length
+            }, pad.bars * 4 * 60 / bpm * 1000); //**** is this timing too strict ? does it have the right length */
             clicked.text = 'transferring raw ' + pad.bars + ' to ' + instrumentName + ' and cleaning it afterwards';
             delete clicked.action;
             deleteClickedInstrument(clicked);
