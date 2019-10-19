@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.5
+// @version      0.3.6
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -27,6 +27,9 @@
 //** Could investigate an auto engagement: as soon as the mouse is touched: disengage, and re-engage with no movement for 2 seconds
 //** Could image the mouse as a way to control some type of engagement
 //** Could I show more clearly the elements in the same continuo + section
+//** /Slash\BackSlash keys to use a fade in and out if needed
+//** Indicate the length of the fade in bars
+//** instant silence [ ]: to open and close it ?
 
 const MaterialIcons = GM_getResourceText("MaterialIcons");
 GM_addStyle (MaterialIcons);
@@ -186,16 +189,16 @@ for (const key of Object.keys(colors)) {
 
 const logLevel = 10;
 const logFilter = "cA";
-const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel']; //FocusOnFilter: everything from the filter only goes through -
-const logMod = 0;
+const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
+const logMod = 1;
 
-function log (message, level) {
+function log (message, levelOrOrigin, level) {
     let origin, log;
     //console.log (log.caller);
     //10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
     log = false;
-    origin = typeof level == "string" ? level : "shouldNotBeLogged";
-    level = level || 0;
+    origin = typeof levelOrOrigin == "string" ? levelOrOrigin : "shouldNotBeLogged";
+    level = typeof levelOrOrigin == "string" ? level || 0 : levelOrOrigin || 0;
     switch (logMod) {
         case 0:
             log = logFilter.includes(origin);
@@ -205,6 +208,9 @@ function log (message, level) {
             break;
         case 2:
             log = logFilter.includes(origin) && level >= logLevel;
+            break;
+        case 3:
+            log = logFilter.split(" ").some(f=> origin.includes(f));
             break;
     }
     if (log) {
@@ -373,16 +379,10 @@ generalActions = {
         description: 'toggle the associated loop',
         name: 'loopClick',
     },
-    Backquote : {
-        type: 'action',
-        keyboard: '~', //Alt + ;
-        description: 'rotating section for continuo mode', //?
-        name: 'rotate',
-    },
     Minus : {
         type: 'action',
-        keyboard: '-', //between - and _ (sound / no sound) //*** wouldn't it be better to play on the sound level instead ? that way the rythm is always shown
-        description: 'one Click - could be starting or stopping a loop immediately',
+        keyboard: '-', //between - and _ (sound / no sound) //Alo keeps the rythm of the loop running though
+        description: 'one Click - start or stop the playing of the loop on its next cycle',
         name: 'toggle',
     },
     Equal: {
@@ -391,17 +391,17 @@ generalActions = {
         description: 'double click silence, and will start recording on the 4th beat',
         name: 'record',
     },
-    KeyT: {
+    Backquote: {
         type: 'action',
-        keyboard: 't', //**** t for transfert but might be better to find a key next
+        keyboard: '~', // key on the left of 1
         description: 'transfer raw loop', //there's only one compatible raw loop, so it can be selected automatically
         name: 'transfer',
     },
     Backspace: {
         type: 'action',
         keyboard: 'backspace',
-        description: 'silence toggle',
-        name: 'pausePlayToggle',
+        description: 'clean a loop',
+        name: 'delete',
     },
     ArrowUp: {
         type: 'action',
@@ -728,7 +728,7 @@ function startLoop (pad, bars) {
             pad.button.click();
         }
     }
-    updatePadBeat(pad)
+    if (!pad.updateBeat) {updatePadBeat(pad);}
     return true;
 }
 
@@ -752,16 +752,6 @@ function highlight (element, off) {
     return true;
 }
 
-function clickInBarsBeats (pad) {
-    setTimeout(function() {pad.button.click();}, 4 * pad.bars * beat);
-    for (let i = 0; i < 2 * pad.bars; i++) {
-        setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 1) * beat);
-        setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 2) * beat);
-        setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 3) * beat);
-        setTimeout(function() {buttonBlink(pad.button, '0', '0', '255');}, ( 4 * i + 4) * beat);
-    }
-}
-
 function deleteClickedInstrument (clicked) {
     if (clicked.instrument) {
         highlight(clicked.instrument.node, true);
@@ -776,11 +766,11 @@ function deleteClickedInstrument (clicked) {
 function updatePadBeat(pad) {
     log('uPB start, beat = ' + beat);
     if (pad.beat) {
+        pad.updateBeat = true;
         let span = Date.now() - pad.beat.start;
         let totalBeat = Math.round(span / beat);
         let padBeat = span / beat % 4;
         let padBeatProx = Math.round(padBeat);
-        let next;
         log(span + ' ' + totalBeat + ' ' + padBeat + ' ' + padBeatProx);
         pad.beat.time = padBeatProx;
         if (Math.abs(padBeatProx - padBeat) < .2) {
@@ -788,6 +778,10 @@ function updatePadBeat(pad) {
                 pad.button.click();
                 delete pad.beat.clickOn;
                 log('uPB clicking');
+            }
+            if (pad.beat.clickOff && pad.beat.clickOff == totalBeat) {
+                pad.updateBeat = false;
+                cleanLoop(pad);
             }
             if (padBeatProx == 0 || padBeatProx == 4) {
                 log('tempo blink')
@@ -802,6 +796,12 @@ function updatePadBeat(pad) {
                 log('uPB: missed the clicking');
             }
         }
+    } else {
+        pad.updateBeat = false;
+    }
+    if (pad.updateBeat) {
+        let next;
+        let span = Date.now() - pad.beat.start;
         next = Math.round((Math.floor(span / beat + 1) * beat - Date.now() + pad.beat.start));
         log('uPB, current beat: ' + pad.beat.time + ' next Beat in: ' + next);
         setTimeout(function() {log('new beat'); updatePadBeat(pad);}, next);
@@ -848,8 +848,7 @@ function checkActionable (clicked) {
         cleanLoop(pad);
         pad.beat = {}; pad.beat.start = Date.now();
         pad.beat.clickOn = 4;
-        //clickInBarsBeats(pad);
-        updatePadBeat(pad)
+        if (!pad.updateBeat) {updatePadBeat(pad);}
         clicked.text += 'emptied & recording on 4th beat';
         deleteClickedInstrument(clicked);
         delete clicked.action;
@@ -867,26 +866,27 @@ function checkActionable (clicked) {
         clicked.text = clicked.instrument.name + ' ';
         log(pad.button.style.backgroundPosition);
         if (pad.button.style.backgroundPosition != pad.clickedStyle) {
-            for (let i = 0; i < pad.bars; i++) {
-                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 1) * beat);
-                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 2) * beat);
-                setTimeout(function() {buttonBlink(pad.button);}, ( 4 * i + 3) * beat);
-                setTimeout(function() {buttonBlink(pad.button, '0', '0', '255');}, ( 4 * i + 4) * beat);
+            if (!pad.updateBeat) {
+                clicked.text += 'record a loop first with +';
+            } else {
+                pad.button.click();
+                clicked.text += 'playing';
             }
-            clicked.text += 'playing or recording';
         } else {
+            if (!pad.updateBeat) {
+                clicked.text += 'you should use + to record & Backspace to reset';
+            }
             clicked.text += 'silent';
-        }
-        pad.button.click();
+            pad.button.click();
+        }//**** validate this, make more visible the recording part, the beat part (1-2-3-4, number of bars)
         deleteClickedInstrument(clicked);
         delete clicked.action;
     }
-    if (clicked.action != null && clicked.action.name == 'pausePlayToggle') {
+    if (clicked.action != null && clicked.action.name == 'delete') {
         log('cA seen here');
         switch (true) {
             case (clicked.hasOwnProperty('instrument')):
-                log('cA and there');
-                clicked.text = clicked.instrument.name + ' reseted';
+                clicked.text = clicked.instrument.name + ' cleaned';
                 cleanLoop(clicked.instrument.pad);
                 deleteClickedInstrument(clicked);
                 break;
@@ -920,33 +920,45 @@ function checkActionable (clicked) {
             //**** changeVolume true -> update instrument (it looks like a similar selection than for highlight box if needed)
         }
     }
-    if (clicked.action != null && clicked.action.name == 'transfer' && clicked.instrument && clicked.instrument.pad) {
-        let pad = clicked.instrument.pad;
-        let raw = pads[pad.bars + 'raw'];
-        log('cA pad ' + pad.code + ' : ' + pad.bars + 'raw', 'cA');
-        log(raw, 'cA');
-        let instrumentName = clicked.instrument.name;
-        if (raw) {
-            let originKey = raw.keyboard;
-            let destinationKey = clicked.instrument.keyboard;
-            log(raw.button.style.backgroundPosition, 'cA');
-            if (raw.button.style.backgroundPosition != raw.clickedStyle) {
-                raw.button.click();
-                log('clicked on raw', 'cA')
+    if (clicked.action != null && clicked.action.name == 'transfer' && clicked.instrument) {
+        if (clicked.instrument.pad) {
+            let pad = clicked.instrument.pad;
+            let raw = pads[pad.bars + 'raw'];
+            log('pad ' + pad.code + ' : ' + pad.bars + 'raw', 'cA');
+            log(raw, 'cA');
+            let instrumentName = clicked.instrument.name;
+            if (pad && raw && pad.kind != 'raw') {
+                let originKey = raw.keyboard;
+                let destinationKey = clicked.instrument.keyboard;
+                log(raw.button.style.backgroundPosition, 'cA');
+                if (raw.button.style.backgroundPosition != raw.clickedStyle) {
+                    raw.button.click();
+                    log('clicked on raw', 'cA')
+                }
+                cleanLoop(pad);
+                startLoop(pad);
+                setTimeout(function(){
+                    cleanLoop(raw, pad.bars);
+                    clicked.text = 'complete transfer of raw ' + originKey + ' to loop ' + destinationKey + ' and clean up';
+                    updateTitle(clicked);
+                }, pad.bars * 4 * 60 / bpm * 1000); //**** is this timing too strict ? does it have the right length */
+                clicked.text = 'transferring raw ' + pad.bars + ' to ' + instrumentName + ' and cleaning it afterwards';
+                delete clicked.action;
+                deleteClickedInstrument(clicked);
+            } else {
+                if (typeof raw != "object") {
+                    clicked.text = 'transfer failed: no matching ' + pad.bars + ' bars raw looper available to match destination ' + clicked.instrument.keyboard;
+                }
+                if (pad.kind == 'raw') {
+                    clicked.text = 'transfer failed: the destination ' + clicked.instrument.keyboard + ' cannot be a raw looper';
+                }
+                delete clicked.action;
+                deleteClickedInstrument(clicked);
             }
-            cleanLoop(pad);
-            startLoop(pad);
-            setTimeout(function(){
-                cleanLoop(raw, pad.bars);
-                clicked.text = 'complete transfer of raw ' + originKey + ' to loop ' + destinationKey + ' and clean up';
-                updateTitle(clicked);
-            }, pad.bars * 4 * 60 / bpm * 1000); //**** is this timing too strict ? does it have the right length */
-            clicked.text = 'transferring raw ' + pad.bars + ' to ' + instrumentName + ' and cleaning it afterwards';
-            delete clicked.action;
-            deleteClickedInstrument(clicked);
         } else {
             delete clicked.action;
-            clicked.text = 'transfer failed: no matching raw looper for ' + pad.bars + ' bars like ' + clicked.instrument.name;
+            clicked.text = 'transfer failed: the destination ' + clicked.instrument.keyboard + ' has no associated looper';
+            deleteClickedInstrument(clicked);
         }
     }
     return true;
@@ -988,7 +1000,7 @@ function checkActionable (clicked) {
     //press 'a' for toggling the gain on/off
     document.addEventListener('keydown', function (keyEvent) { //https://javascript.info/keyboard-events
         var conf, fade_direction, id, knob, period, port, instNumber;
-        log (keyEvent.code + ' key was pressed.');
+        log (keyEvent.code + ' key was pressed.', 10);
         // https://unicode-table.com/en/#control-character
         // https://unicodelookup.com/
         if (instruments[keyEvent.code]) {
