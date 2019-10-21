@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.6
+// @version      0.3.7
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -16,6 +16,7 @@
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
 //** increase decrease volume
+//** delete after a number of bars
 //*** what is the right maner to handle a pad withouth instrument (a looper without volume)
 //** do I need to keep the addition of elements in the interface (it more feels like it's once and for all) -> I could have configurations based on the title of the session
 //*** two types of pause: one silent, one just pause all movement to allow interaction with the interface
@@ -35,6 +36,38 @@ const MaterialIcons = GM_getResourceText("MaterialIcons");
 GM_addStyle (MaterialIcons);
 // https://material.io/resources/icons/?style=baseline
 // <i class="material-icons">aspect_ratio</i>
+
+const logLevel = 10;
+const logFilter = "cA sME";
+const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
+const logMod = 2;
+
+function log (message, levelOrOrigin, level) {
+    let origin, log;
+    //console.log (log.caller);
+    //10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
+    log = false;
+    origin = typeof levelOrOrigin == "string" ? levelOrOrigin : "shouldNotBeLogged";
+    level = typeof levelOrOrigin == "string" ? level || 15 : levelOrOrigin || 15;
+    switch (logMod) {
+        case 0:
+            log = logFilter.includes(origin);
+            break;
+        case 1:
+            log = logFilter.includes(origin) || level >= logLevel;
+            break;
+        case 2:
+            log = logFilter.includes(origin) && level >= logLevel;
+            break;
+        case 3:
+            log = logFilter.split(" ").some(f=> origin.includes(f));
+            break;
+    }
+    if (log) {
+        console.log (typeof message == 'string' ? 'TamperMod-' + origin + ':' + message : message);
+    }
+}
+
 const icons = { // https://keycode.info/
     a : {
         name: 'arrow',
@@ -187,37 +220,6 @@ for (const key of Object.keys(colors)) {
 //   - effect: fade in or out on Gain type knob
 //   - one key: start / pause the effect
 
-const logLevel = 10;
-const logFilter = "cA";
-const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
-const logMod = 1;
-
-function log (message, levelOrOrigin, level) {
-    let origin, log;
-    //console.log (log.caller);
-    //10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
-    log = false;
-    origin = typeof levelOrOrigin == "string" ? levelOrOrigin : "shouldNotBeLogged";
-    level = typeof levelOrOrigin == "string" ? level || 0 : levelOrOrigin || 0;
-    switch (logMod) {
-        case 0:
-            log = logFilter.includes(origin);
-            break;
-        case 1:
-            log = logFilter.includes(origin) || level >= logLevel;
-            break;
-        case 2:
-            log = logFilter.includes(origin) && level >= logLevel;
-            break;
-        case 3:
-            log = logFilter.split(" ").some(f=> origin.includes(f));
-            break;
-    }
-    if (log) {
-        console.log (typeof message == 'string' ? 'TamperMod-' + origin + ':' + message : message);
-    }
-}
-
 function triggerMouseEvent (node, eventType) {
     var clickEvent = document.createEvent ('MouseEvents');
     clickEvent.initEvent (eventType, true, true);
@@ -231,17 +233,18 @@ function triggerEvent(target, type){
     target.dispatchEvent(event);
 }
 
-function simulateMouseEvent(target, type, x, y) {
+function simulateMouseEvent(target, type, clientX, clientY) {
     //https://stackoverflow.com/questions/9749910/programmatically-triggering-mouse-move-event-in-javascript
     var rect = target.getBoundingClientRect();
-    log ('SME - unsafeWindow: ' + typeof unsafeWindow);
-    log (unsafeWindow);
+    log('SME - unsafeWindow: ' + typeof unsafeWindow, 1);
+    log(unsafeWindow, 1);
+    log('x-y' + clientX + '-' + clientY, 'sME', 1);
     var event = new MouseEvent(type, {
         'view': unsafeWindow,
         'bubbles': true,
         'cancelable': true,
-        'clientX': x,
-        'clientY': y,
+        'clientX': clientX,
+        'clientY': clientY,
         // you can pass any other needed properties here
     });
     target.dispatchEvent(event);
@@ -250,7 +253,7 @@ function simulateMouseEvent(target, type, x, y) {
 const timeStep = 0.2; // minimum step for each action (every .2s I would change the volume knob)
 const continuoStep = 2000;
 const maxPeriod = 10000; //any action taking more than a second should be reduce to this xx ms - I'm thinking of turning the knob for a fadeOut
-var bpm, beat;
+var bpm, beat, actionSpan = 4;
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
@@ -288,7 +291,7 @@ pedals_families = {
     Gain: {
         symbol: 'Gain',
         description: 'simple V3 pedal, v3 knob',
-        type: 'knob',
+        subFamily: 'volume',
         steps: 65,
         size: 98,
         volumes: {
@@ -297,11 +300,15 @@ pedals_families = {
             high: 32,
             size: 98
         },
+        getVolume: function () {
+            return Math.round(parseInt(this.port.style.backgroundPositionX) / -1 / this.volumes.size);
+        },
     },
     Alo: {
         clickedStyle: '-71px 0px', //the backgroundPosition when clicked
         symbol: "loop1",
         color: "yellow",
+        subFamily: 'looper',
     }
 };
 
@@ -414,6 +421,18 @@ generalActions = {
         keyboard: 'down',
         description: 'decrease volume',
         name: 'decreaseVolume',
+    },
+    ArrowLeft: {
+        type: 'action',
+        keyboard: 'left',
+        description: 'decrease default bar length for action',
+        name: 'decreaseActionSpan'
+    },
+    ArrowRight: {
+        type: 'action',
+        keyboard: 'right',
+        description: 'increase default bar length for action',
+        name: 'increaseActionSpan'
     }
 }
 
@@ -430,7 +449,7 @@ function buildConfigAndActions(){
     page_title = document.getElementById('pedalboard-info').children[0];
     page_title.style.textTransform = 'none';
     for (let key of Object.keys(volumes)) {
-        let instrument = instruments[volumes[key].code] = Object.assign({}, volumes[key]);
+        let instrument = instruments[volumes[key].code] = Object.assign({}, pedals_families[volumes[key].family], volumes[key]);
         instrument.continuo = continuos[continuosAction[instrumentsAction.length]];
         instrument.key = key.toUpperCase().charCodeAt(0);
         instrument.node = document.querySelector('[mod-instance="' + instrument.instance + '"]');
@@ -440,6 +459,7 @@ function buildConfigAndActions(){
         instrument.sectionRank = 0;
         instrument.type = 'instrument';
         instrument.volume = key;
+        instrument.port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
         instrumentsAction.push(instrument.code);
     }
     for (let key of Object.keys(loopers)) {
@@ -597,13 +617,13 @@ function goThroughContinuos() {
     // some part of rank should be based on continuo.size, and its position in the period should be based on sectionrank (and this should be section.rank)
     for (let instrument of Object.values(instruments)) {
         continuo = instrument.continuo;
+        if (!continuo.size) { getContinuoSize(continuo); }
+        log(continuo.startTime + ' : ' + period + ' : ' + continuo.size, 1);
         timePosition = (( Date.now() - (continuo.startTime || 0 )) / 1000 / period) % (4 * continuo.size);
         log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
-        if (!continuo.size) { getContinuoSize(continuo); }
         if (!continuo.pause && continuo.size > 0) {
-            volumes = instrument.volumes || pedals_families[instrument.family].volumes; //*** Where should it be stored, do continuo also have this
-            port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
-            currentVolume = Math.round(parseInt(port.style.backgroundPositionX) / -1 / volumes.size);
+            volumes = instrument.volumes || pedals_families[instrument.family].volumes; //*** Where should it be stored, should continuo also have this ?
+            currentVolume = instrument.getVolume();
             continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
             rank = 4 * instrument.sectionRank; //in that case will be 0 & 4
             if (continuo.size == 1) {
@@ -628,25 +648,28 @@ function goThroughContinuos() {
                 }
             }
             stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
-            log('gTC: ' + instrument.keyboard + ': ' + rank + '/' + timePosition + ' : ' + currentVolume + ' -> ' + targetVolume + ' : ' + stepsToTarget + ' y=' + y);
-            moveMouse(port, stepsToTarget);
+            log('gTC: ' + instrument.keyboard + ': ' + rank + '/' + timePosition + ' : ' + currentVolume + ' -> ' + targetVolume + ' : ' + stepsToTarget + ' y=' + y, 'sME', 1);
+            moveMouse(instrument.port, stepsToTarget);
         }
         if (continuo.pause) {
-            moveMouse(port, currentVolume);
+            moveMouse(instrument.port, currentVolume); //*** unclear to me now 191021
         }
     }
 }
 
 function updateTitle(clicked) {
     page_title.innerHTML = '';
+    if (clicked.text != null) {
+        page_title.appendChild(createTextNode(clicked.text));
+        clicked.text = '';
+    }
     if (clicked.instrument != null) {
-        page_title.appendChild(createTextNode(clicked.instrument.name + ' instrument ' + clicked.instrument.keyboard + ', '));
+        page_title.appendChild(createTextNode('inst ' + clicked.instrument.keyboard + ', '));
     }
     if (clicked.newInstrument != null) {
         page_title.appendChild(createTextNode(clicked.newInstrument.symbol + ' ' + clicked.newInstrument.instance + ', '));
     }
     if (clicked.continuo != null) {
-        log('continuo found');
         page_title.appendChild(createIconNode(clicked.continuo.material));
         page_title.appendChild(createTextNode(' continuo, '));
     }
@@ -655,10 +678,6 @@ function updateTitle(clicked) {
     }
     if (clicked.action != null) {
         page_title.appendChild(createTextNode(' action:' + clicked.action.name + ', '));
-    }
-    if (clicked.text != null) {
-        page_title.appendChild(createTextNode(clicked.text));
-        clicked.text = '';
     }
     return true;
 }
@@ -910,6 +929,11 @@ function checkActionable (clicked) {
         clicked.text = config.engaged ? 'tamperMod engaged' : 'tamperMod disengaged'; //*** not really though, need to set all volumes to 0, maybe found a restore also
         delete clicked.action;
     }
+    if (clicked.action != null && (clicked.action.name == 'increaseActionSpan' || clicked.action.name == 'decreaseActionSpan')) {
+        actionSpan = clicked.action.name == 'increaseActionSpan' ? actionSpan + 1 : Math.max(0, actionSpan - 1);
+        clicked.text = 'action spans on ' + actionSpan + ' bars, ';
+        delete clicked.action;
+    }
     if (clicked.action != null && (clicked.action.name == 'increaseVolume' || clicked.action.name == 'decreaseVolume')) {
         for (let inst of Object.values(instruments)) {
             let changeVolume = false;
@@ -976,8 +1000,8 @@ function checkActionable (clicked) {
         }
     }, 500);
     document.addEventListener('mouseup', function (e) {
-        x = e.pageX;
-        y = e.pageY;
+        //x = e.pageX;
+        //y = e.pageY;
         target = e.target;
         if (e.button == 1) { //middle click - the only one I can overload without disturbing anyone
             target = target.getAttribute('mod-port');
