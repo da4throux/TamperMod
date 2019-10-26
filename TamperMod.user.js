@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.8
+// @version      0.3.9
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -17,7 +17,6 @@
 
 //** increase decrease volume
 //** delete after a number of bars
-//** better color coding of the recording
 //** decrease dynamically the time base of the sync (to make it faster or slower)
 //** a minimum slope -> change the slope instead of the length ?
 //** get more (debug) information on a instrument by selecting it
@@ -43,7 +42,7 @@ GM_addStyle (MaterialIcons);
 // <i class="material-icons">aspect_ratio</i>
 
 const logLevel = 10;
-const logFilter = "always title"; //cA steps
+const logFilter = "always uPB"; //cA steps
 const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
 const logMod = 2;
 
@@ -266,6 +265,9 @@ var config = {},
 // document.querySelector('[mod-instance="/graph/Gain_1"][class="mod-pedal ui-draggable"]').querySelector('[mod-port="/graph/Gain_1/Gain"]')
 // when browsing above a pedal, get all its potential control:
 //  - document.querySelector('[mod-instance="/graph/mono_8"]').querySelectorAll('[mod-port]').forEach(function(node){console.log(node.getAttribute('mod-port'));})
+const defaultBeatRGB = ['100', '100', '0', '0.8']; //default beat is yellow
+const recordBeatRGB = ['255', '000', '0', '0.6']; //record color is red
+const upBeatRGB = ['0', '0', '255', '0.8']; // upBeat is blue
 var actions = []; //need to track for eacth instance/symbol the current action if any
 var active_actions = {}; //hash by port of ID of current effect if any
 var styles = {
@@ -387,7 +389,7 @@ generalActions = {
     Period : {
         type: 'action',
         keyboard: '.',
-        description: 'toggle the associated loop',
+        description: 'raw toggle the associated loop', //i.e. no handling of bars or beats
         name: 'loopClick',
     },
     Minus : {
@@ -474,6 +476,9 @@ function buildConfigAndActions(){
                 title += 'volume: ' + this.getVolume() + ' -> ' + instrument.targetVolume + ' in ' + Math.floor((instrument.targetTime - Date.now()) / 100) / 10 + 's\n';
             } else {
                 title += 'volume: ' + this.getVolume() + ' stable\n';
+            }
+            if (instrument.pad) {
+                title += 'bars: ' + instrument.pad.bars + ', state: ' + instrument.pad.state;
             }
             title += this.titlePlus || '';
             this.titlePlus = '';
@@ -614,6 +619,21 @@ function appendTextNode(node, text, color, size) {
     return true;
 }
 
+function updatePadLabel(pad) {
+    var text;
+    pad.textNode.innerHTML = '';
+    text = pad.keyboard;
+    if (pad.positionBar) {
+        if (pad.state && pad.state == 'recording' && Date.now() < pad.stateStartTime) {
+            text += '_record in: ' + (5 - pad.positionBeat);
+        } else {
+            text += '_' + pad.state + ': ' + pad.positionBar + '.' + pad.positionBeat;
+        }
+    }
+    log (text, 'uPB');
+    appendTextNode(pad.textNode, text, pad.color);
+}
+
 function updateInstrumentsLabel() {
     var selector;
     for (let inst of Object.values(instruments)) {
@@ -622,14 +642,11 @@ function updateInstrumentsLabel() {
         inst.textNode = document.querySelector(selector).querySelector('[class="mod-plugin-brand"]').children[0]; //h1
         inst.textNode.innerHTML = '';
         appendTextNode(inst.textNode, inst.keyboard, 'white');
-        log('uI: inst ' + inst.key + ' : ' + inst.continuo.name);
         appendIconNode(inst.continuo.material, inst.section.color, inst.textNode);
         appendTextNode(inst.textNode, inst.continuo.keyboard + inst.section.keyboard, 'white');
     }
     for (let pad of Object.values(pads)) {
-        pad.textNode.innerHTML = '';
-        log('uI: pad ' + pad.key + ' : ' + pad.keyboard);
-        appendTextNode(pad.textNode, pad.keyboard, pad.color);
+        updatePadLabel(pad);
     }
 }
 
@@ -830,9 +847,16 @@ function buttonDoubleClick (button) {
     return true;
 }
 
-function buttonBlink (button, r, g, b) {
-    button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || '255') + ',' + (g || '0') + ',' + (b || '150') + ',0.3)';
-    setTimeout(function() { button.style.boxShadow = 'none'}, 100);
+function padBlink (pad, r, g, b, l) {
+    var button = pad.button;
+    button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || defaultBeatRGB[0]) + ',' + (g || defaultBeatRGB[1]) + ',' + (b || defaultBeatRGB[2]) + ',' + (l || defaultBeatRGB[3]) + ')';
+    setTimeout(function() {
+        if (pad.state && pad.state == 'recording' && Date.now() > pad.stateStartTime && Date.now() < pad.stateEndTime) {
+            button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || recordBeatRGB[0]) + ',' + (g || recordBeatRGB[1]) + ',' + (b || recordBeatRGB[2]) + ',' + recordBeatRGB[3] + ')';
+        } else {
+            button.style.boxShadow = 'none';
+        }
+    }, 100);
 }
 
 function highlight (element, off) {
@@ -856,12 +880,31 @@ function deleteClickedInstrument (clicked) {
 }
 
 function updatePadBeat(pad) {
-    log('uPB start, beat = ' + beat);
+    //pad.updateBeat: there's already some updatePadBeat setTimeOut going on, so no need to trigger more, just ride the current wave
+    //pad.beat: object that describe the beat
+    //pad.state + pad.stateStartTime: used to know if we are in 'record' state -> to set the default color (red for recording, nothing else)
+    log('uPB start, beat = ' + beat, 'uPB');
     if (pad.beat) {
         pad.updateBeat = true;
+        if (pad.state == 'recording' && Date.now() > pad.stateStartTime) {
+            pad.beat.start = pad.stateStartTime; //the new beat start is the recording start
+        }
+        if (pad.state == 'recording' && Date.now() > pad.stateEndTime) {
+            pad.state = 'playing';
+        }
+        if (pad.state == 'playing' && pad.nextState == 'silent' && Date.now() > pad.stateEndTime) {
+            pad.state = 'silent';
+        }
+        if (pad.state == 'silent' && pad.nextState == 'playing' && Date.now() > pad.stateEndTime) {
+            pad.state = 'playing';
+        }
+        if (pad.stateEndTime && Date.now() > pad.stateEndTime) {
+            pad.stateEndTime += pad.bars * 4 * 1000 * 60 / bpm;
+        }
         let span = Date.now() - pad.beat.start;
         let totalBeat = Math.round(span / beat);
         let padBeat = span / beat % 4;
+        pad.positionBar = Math.floor(span / beat / 4 % (pad.bars)) + 1;
         let padBeatProx = Math.round(padBeat);
         log(span + ' ' + totalBeat + ' ' + padBeat + ' ' + padBeatProx);
         pad.beat.time = padBeatProx;
@@ -869,33 +912,40 @@ function updatePadBeat(pad) {
             if (pad.beat.clickOn && pad.beat.clickOn == totalBeat) {
                 pad.button.click();
                 delete pad.beat.clickOn;
-                log('uPB clicking');
+                log('uPB clicking', 'uPB');
             }
             if (pad.beat.clickOff && pad.beat.clickOff == totalBeat) {
                 pad.updateBeat = false;
                 cleanLoop(pad);
             }
             if (padBeatProx == 0 || padBeatProx == 4) {
-                log('tempo blink')
-                buttonBlink(pad.button, '0', '0', '255');
+                log('tempo blink', 'uPB')
+                padBlink(pad, upBeatRGB[0], upBeatRGB[1], upBeatRGB[2], upBeatRGB[3]); //Blue beat on the Bar
+                pad.positionBeat = 1;
             } else {
-                log ('regular blink');
-                buttonBlink(pad.button);
+                log ('regular blink', 'uPB');
+                padBlink(pad);
+                pad.positionBeat = padBeatProx + 1;
             }
         } else {
-            log('uPB: far from target for ' + pad.instrument.name);
+            log('uPB: far from target for ' + pad.instrument.name, 'uPB');
             if (pad.beat.clickOn && totalBeat > pad.beat.clickOn) {
-                log('uPB: missed the clicking');
+                log('uPB: missed the clicking', 'uPB');
             }
         }
     } else {
         pad.updateBeat = false;
+        delete pad.state;
+        delete pad.positionBar;
+        delete pad.positionBeat;
+        updatePadLabel(pad);
     }
     if (pad.updateBeat) {
         let next;
         let span = Date.now() - pad.beat.start;
+        updatePadLabel(pad);
         next = Math.round((Math.floor(span / beat + 1) * beat - Date.now() + pad.beat.start));
-        log('uPB, current beat: ' + pad.beat.time + ' next Beat in: ' + next);
+        log('uPB, current beat: ' + pad.beat.time + ' next Beat in: ' + next, 'uPB');
         setTimeout(function() {log('new beat'); updatePadBeat(pad);}, next);
     }
     return true;
@@ -938,6 +988,9 @@ function checkActionable (clicked) {
         let button = pad.button;
         clicked.text = clicked.instrument.name + ': ';
         cleanLoop(pad);
+        pad.state = 'recording';
+        pad.stateStartTime = Date.now() + 4 * 60 / bpm * 1000; //ms in 1 bar it will start recording
+        pad.stateEndTime = pad.stateStartTime + pad.bars * 4 * 60 / bpm * 1000; //ms and after 4 * pad.bars it should stop recording
         pad.beat = {}; pad.beat.start = Date.now();
         pad.beat.clickOn = 4;
         if (!pad.updateBeat) {updatePadBeat(pad);}
@@ -962,6 +1015,7 @@ function checkActionable (clicked) {
                 clicked.text += 'record a loop first with +';
             } else {
                 pad.button.click();
+                pad.nextState = 'playing';
                 clicked.text += 'playing';
             }
         } else {
@@ -969,6 +1023,7 @@ function checkActionable (clicked) {
                 clicked.text += 'you should use + to record & Backspace to reset';
             }
             clicked.text += 'silent';
+            pad.nextState = 'silent';
             pad.button.click();
         }//**** validate this, make more visible the recording part, the beat part (1-2-3-4, number of bars)
         deleteClickedInstrument(clicked);
