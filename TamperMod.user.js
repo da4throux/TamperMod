@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.7
+// @version      0.3.8
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -17,6 +17,11 @@
 
 //** increase decrease volume
 //** delete after a number of bars
+//** better color coding of the recording
+//** decrease dynamically the time base of the sync (to make it faster or slower)
+//** a minimum slope -> change the slope instead of the length ?
+//** get more (debug) information on a instrument by selecting it
+//** possibility to get an average output dB and sync the volume: or min and max over the last sliding minute for example (keep all the tops for every seconds)
 //*** what is the right maner to handle a pad withouth instrument (a looper without volume)
 //** do I need to keep the addition of elements in the interface (it more feels like it's once and for all) -> I could have configurations based on the title of the session
 //*** two types of pause: one silent, one just pause all movement to allow interaction with the interface
@@ -38,7 +43,7 @@ GM_addStyle (MaterialIcons);
 // <i class="material-icons">aspect_ratio</i>
 
 const logLevel = 10;
-const logFilter = "cA sME";
+const logFilter = "always title"; //cA steps
 const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
 const logMod = 2;
 
@@ -171,7 +176,6 @@ for (const key of Object.keys(colors)) {
 // the interruption to switch to another effect on the same knob does not seem to work
 // fade -Enter- does not seem to land exactly on 0 when starting from -40dB
 
-//  - use the first line with the pedalboardname, to show: list of commands, and their status (running / paused / nothing)
 //  ? do I really need to distinguish fade out / in ? isn't it just going to target ?
 //  - store the setInterval Id in an external array
 //  - define default value for a fadeOut object, so that not all needs to be define
@@ -253,7 +257,7 @@ function simulateMouseEvent(target, type, clientX, clientY) {
 const timeStep = 0.2; // minimum step for each action (every .2s I would change the volume knob)
 const continuoStep = 2000;
 const maxPeriod = 10000; //any action taking more than a second should be reduce to this xx ms - I'm thinking of turning the knob for a fadeOut
-var bpm, beat, actionSpan = 4;
+var bpm, beat, actionSpan = 2;
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
@@ -413,7 +417,7 @@ generalActions = {
     ArrowUp: {
         type: 'action',
         keyboard: 'up',
-        description: 'increase volume',
+        description: 'increase volume', //vs increase targetVolume threshold (low-mid-high vs changing one of those)?
         name: 'increaseVolume',
     },
     ArrowDown: {
@@ -460,7 +464,23 @@ function buildConfigAndActions(){
         instrument.type = 'instrument';
         instrument.volume = key;
         instrument.port = document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]').querySelector('[class="mod-knob-image mod-port"]');
+        instrument.targetStartVolume = instrument.targetVolume = instrument.getVolume();
+        instrument.title = instrument.node;
+        instrument.titlePlus = '';
+        instrument.setTitle = function () {
+            var title;
+            title = instrument.keyboard + ' in section ' + this.section.name + ' rank ' + this.sectionRank + '/' + this.continuo.size + ' of continuo ' + instrument.continuo.name + '\n';
+            if (instrument.getVolume() != instrument.targetVolume) {
+                title += 'volume: ' + this.getVolume() + ' -> ' + instrument.targetVolume + ' in ' + Math.floor((instrument.targetTime - Date.now()) / 100) / 10 + 's\n';
+            } else {
+                title += 'volume: ' + this.getVolume() + ' stable\n';
+            }
+            title += this.titlePlus || '';
+            this.titlePlus = '';
+            instrument.title.setAttribute("title", title);
+        }
         instrumentsAction.push(instrument.code);
+        instrument.setTitle();
     }
     for (let key of Object.keys(loopers)) {
         let pad, selector;
@@ -499,9 +519,41 @@ function buildConfigAndActions(){
     setInterval(actionLoop, continuoStep);
 }
 
-function actionLoop() {
+function actionLoop() { //separate calculating the target Volume from setting them. Several ways to calculate the target volumes
     if (config.engaged) {
-        goThroughContinuos();
+        goThroughContinuos(); //current way to update targetVolumes
+    }
+    updateVolumes();
+}
+
+function updateVolumes() { //**** need to validate: seems to be too fast.
+    let currentVolume, instantTarget, stepsToTarget;
+//            stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
+//            moveMouse(instrument.port, stepsToTarget);
+    for (let inst of Object.values(instruments)) {
+        currentVolume = inst.getVolume();
+        if (inst.targetVolume != currentVolume) {
+            if (inst.targetTime != inst.targetStartTime) {
+                if (inst.targetTime > Date.now()) {
+                    instantTarget = Math.round(inst.targetStartVolume + inst.targetSlope * (Date.now() - inst.targetStartTime));
+                    log('instantTarget ' + instantTarget, 'steps');
+                } else {
+                    instantTarget = inst.targetVolume;
+                    log('overTime for targetTime: ' + inst.targetTime + ' and Now: ' + Date.now(), 'steps');
+                }
+                stepsToTarget = instantTarget - currentVolume;
+                if (inst.keyboard == 0) {
+                    log('stepsToTarget.' + inst.keyboard + ': ' + stepsToTarget + ', ' + inst.targetStartVolume + '(' + currentVolume + ')->' + inst.targetVolume , 'steps');
+                    log('Now1: ' + Date.now() + ', TargetTime: ' + inst.targetTime + ', delta: ' + inst.targetTime, 'steps');
+                    log(Math.floor((inst.targetTime - Date.now()) / 100) / 10 + 's', 'steps');
+                    log('slope: ' + inst.targetSlope + ', tStartV3: ' + inst.targetStartVolume + ', instantTarget: ' + instantTarget, 'steps');
+                }
+                moveMouse(inst.port, -stepsToTarget);
+            }
+        } else {
+//            log('on target.' + inst.keyboard + ': ' + inst.targetStartVolume + '(' + currentVolume + ')->' + inst.targetVolume , 'steps');
+        }
+        inst.setTitle();
     }
 }
 
@@ -610,28 +662,32 @@ function getBPM () {
 }
 
 function goThroughContinuos() {
-    var continuo, continuoPeriod, currentSection, currentVolume, instrument, k, period, periodShift, port, rank, stepsToTarget, targetVolume, timePosition, volumes;
-    period = 60 * 4 / bpm * 4; // 4 black notes, 4 times -> second length
+    var bar, continuo, continuoPeriod, currentSection, currentVolume, instrument, k, period, periodShift, port, rank, stepsToTarget, targetVolume, timeCycle, timePosition, volumes;
+    bar = 60 * 4 / bpm; //seconds 4 black notes -> one bar
+    period = actionSpan * bar; //seconds 4 black notes, actionSpan times
     periodShift = 1 / continuosAction.length; //so that continuos have an equal repartition on a period //*** a bit unsure about that though, not all are used...
     // shouldn t timePosition be based on the continuo, its size, and its reference start point (to take in account pause, and change)
     // some part of rank should be based on continuo.size, and its position in the period should be based on sectionrank (and this should be section.rank)
     for (let instrument of Object.values(instruments)) {
         continuo = instrument.continuo;
         if (!continuo.size) { getContinuoSize(continuo); }
+        if (!continuo.startTime) {continuo.startTime = Date.now();}
         log(continuo.startTime + ' : ' + period + ' : ' + continuo.size, 1);
-        timePosition = (( Date.now() - (continuo.startTime || 0 )) / 1000 / period) % (4 * continuo.size);
+        timePosition = ((Date.now() - continuo.startTime) / 1000 / period) % (4 * continuo.size); //bar position in the whole continuo cycle (including all sections)
+        timeCycle = Math.floor((Date.now() - continuo.startTime) / 1000 / period); //s how many period occured since the beginning of the continuo
         log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
         if (!continuo.pause && continuo.size > 0) {
             volumes = instrument.volumes || pedals_families[instrument.family].volumes; //*** Where should it be stored, should continuo also have this ?
             currentVolume = instrument.getVolume();
-            continuoPeriod = 4 * continuo.size; //8 = 4 * 2, 1 if there is two sections in the continuo
-            rank = 4 * instrument.sectionRank; //in that case will be 0 & 4
+            continuoPeriod = 4 * continuo.size; //8 = 4 * 2 (-> the number of sections in the continuo)
+            rank = 4 * instrument.sectionRank; //in that case will be 0 & 4 (order of passage as maximum volume)
             if (continuo.size == 1) {
                 targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high; //else it would be a too extreme change
             } else {
                 switch (true) {
                     case ((timePosition > rank) && (timePosition < (rank + 3))):
                         targetVolume = currentVolume < volumes.mid ? volumes.mid : volumes.high;
+                        instrument.titlePlus = 'will be at ' + volumes.high + ' for ' + Math.floor(((rank + 3) * period * 1000 + continuo.startTime - Date.now()) / 100) / 10 + 's';
                         break;
                     case ((timePosition > (rank + 3)) && (timePosition <= rank + 4)):
                         targetVolume = volumes.mid;
@@ -644,21 +700,38 @@ function goThroughContinuos() {
                         break;
                     default:
                         targetVolume = currentVolume > volumes.mid ? volumes.mid : volumes.low;
+                        instrument.titlePlus = 'will be at ' + volumes.low + ' for some time';
                         break;
                 }
             }
+            if (instrument.targetVolume != targetVolume) { //need to set new Target
+                instrument.targetStartVolume = currentVolume;
+                instrument.targetVolume = targetVolume;
+                instrument.targetStartTime = Date.now(); //ms
+                instrument.targetTime = continuo.startTime + (timeCycle + 1) * period * 1000; //ms
+                instrument.targetSlope = (targetVolume - instrument.targetStartVolume) / (instrument.targetTime - instrument.targetStartTime);
+                if (instrument.keyboard == 0) {
+                    log('continuo setting.' + instrument.keyboard + ': ' + instrument.targetStartVolume + '->' + instrument.targetVolume + ' in ' + Math.round((instrument.targetTime - instrument.targetStartTime) / 100)/10 + 's','steps');
+                    log('startTime: ' + Date.now() + ', period ms: ' + period * 1000 + ', targetTime: ' + instrument.targetTime, 'steps');
+                }
+            }
             stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
-            log('gTC: ' + instrument.keyboard + ': ' + rank + '/' + timePosition + ' : ' + currentVolume + ' -> ' + targetVolume + ' : ' + stepsToTarget + ' y=' + y, 'sME', 1);
-            moveMouse(instrument.port, stepsToTarget);
+//            moveMouse(instrument.port, stepsToTarget); //should be done now in external function
         }
         if (continuo.pause) {
+            log('gTC: continuo.paused ?', 'always');
             moveMouse(instrument.port, currentVolume); //*** unclear to me now 191021
         }
     }
 }
 
+function setEngagedVisibility (visible) { //** there could be other states though //engage Mode is less compatible with mouse movement
+    document.getElementById('pedalboard-actions').style.boxShadow = visible ? '0 2px 12px red' : null;
+}
+
 function updateTitle(clicked) {
     page_title.innerHTML = '';
+    setEngagedVisibility(config.engaged);
     if (clicked.text != null) {
         page_title.appendChild(createTextNode(clicked.text));
         clicked.text = '';
@@ -988,17 +1061,9 @@ function checkActionable (clicked) {
     return true;
 }
 
-(function() {
-    'use strict';
-    log('TamperMod is waiting to load its configuration');
+function setEventListeners () {
     var clicked, target;
     clicked = {};
-    var si_id = setInterval(function() { //only loadConfiguration once the pedalboard is fully loaded
-        if (document.getElementsByClassName('screen-loading blocker')[0].style.display == 'none') {
-            buildConfigAndActions();
-            clearInterval(si_id);
-        }
-    }, 500);
     document.addEventListener('mouseup', function (e) {
         //x = e.pageX;
         //y = e.pageY;
@@ -1017,8 +1082,8 @@ function checkActionable (clicked) {
                 clicked.newInstrument.symbol = target.slice(target.lastIndexOf('/') + 1);
                 clicked.action = 'setup instrument';
             }
+            updateTitle(clicked);
         }
-        updateTitle(clicked);
     }, false);
     // https://stackoverflow.com/questions/2601097/how-to-get-the-mouse-position-without-events-without-moving-the-mouse
     //press 'a' for toggling the gain on/off
@@ -1057,6 +1122,18 @@ function checkActionable (clicked) {
         checkActionable(clicked); //??? why the object is not updated ?!
         updateTitle(clicked);
     });
+}
+
+(function() {
+    'use strict';
+    log('TamperMod is waiting to load its configuration');
+    var si_id = setInterval(function() { //only loadConfiguration once the pedalboard is fully loaded
+        if (document.getElementsByClassName('screen-loading blocker')[0].style.display == 'none') {
+            clearInterval(si_id);
+            buildConfigAndActions();
+            setEventListeners();
+        }
+    }, 500);
 })();
 
 //
