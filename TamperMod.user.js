@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.9
+// @version      0.3.10
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -15,12 +15,14 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
+//** color code the tinyGain to make more visible where there is sound (muted, silent, low, normal, max)
+//** possibility to use tinyGain to mute an instrument ?
+//** possibility to get an average output dB and sync the volume: or min and max over the last sliding minute for example (keep all the tops for every seconds)
 //** increase decrease volume
+//** make engagement specific to some continuo not all
 //** delete after a number of bars
 //** decrease dynamically the time base of the sync (to make it faster or slower)
 //** a minimum slope -> change the slope instead of the length ?
-//** get more (debug) information on a instrument by selecting it
-//** possibility to get an average output dB and sync the volume: or min and max over the last sliding minute for example (keep all the tops for every seconds)
 //*** what is the right maner to handle a pad withouth instrument (a looper without volume)
 //** do I need to keep the addition of elements in the interface (it more feels like it's once and for all) -> I could have configurations based on the title of the session
 //*** two types of pause: one silent, one just pause all movement to allow interaction with the interface
@@ -42,7 +44,7 @@ GM_addStyle (MaterialIcons);
 // <i class="material-icons">aspect_ratio</i>
 
 const logLevel = 10;
-const logFilter = "always uPB"; //cA steps
+const logFilter = "always mute"; //cA steps uPB
 const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
 const logMod = 2;
 
@@ -260,7 +262,7 @@ var bpm, beat, actionSpan = 2;
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
-    volumes, pedals_families = {}, loopers; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
+    volumes, pedals_families = {}, loopers, levels; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
 // I need to build this from configuration:
 // document.querySelector('[mod-instance="/graph/Gain_1"][class="mod-pedal ui-draggable"]').querySelector('[mod-port="/graph/Gain_1/Gain"]')
 // when browsing above a pedal, get all its potential control:
@@ -268,6 +270,9 @@ var config = {},
 const defaultBeatRGB = ['100', '100', '0', '0.8']; //default beat is yellow
 const recordBeatRGB = ['255', '000', '0', '0.6']; //record color is red
 const upBeatRGB = ['0', '0', '255', '0.8']; // upBeat is blue
+const DB_LOW = -60;
+const DB_HIGH = -10;
+const DB_SILENT = '-inf';
 var actions = []; //need to track for eacth instance/symbol the current action if any
 var active_actions = {}; //hash by port of ID of current effect if any
 var styles = {
@@ -315,6 +320,11 @@ pedals_families = {
         symbol: "loop1",
         color: "yellow",
         subFamily: 'looper',
+    },
+    tinyGain: {
+        symbol: 'level',
+        subFamily: 'level',
+        description: 'level indication', //check if the instrument is making sounds, look for high/low levels in the recent bars
     }
 };
 
@@ -322,28 +332,24 @@ pedals_families = {
 volumes = {
     0: {
         instance: "/graph/Gain_1",
-        symbol: "Gain",
         description: "V3 pedal TOP looper",
         family: "Gain",
         code: "Digit0"
     },
     1: {
         instance: "/graph/Gain",
-        symbol: "Gain",
         description: "V3 pedal BOTTOM looper",
         family: "Gain",
         code: "Digit1"
     },
     2: {
         instance: "/graph/Gain_2",
-        symbol: "Gain",
         description: "V3 direct",
         family: "Gain",
         code: "Digit2"
     },
     3: {
         instance: "/graph/Gain_3",
-        symbol: "Gain",
         description: "raw V3 ",
         family: "Gain",
         code: "Digit3"
@@ -368,6 +374,21 @@ loopers = {
         family: "Alo",
         kind: "raw",
         code: "Digit3"
+    },
+};
+
+levels = {
+    0: {
+        instance: "/graph/mono",
+        family: 'tinyGain',
+    },
+    1: {
+        instance: "/graph/mono_6",
+        family: 'tinyGain',
+    },
+    3: {
+        instance: "/graph/mono_4",
+        family: 'tinyGain',
     },
 };
 
@@ -486,6 +507,20 @@ function buildConfigAndActions(){
         }
         instrumentsAction.push(instrument.code);
         instrument.setTitle();
+        if (levels[key]) {
+            instrument.level = document.querySelector('[mod-instance="' + levels[key].instance + '"][class="mod-pedal ui-draggable"]');
+            instrument.mute = document.querySelector('[mod-instance="' + levels[key].instance + '"][class="mod-settings"]').querySelector('[class="mod-switch-image mod-port"]');
+            instrument.getLevel = function () {
+                return instrument.level.querySelector('[class="db"]').innerText;
+            }
+            instrument.toggleMute = function () {
+                instrument.mute.click();
+            }
+            instrument.isMuted = function () {
+                log(instrument.keyboard + ' is muted: ' + (instrument.mute.style.backgroundPosition != "0px 0px"), 'mute');
+                return (instrument.mute.style.backgroundPosition != "0px 0px");
+            }
+        }
     }
     for (let key of Object.keys(loopers)) {
         let pad, selector;
@@ -620,7 +655,7 @@ function appendTextNode(node, text, color, size) {
 }
 
 function updatePadLabel(pad) {
-    var text;
+    var text, level;
     pad.textNode.innerHTML = '';
     text = pad.keyboard;
     if (pad.positionBar) {
@@ -628,6 +663,27 @@ function updatePadLabel(pad) {
             text += '_record in: ' + (5 - pad.positionBeat);
         } else {
             text += '_' + pad.state + ': ' + pad.positionBar + '.' + pad.positionBeat;
+        }
+    }
+    if (pad.instrument.isMuted()) {
+        text += '_muted';
+    } else {
+        if (pad.instrument.level) {
+            level = pad.instrument.getLevel();
+            switch (true) {
+                case (level == DB_SILENT):
+                    text += '_silent';
+                    break;
+                case (level < DB_LOW):
+                    text += '_low';
+                    break;
+                case (level >= DB_LOW && level < DB_HIGH):
+                    text += '_noisy';
+                    break;
+                case (level >= DB_HIGH):
+                    text += '_loud';
+                    break;
+            }
         }
     }
     log (text, 'uPB');
@@ -874,6 +930,9 @@ function deleteClickedInstrument (clicked) {
         if (clicked.instrument.pad) {
             highlight(clicked.instrument.pad.node, true);
         }
+        if (clicked.instrument.level) {
+            highlight(clicked.instrument.level, true);
+        }
     }
     delete clicked.instrument;
     return true;
@@ -1053,9 +1112,18 @@ function checkActionable (clicked) {
         delete clicked.action;
     }
     if (clicked.action != null && clicked.action.name == 'engagement') {
-        config.engaged = config.engaged ? false : true;
-        clicked.text = config.engaged ? 'tamperMod engaged' : 'tamperMod disengaged'; //*** not really though, need to set all volumes to 0, maybe found a restore also
-        delete clicked.action;
+        if (clicked.instrument) {
+            if (clicked.instrument.level) {
+                clicked.instrument.toggleMute();
+                clicked.text = clicked.instrument.keyboard + (clicked.instrument.isMuted() ? ' muted' : ' unmuted');
+            }
+            delete clicked.instrument;
+            delete clicked.action;
+        } else {
+            config.engaged = config.engaged ? false : true;
+            clicked.text = config.engaged ? 'tamperMod engaged' : 'tamperMod disengaged'; //*** not really though, need to set all volumes to 0, maybe found a restore also
+            delete clicked.action;
+        }
     }
     if (clicked.action != null && (clicked.action.name == 'increaseActionSpan' || clicked.action.name == 'decreaseActionSpan')) {
         actionSpan = clicked.action.name == 'increaseActionSpan' ? actionSpan + 1 : Math.max(0, actionSpan - 1);
@@ -1158,6 +1226,9 @@ function setEventListeners () {
                 highlight(clicked.instrument.node);
                 if (clicked.instrument.pad) {
                     highlight(clicked.instrument.pad.node);
+                }
+                if (clicked.instrument.level) {
+                    highlight(clicked.instrument.level);
                 }
             }
         }
