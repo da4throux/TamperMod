@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TamperMod
 // @namespace    http://tampermonkey.net/
-// @version      0.3.10
+// @version      0.3.11
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
 // @match        http://192.168.51.1/*
@@ -15,10 +15,12 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
-//** color code the tinyGain to make more visible where there is sound (muted, silent, low, normal, max)
-//** possibility to use tinyGain to mute an instrument ?
-//** possibility to get an average output dB and sync the volume: or min and max over the last sliding minute for example (keep all the tops for every seconds)
+//** (bug): sectionRank and scale updated from start (it was often 0/undefined)
+//** (bug): updatePadLabel when transfering (state: transfering and once finished)
+
 //** increase decrease volume
+//** color code the tinyGain to make more visible where there is sound (muted, silent, low, normal, max)
+//** possibility to get an average output dB and sync the volume: or min and max over the last sliding minute for example (keep all the tops for every seconds)
 //** make engagement specific to some continuo not all
 //** delete after a number of bars
 //** decrease dynamically the time base of the sync (to make it faster or slower)
@@ -478,6 +480,7 @@ function buildConfigAndActions(){
     for (let key of Object.keys(volumes)) {
         let instrument = instruments[volumes[key].code] = Object.assign({}, pedals_families[volumes[key].family], volumes[key]);
         instrument.continuo = continuos[continuosAction[instrumentsAction.length]];
+        instrument.continuo.size = 1;
         instrument.key = key.toUpperCase().charCodeAt(0);
         instrument.node = document.querySelector('[mod-instance="' + instrument.instance + '"]');
         instrument.keyboard = key;
@@ -492,7 +495,7 @@ function buildConfigAndActions(){
         instrument.titlePlus = '';
         instrument.setTitle = function () {
             var title;
-            title = instrument.keyboard + ' in section ' + this.section.name + ' rank ' + this.sectionRank + '/' + this.continuo.size + ' of continuo ' + instrument.continuo.name + '\n';
+            title = instrument.keyboard + ' in section ' + this.section.name + ' rank ' + (this.sectionRank + 1) + '/' + this.continuo.size + ' of continuo ' + instrument.continuo.name + '\n';
             if (instrument.getVolume() != instrument.targetVolume) {
                 title += 'volume: ' + this.getVolume() + ' -> ' + instrument.targetVolume + ' in ' + Math.floor((instrument.targetTime - Date.now()) / 100) / 10 + 's\n';
             } else {
@@ -537,6 +540,7 @@ function buildConfigAndActions(){
         pad.textNode = pad.anchor.children[0];
         pad.textNode.style.textAlign = 'center';
         pad.textNode.style.textShadow = '-1px 0 black, 0 1px black, 1px 0 black, 0 -1px black';
+        pad.state = 'N/A';
         if (pad.kind) {
             log('kind triggered with: ' + pad.kind);
             pads[pad.bars + pad.kind] = pad; //creating access like 2raw to facilitate transfer
@@ -664,27 +668,28 @@ function updatePadLabel(pad) {
         } else {
             text += '_' + pad.state + ': ' + pad.positionBar + '.' + pad.positionBeat;
         }
+    } else {
+        text += '_' + pad.state;
+    }
+    if (pad.instrument.level) {
+        level = pad.instrument.getLevel();
+        switch (true) {
+            case (level == DB_SILENT):
+                text += '_silent';
+                break;
+            case (level < DB_LOW):
+                text += '_low';
+                break;
+            case (level >= DB_LOW && level < DB_HIGH):
+                text += '_noisy';
+                break;
+            case (level >= DB_HIGH):
+                text += '_loud';
+                break;
+        }
     }
     if (pad.instrument.isMuted()) {
         text += '_muted';
-    } else {
-        if (pad.instrument.level) {
-            level = pad.instrument.getLevel();
-            switch (true) {
-                case (level == DB_SILENT):
-                    text += '_silent';
-                    break;
-                case (level < DB_LOW):
-                    text += '_low';
-                    break;
-                case (level >= DB_LOW && level < DB_HIGH):
-                    text += '_noisy';
-                    break;
-                case (level >= DB_HIGH):
-                    text += '_loud';
-                    break;
-            }
-        }
     }
     log (text, 'uPB');
     appendTextNode(pad.textNode, text, pad.color);
@@ -881,6 +886,9 @@ function cleanLoop (pad) {
     }
     buttonDoubleClick(pad.button);
     delete pad.beat;
+    pad.state = 'empty';
+    log ('emptied pad ' + pad.keyboard, 'mute');
+    updatePadLabel(pad);
     return true;
 }
 
@@ -907,7 +915,7 @@ function padBlink (pad, r, g, b, l) {
     var button = pad.button;
     button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || defaultBeatRGB[0]) + ',' + (g || defaultBeatRGB[1]) + ',' + (b || defaultBeatRGB[2]) + ',' + (l || defaultBeatRGB[3]) + ')';
     setTimeout(function() {
-        if (pad.state && pad.state == 'recording' && Date.now() > pad.stateStartTime && Date.now() < pad.stateEndTime) {
+        if (pad.state && pad.state == 'recording' && Date.now() > pad.stateStartTime) {
             button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || recordBeatRGB[0]) + ',' + (g || recordBeatRGB[1]) + ',' + (b || recordBeatRGB[2]) + ',' + recordBeatRGB[3] + ')';
         } else {
             button.style.boxShadow = 'none';
@@ -948,14 +956,9 @@ function updatePadBeat(pad) {
         if (pad.state == 'recording' && Date.now() > pad.stateStartTime) {
             pad.beat.start = pad.stateStartTime; //the new beat start is the recording start
         }
-        if (pad.state == 'recording' && Date.now() > pad.stateEndTime) {
-            pad.state = 'playing';
-        }
-        if (pad.state == 'playing' && pad.nextState == 'silent' && Date.now() > pad.stateEndTime) {
-            pad.state = 'silent';
-        }
-        if (pad.state == 'silent' && pad.nextState == 'playing' && Date.now() > pad.stateEndTime) {
-            pad.state = 'playing';
+        if (pad.nextState && Date.now() > pad.stateEndTime) {
+            pad.state = pad.nextState;
+            delete pad.nextState;
         }
         if (pad.stateEndTime && Date.now() > pad.stateEndTime) {
             pad.stateEndTime += pad.bars * 4 * 1000 * 60 / bpm;
@@ -994,7 +997,7 @@ function updatePadBeat(pad) {
         }
     } else {
         pad.updateBeat = false;
-        delete pad.state;
+        pad.state = 'empty'; //delete pad.state;
         delete pad.positionBar;
         delete pad.positionBeat;
         updatePadLabel(pad);
@@ -1048,6 +1051,7 @@ function checkActionable (clicked) {
         clicked.text = clicked.instrument.name + ': ';
         cleanLoop(pad);
         pad.state = 'recording';
+        pad.nextState = 'playing';
         pad.stateStartTime = Date.now() + 4 * 60 / bpm * 1000; //ms in 1 bar it will start recording
         pad.stateEndTime = pad.stateStartTime + pad.bars * 4 * 60 / bpm * 1000; //ms and after 4 * pad.bars it should stop recording
         pad.beat = {}; pad.beat.start = Date.now();
@@ -1072,6 +1076,7 @@ function checkActionable (clicked) {
         if (pad.button.style.backgroundPosition != pad.clickedStyle) {
             if (!pad.updateBeat) {
                 clicked.text += 'record a loop first with +';
+                pad.state = 'N/A';
             } else {
                 pad.button.click();
                 pad.nextState = 'playing';
@@ -1080,9 +1085,10 @@ function checkActionable (clicked) {
         } else {
             if (!pad.updateBeat) {
                 clicked.text += 'you should use + to record & Backspace to reset';
+                pad.state = 'N/A'
             }
-            clicked.text += 'silent';
-            pad.nextState = 'silent';
+            clicked.text += 'paused';
+            pad.nextState = 'paused';
             pad.button.click();
         }//**** validate this, make more visible the recording part, the beat part (1-2-3-4, number of bars)
         deleteClickedInstrument(clicked);
@@ -1116,6 +1122,7 @@ function checkActionable (clicked) {
             if (clicked.instrument.level) {
                 clicked.instrument.toggleMute();
                 clicked.text = clicked.instrument.keyboard + (clicked.instrument.isMuted() ? ' muted' : ' unmuted');
+                updatePadLabel(clicked.instrument.pad);
             }
             delete clicked.instrument;
             delete clicked.action;
@@ -1157,6 +1164,10 @@ function checkActionable (clicked) {
                 }
                 cleanLoop(pad);
                 startLoop(pad);
+                pad.state = 'recording';
+                pad.nextState = 'playing';
+                pad.stateStartTime = Date.now(); //instant recording
+                pad.stateEndTime = pad.stateStartTime + pad.bars * 4 * 60 / bpm * 1000; //ms and after 4 * pad.bars it should stop recording
                 setTimeout(function(){
                     cleanLoop(raw, pad.bars);
                     clicked.text = 'complete transfer of raw ' + originKey + ' to loop ' + destinationKey + ' and clean up';
