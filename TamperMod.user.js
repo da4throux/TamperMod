@@ -15,6 +15,9 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
+// tested on: http://192.168.51.1/?v=1.9.3.1776
+// with: 1910 SETUP TAMPER pedalboard
+
 //** (bug): sectionRank and scale updated from start (it was often 0/undefined)
 //** (bug): updatePadLabel when transfering (state: transfering and once finished)
 
@@ -1267,10 +1270,12 @@ function setEventListeners () {
     var si_id = setInterval(function() { //only loadConfiguration once the pedalboard is fully loaded
         if (document.getElementsByClassName('screen-loading blocker')[0].style.display == 'none') {
             clearInterval(si_id);
-            buildConfigAndActions();
-            setEventListeners();
+            setTimeout(function() {
+                buildConfigAndActions();
+                setEventListeners();
+            }, 3000);
         }
-    }, 500);
+    }, 2000);
 })();
 
 //
