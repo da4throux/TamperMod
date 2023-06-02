@@ -484,6 +484,12 @@ function buildConfigAndActions() {
     page_title.style.textTransform = 'none';
     for (let key of Object.keys(volumes)) {
         let instrument = instruments[volumes[key].code] = Object.assign({}, pedals_families[volumes[key].family], volumes[key]);
+        if (document.querySelector('[mod-instance="' + instrument.instance + '"][class="mod-pedal ui-draggable"]') == null) {
+            console.log('TamperMonkey error in config, missing instrument: ' + key + ' - ' + instrument.instance);
+            delete instruments[volumes[key].code]; delete volumes[key];
+            continue;
+        }
+        console.log('TamperMonkey adding instrument: ' + key + ' - ' + instrument.instance);
         instrument.continuo = continuos[continuosAction[instrumentsAction.length]];
         instrument.continuo.size = 1;
         instrument.key = key.toUpperCase().charCodeAt(0);
