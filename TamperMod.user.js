@@ -1281,14 +1281,26 @@ function setEventListeners() {
     });
 }
 
-(function() {
+function getPedalboardInfo() {
+    var pedals = document.querySelectorAll('[class="mod-pedal ui-draggable"]');
+    var types = {};
+    pedals.forEach(function (pedal) { console.log(pedal.getAttribute('mod-instance').substr(7)); });
+    pedals.forEach(function (pedal) {
+        var type = pedal.getAttribute('mod-instance').substr(7).replace(/_\d+$/, "");
+        if (types.hasOwnProperty(type)) { types[type]++; } else { types[type] = 1; console.log('new type found: ' + type); }
+    });
+    console.log(pedals.length + ' pedals being used');
+    console.log(types);
+}
+
 (function () {
     'use strict';
     log('TamperMod is waiting to load its configuration');
     var si_id = setInterval(function () { //only loadConfiguration once the pedalboard is fully loaded
         if (document.getElementsByClassName('screen-loading blocker')[0].style.display == 'none') {
             clearInterval(si_id);
-            setTimeout(function() {
+            setTimeout(function () {
+                getPedalboardInfo();
                 buildConfigAndActions();
                 setEventListeners();
             }, 3000);
