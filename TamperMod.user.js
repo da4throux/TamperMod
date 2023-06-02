@@ -4,7 +4,7 @@
 // @version      0.3.11
 // @description  Help automate some dynamic gesture when using the Mod Duo X
 // @author       da4throux
-// @match        http://192.168.51.1/*
+// @match        http://moddwarf.local/*
 // @grant_not        GM_xmlhttpRequest //should not be needed anymore
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -15,7 +15,9 @@
 // @run-at       document-idle
 // @resource     MaterialIcons https://fonts.googleapis.com/icon?family=Material+Icons
 
-// tested on: http://192.168.51.1/?v=1.9.3.1776
+// ==/UserScript==
+
+/** tested on: http://192.168.51.1/?v=1.9.3.1776
 // with: 1910 SETUP TAMPER pedalboard
 
 //** (bug): sectionRank and scale updated from start (it was often 0/undefined)
@@ -42,18 +44,19 @@
 //** /Slash\BackSlash keys to use a fade in and out if needed
 //** Indicate the length of the fade in bars
 //** instant silence [ ]: to open and close it ?
+**/
 
 const MaterialIcons = GM_getResourceText("MaterialIcons");
-GM_addStyle (MaterialIcons);
+GM_addStyle(MaterialIcons);
 // https://material.io/resources/icons/?style=baseline
 // <i class="material-icons">aspect_ratio</i>
 
 const logLevel = 10;
 const logFilter = "always mute"; //cA steps uPB
-const logMods= ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
+const logMods = ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
 const logMod = 2;
 
-function log (message, levelOrOrigin, level) {
+function log(message, levelOrOrigin, level) {
     let origin, log;
     //console.log (log.caller);
     //10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
@@ -71,51 +74,51 @@ function log (message, levelOrOrigin, level) {
             log = logFilter.includes(origin) && level >= logLevel;
             break;
         case 3:
-            log = logFilter.split(" ").some(f=> origin.includes(f));
+            log = logFilter.split(" ").some(f => origin.includes(f));
             break;
     }
     if (log) {
-        console.log (typeof message == 'string' ? 'TamperMod-' + origin + ':' + message : message);
+        console.log(typeof message == 'string' ? 'TamperMod-' + origin + ':' + message : message);
     }
 }
 
 const icons = { // https://keycode.info/
-    a : {
+    a: {
         name: 'arrow',
         material: 'call_made',
         code: 'KeyA'
     },
-    c : {
+    c: {
         name: 'circle',
         material: 'fiber_manual_record',
         code: 'KeyC',
     },
-    e : {
+    e: {
         name: 'eye',
         material: 'visibility',
         code: 'KeyE'
     },
-    h : {
+    h: {
         name: 'heart',
         material: 'favorite',
         code: 'KeyH'
     },
-    m : {
+    m: {
         name: 'mobile',
         material: 'stay_primary_portrait',
         code: 'KeyM'
     },
-    s : {
+    s: {
         name: 'star',
         material: 'grade',
         code: 'KeyS'
     },
-    f : {
+    f: {
         name: 'facebook',
         material: 'thumb_up',
         code: 'KeyF'
     },
-    v : { //could be a toggle - or should the icon be greyed
+    v: { //could be a toggle - or should the icon be greyed
         name: 'volume Off',
         material: 'volume_off',
         code: 'KeyV'
@@ -132,31 +135,31 @@ for (const key of Object.keys(icons)) {
 }
 
 const colors = {
-    b : {
+    b: {
         name: 'blue',
         code: 'KeyB'
     },
-    g : {
+    g: {
         name: 'green',
         code: 'KeyG'
     },
-    o : {
+    o: {
         name: 'orange',
         code: 'KeyO'
     },
-    p : {
+    p: {
         name: 'purple',
         code: 'KeyP'
     },
-    r : {
+    r: {
         name: 'red',
         code: 'KeyR'
     },
-    w : {
+    w: {
         name: 'white',
         code: 'KeyW'
     },
-    y : {
+    y: {
         name: 'yellow',
         code: 'KeyY'
     }
@@ -174,7 +177,6 @@ for (const key of Object.keys(colors)) {
 // 32: stop all actions
 // assume everything is a multiple of 4 bars at least (i.e. 1, 2 or 4 bars loop)
 
-// ==/UserScript==
 // Todo:
 
 // fadeout does not seem to work in mode fade
@@ -230,13 +232,13 @@ for (const key of Object.keys(colors)) {
 //   - effect: fade in or out on Gain type knob
 //   - one key: start / pause the effect
 
-function triggerMouseEvent (node, eventType) {
-    var clickEvent = document.createEvent ('MouseEvents');
-    clickEvent.initEvent (eventType, true, true);
-    node.dispatchEvent (clickEvent);
+function triggerMouseEvent(node, eventType) {
+    var clickEvent = document.createEvent('MouseEvents');
+    clickEvent.initEvent(eventType, true, true);
+    node.dispatchEvent(clickEvent);
 }
 
-function triggerEvent(target, type){
+function triggerEvent(target, type) {
     "use strict";
     var event = document.createEvent('HTMLEvents');
     event.initEvent(type, true, true);
@@ -267,7 +269,7 @@ var bpm, beat, actionSpan = 2;
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
-    volumes, pedals_families = {}, loopers, levels; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
+    volumes, pedals_families = {}, pedals_types = {}, loopers, levels; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
 // I need to build this from configuration:
 // document.querySelector('[mod-instance="/graph/Gain_1"][class="mod-pedal ui-draggable"]').querySelector('[mod-port="/graph/Gain_1/Gain"]')
 // when browsing above a pedal, get all its potential control:
@@ -282,8 +284,8 @@ var actions = []; //need to track for eacth instance/symbol the current action i
 var active_actions = {}; //hash by port of ID of current effect if any
 var styles = {
     'fade-out': "crimson",
-    'fade-in' : "blue",
-    'stable'  : "lime",
+    'fade-in': "blue",
+    'stable': "lime",
 };
 var fade_colors = {
     '-1': 'blue',
@@ -291,13 +293,13 @@ var fade_colors = {
 };
 var default_filter = 'drop-shadow(20px 6px 20px Fuchsia)';
 
-function knob_style (remaining_steps, type) { //number of steps away from target, fade_in/out...
+function knob_style(remaining_steps, type) { //number of steps away from target, fade_in/out...
     var _style = 'drop-shadow(';
     _style += Math.round(remaining_steps / 64 * 30) + 'px 6px ' + Math.round(remaining_steps / 64 * 30) + 'px ' + styles[type] + ')';
     return _style;
 }
 
-function port_style (remaining_steps, direction) { //number of steps away from target, fade_in/out...
+function port_style(remaining_steps, direction) { //number of steps away from target, fade_in/out...
     var _style = 'drop-shadow(';
     _style += Math.round(remaining_steps / 64 * 30) + 'px 6px ' + Math.round(remaining_steps / 64 * 30) + 'px ' + fade_colors[direction] + ')';
     return _style;
@@ -336,8 +338,8 @@ pedals_families = {
 //*** I kind of set a limit to 10 loops (0 to 9) - ok for the time being I guess
 volumes = {
     0: {
-        instance: "/graph/Gain_1",
-        description: "V3 pedal TOP looper",
+        instance: "/graph/mono_1",
+        description: "V3 pedal general",
         family: "Gain",
         code: "Digit0"
     },
@@ -406,19 +408,19 @@ var pads = {};
 config_default.actions = {};
 var generalActions = {};
 generalActions = {
-    Space : { //V3 off button toogle
+    Space: { //V3 off button toogle
         type: 'action',
         keyboard: 'space',
         description: 'toggle tamperMod engagement (recommended for web page direct interaction)',
         name: 'engagement',
     },
-    Period : {
+    Period: {
         type: 'action',
         keyboard: '.',
         description: 'raw toggle the associated loop', //i.e. no handling of bars or beats
         name: 'loopClick',
     },
-    Minus : {
+    Minus: {
         type: 'action',
         keyboard: '-', //between - and _ (sound / no sound) //Alo keeps the rythm of the loop running though
         description: 'one Click - start or stop the playing of the loop on its next cycle',
@@ -470,10 +472,10 @@ generalActions = {
 
 config_default = JSON.stringify(config_default);
 GM_setValue('config', config_default);
-log ('GM_setValue done', config_default, typeof GM_setValue.then); //
+log('GM_setValue done', config_default, typeof GM_setValue.then); //
 //}
 
-function buildConfigAndActions(){
+function buildConfigAndActions() {
     var i;
     bpm = getBPM(); beat = 60 / bpm * 1000; //beat is in ms
     //    investigationOfModPorts();
@@ -532,6 +534,12 @@ function buildConfigAndActions(){
         let pad, selector;
         pad = pads[loopers[key].code] = Object.assign({}, pedals_families[loopers[key].family] || {}, loopers[key]);;
         pad.node = document.querySelector('[mod-instance="' + pad.instance + '"]');
+        if (pad.node == null) {
+            console.log('TamperMonkey error in config, missing looper: ' + key + ' - ' + pad.instance);
+            delete pads[loopers[key].code]; delete loopers[key];
+            continue;
+        }
+        console.log('TamperMonkey adding looper: ' + key + ' - ' + pad.instance);
         pad.bars = parseInt(pad.node.querySelector('[mod-port-symbol="bars"][class="mod-knob-value"]').innerText);
         pad.button = pad.node.querySelector('[mod-port-symbol="' + pad.symbol + '"]');
         pad.key = key.toUpperCase().charCodeAt(0);
@@ -552,12 +560,12 @@ function buildConfigAndActions(){
             instruments[pad.code].pad = pad;
             pad.instrument = instruments[pad.code];
         }
-/*        else {
-            instruments[pad.code] = {};
-            instruments[pad.code].pad = pad;
-            pad.instrument = instruments[pad.code];
-        }
-*/
+        /*        else {
+                    instruments[pad.code] = {};
+                    instruments[pad.code].pad = pad;
+                    pad.instrument = instruments[pad.code];
+                }
+        */
     }
     updateInstrumentsLabel();
     config = JSON.parse(GM_getValue('config'));
@@ -575,8 +583,8 @@ function actionLoop() { //separate calculating the target Volume from setting th
 
 function updateVolumes() { //**** need to validate: seems to be too fast.
     let currentVolume, instantTarget, stepsToTarget;
-//            stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
-//            moveMouse(instrument.port, stepsToTarget);
+    //            stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
+    //            moveMouse(instrument.port, stepsToTarget);
     for (let inst of Object.values(instruments)) {
         currentVolume = inst.getVolume();
         if (inst.targetVolume != currentVolume) {
@@ -590,7 +598,7 @@ function updateVolumes() { //**** need to validate: seems to be too fast.
                 }
                 stepsToTarget = instantTarget - currentVolume;
                 if (inst.keyboard == 0) {
-                    log('stepsToTarget.' + inst.keyboard + ': ' + stepsToTarget + ', ' + inst.targetStartVolume + '(' + currentVolume + ')->' + inst.targetVolume , 'steps');
+                    log('stepsToTarget.' + inst.keyboard + ': ' + stepsToTarget + ', ' + inst.targetStartVolume + '(' + currentVolume + ')->' + inst.targetVolume, 'steps');
                     log('Now1: ' + Date.now() + ', TargetTime: ' + inst.targetTime + ', delta: ' + inst.targetTime, 'steps');
                     log(Math.floor((inst.targetTime - Date.now()) / 100) / 10 + 's', 'steps');
                     log('slope: ' + inst.targetSlope + ', tStartV3: ' + inst.targetStartVolume + ', instantTarget: ' + instantTarget, 'steps');
@@ -598,7 +606,7 @@ function updateVolumes() { //**** need to validate: seems to be too fast.
                 moveMouse(inst.port, -stepsToTarget);
             }
         } else {
-//            log('on target.' + inst.keyboard + ': ' + inst.targetStartVolume + '(' + currentVolume + ')->' + inst.targetVolume , 'steps');
+            //            log('on target.' + inst.keyboard + ': ' + inst.targetStartVolume + '(' + currentVolume + ')->' + inst.targetVolume , 'steps');
         }
         inst.setTitle();
     }
@@ -647,14 +655,14 @@ function createTextNode(text, color, size) {
     if (color) {
         textNode.style.color = color;
     }
-    if (size){
+    if (size) {
         textNode.style.fontSize = size;
     }
     return textNode;
 }
 
 function appendTextNode(node, text, color, size) {
-    var textNode = createTextNode (text, color || 'green', size || 'x-large');
+    var textNode = createTextNode(text, color || 'green', size || 'x-large');
     textNode.style.fontWeight = 'bolder';
     textNode.style.textAlign = 'center';
     node.appendChild(textNode);
@@ -694,7 +702,7 @@ function updatePadLabel(pad) {
     if (pad.instrument.isMuted()) {
         text += '_muted';
     }
-    log (text, 'uPB');
+    log(text, 'uPB');
     appendTextNode(pad.textNode, text, pad.color);
 }
 
@@ -703,11 +711,14 @@ function updateInstrumentsLabel() {
     for (let inst of Object.values(instruments)) {
         selector = '[mod-instance="' + inst.instance + '"][class="mod-pedal ui-draggable"]';
         inst.anchor = document.querySelector(selector).querySelector('[class="mod-drag-handle"]');
-        inst.textNode = document.querySelector(selector).querySelector('[class="mod-plugin-brand"]').children[0]; //h1
+        //        inst.textNode = document.querySelector(selector).querySelector('[class="mod-plugin-brand"]').children[0]; //h1 ***** change from MDX or miniGain ?
+        inst.dbLabel = document.querySelector(selector).querySelector('[class="db-label"]');
+        inst.textNode = inst.dbLabel.children[0]; //h1
         inst.textNode.innerHTML = '';
         appendTextNode(inst.textNode, inst.keyboard, 'white');
         appendIconNode(inst.continuo.material, inst.section.color, inst.textNode);
         appendTextNode(inst.textNode, inst.continuo.keyboard + inst.section.keyboard, 'white');
+        inst.dbLabel.style.transform = "translateY(40px)" //***** would be better positioned above the bin and settings (all the same !)
     }
     for (let pad of Object.values(pads)) {
         updatePadLabel(pad);
@@ -715,9 +726,9 @@ function updateInstrumentsLabel() {
 }
 
 function moveMouse(port, stepsToTarget) {
-    ["mouseover", "mousedown"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
-    simulateMouseEvent(port, 'mousemove', x , y + 2 * stepsToTarget);
-    ["mouseup", "click"].forEach(function(eventType) { triggerMouseEvent(port, eventType);});
+    ["mouseover", "mousedown"].forEach(function (eventType) { triggerMouseEvent(port, eventType); });
+    simulateMouseEvent(port, 'mousemove', x, y + 2 * stepsToTarget);
+    ["mouseup", "click"].forEach(function (eventType) { triggerMouseEvent(port, eventType); });
 }
 
 function getContinuoSize(continuo) { //number of different sections in the continuo
@@ -738,7 +749,7 @@ function modulo(a, b) {
     return modulo;
 }
 
-function getBPM () {
+function getBPM() {
     return parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
 }
 
@@ -752,11 +763,11 @@ function goThroughContinuos() {
     for (let instrument of Object.values(instruments)) {
         continuo = instrument.continuo;
         if (!continuo.size) { getContinuoSize(continuo); }
-        if (!continuo.startTime) {continuo.startTime = Date.now();}
+        if (!continuo.startTime) { continuo.startTime = Date.now(); }
         log(continuo.startTime + ' : ' + period + ' : ' + continuo.size, 1);
         timePosition = ((Date.now() - continuo.startTime) / 1000 / period) % (4 * continuo.size); //bar position in the whole continuo cycle (including all sections)
         timeCycle = Math.floor((Date.now() - continuo.startTime) / 1000 / period); //s how many period occured since the beginning of the continuo
-        log (instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
+        log(instrument.name + ' = ' + continuo.name + '-' + continuo.size + '.' + instrument.section.name + '-' + instrument.sectionRank + ', mode: ' + (continuo.mode || 'not set') + ' phase: ' + timePosition % (4 * rank));
         if (!continuo.pause && continuo.size > 0) {
             volumes = instrument.volumes || pedals_families[instrument.family].volumes; //*** Where should it be stored, should continuo also have this ?
             currentVolume = instrument.getVolume();
@@ -792,12 +803,12 @@ function goThroughContinuos() {
                 instrument.targetTime = continuo.startTime + (timeCycle + 1) * period * 1000; //ms
                 instrument.targetSlope = (targetVolume - instrument.targetStartVolume) / (instrument.targetTime - instrument.targetStartTime);
                 if (instrument.keyboard == 0) {
-                    log('continuo setting.' + instrument.keyboard + ': ' + instrument.targetStartVolume + '->' + instrument.targetVolume + ' in ' + Math.round((instrument.targetTime - instrument.targetStartTime) / 100)/10 + 's','steps');
+                    log('continuo setting.' + instrument.keyboard + ': ' + instrument.targetStartVolume + '->' + instrument.targetVolume + ' in ' + Math.round((instrument.targetTime - instrument.targetStartTime) / 100) / 10 + 's', 'steps');
                     log('startTime: ' + Date.now() + ', period ms: ' + period * 1000 + ', targetTime: ' + instrument.targetTime, 'steps');
                 }
             }
             stepsToTarget = Math.round(continuoStep * (currentVolume - targetVolume) / (1 - timePosition % 1) / period / 1000);
-//            moveMouse(instrument.port, stepsToTarget); //should be done now in external function
+            //            moveMouse(instrument.port, stepsToTarget); //should be done now in external function
         }
         if (continuo.pause) {
             log('gTC: continuo.paused ?', 'always');
@@ -806,7 +817,7 @@ function goThroughContinuos() {
     }
 }
 
-function setEngagedVisibility (visible) { //** there could be other states though //engage Mode is less compatible with mouse movement
+function setEngagedVisibility(visible) { //** there could be other states though //engage Mode is less compatible with mouse movement
     document.getElementById('pedalboard-actions').style.boxShadow = visible ? '0 2px 12px red' : null;
 }
 
@@ -883,19 +894,19 @@ function updateInstrumentAfterSectionChange(instrument, newSection, newContinuo)
     }
 }
 
-function cleanLoop (pad) {
+function cleanLoop(pad) {
     if (pad.button.style.backgroundPosition == pad.clickedStyle) {
         pad.button.click();
     }
     buttonDoubleClick(pad.button);
     delete pad.beat;
     pad.state = 'empty';
-    log ('emptied pad ' + pad.keyboard, 'mute');
+    log('emptied pad ' + pad.keyboard, 'mute');
     updatePadLabel(pad);
     return true;
 }
 
-function startLoop (pad, bars) {
+function startLoop(pad, bars) {
     pad.beat = {}; pad.beat.start = Date.now();
     if (bars) {
         pad.beat.clickOn = bars;
@@ -904,20 +915,20 @@ function startLoop (pad, bars) {
             pad.button.click();
         }
     }
-    if (!pad.updateBeat) {updatePadBeat(pad);}
+    if (!pad.updateBeat) { updatePadBeat(pad); }
     return true;
 }
 
-function buttonDoubleClick (button) {
-    setTimeout(function() {button.click();}, 0);
-    setTimeout(function() {button.click();}, 250);
+function buttonDoubleClick(button) {
+    setTimeout(function () { button.click(); }, 0);
+    setTimeout(function () { button.click(); }, 250);
     return true;
 }
 
-function padBlink (pad, r, g, b, l) {
+function padBlink(pad, r, g, b, l) {
     var button = pad.button;
     button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || defaultBeatRGB[0]) + ',' + (g || defaultBeatRGB[1]) + ',' + (b || defaultBeatRGB[2]) + ',' + (l || defaultBeatRGB[3]) + ')';
-    setTimeout(function() {
+    setTimeout(function () {
         if (pad.state && pad.state == 'recording' && Date.now() > pad.stateStartTime) {
             button.style.boxShadow = 'inset 0 0 0 100px rgba(' + (r || recordBeatRGB[0]) + ',' + (g || recordBeatRGB[1]) + ',' + (b || recordBeatRGB[2]) + ',' + recordBeatRGB[3] + ')';
         } else {
@@ -926,7 +937,7 @@ function padBlink (pad, r, g, b, l) {
     }, 100);
 }
 
-function highlight (element, off) {
+function highlight(element, off) {
     if (off) {
         element.style.boxShadow = null;
     } else {
@@ -935,7 +946,7 @@ function highlight (element, off) {
     return true;
 }
 
-function deleteClickedInstrument (clicked) {
+function deleteClickedInstrument(clicked) {
     if (clicked.instrument) {
         highlight(clicked.instrument.node, true);
         if (clicked.instrument.pad) {
@@ -988,7 +999,7 @@ function updatePadBeat(pad) {
                 padBlink(pad, upBeatRGB[0], upBeatRGB[1], upBeatRGB[2], upBeatRGB[3]); //Blue beat on the Bar
                 pad.positionBeat = 1;
             } else {
-                log ('regular blink', 'uPB');
+                log('regular blink', 'uPB');
                 padBlink(pad);
                 pad.positionBeat = padBeatProx + 1;
             }
@@ -1011,12 +1022,12 @@ function updatePadBeat(pad) {
         updatePadLabel(pad);
         next = Math.round((Math.floor(span / beat + 1) * beat - Date.now() + pad.beat.start));
         log('uPB, current beat: ' + pad.beat.time + ' next Beat in: ' + next, 'uPB');
-        setTimeout(function() {log('new beat'); updatePadBeat(pad);}, next);
+        setTimeout(function () { log('new beat'); updatePadBeat(pad); }, next);
     }
     return true;
 }
 
-function checkActionable (clicked) {
+function checkActionable(clicked) {
     bpm = getBPM();
     log('cA clicked:');
     log(clicked);
@@ -1024,7 +1035,7 @@ function checkActionable (clicked) {
         if (clicked.section.name != clicked.instrument.section.name) {
             updateInstrumentAfterSectionChange(clicked.instrument, clicked.section, clicked.instrument.continuo);
             log('instrument sectionRank is: ' + clicked.instrument.sectionRank + ' in section ' + clicked.section.name);
-            clicked.text = clicked.instrument.name +' instrument is now in section ' + clicked.instrument.section.name + ' of continuo ' + clicked.instrument.continuo.name;
+            clicked.text = clicked.instrument.name + ' instrument is now in section ' + clicked.instrument.section.name + ' of continuo ' + clicked.instrument.continuo.name;
             updateInstrumentsLabel();
             deleteClickedInstrument(clicked);
             delete clicked.section;
@@ -1038,7 +1049,7 @@ function checkActionable (clicked) {
         if (clicked.continuo.name != clicked.instrument.continuo.name) {
             clicked.instrument.continuo = clicked.continuo;
             updateInstrumentAfterSectionChange(clicked.instrument, clicked.instrument.section, clicked.continuo);
-            clicked.text = clicked.instrument.name +' instrument is now in section ' + clicked.instrument.section.name + ' of continuo ' + clicked.instrument.continuo.name;
+            clicked.text = clicked.instrument.name + ' instrument is now in section ' + clicked.instrument.section.name + ' of continuo ' + clicked.instrument.continuo.name;
             updateInstrumentsLabel();
             deleteClickedInstrument(clicked);
             delete clicked.continuo;
@@ -1059,7 +1070,7 @@ function checkActionable (clicked) {
         pad.stateEndTime = pad.stateStartTime + pad.bars * 4 * 60 / bpm * 1000; //ms and after 4 * pad.bars it should stop recording
         pad.beat = {}; pad.beat.start = Date.now();
         pad.beat.clickOn = 4;
-        if (!pad.updateBeat) {updatePadBeat(pad);}
+        if (!pad.updateBeat) { updatePadBeat(pad); }
         clicked.text += 'emptied & recording on 4th beat';
         deleteClickedInstrument(clicked);
         delete clicked.action;
@@ -1110,7 +1121,7 @@ function checkActionable (clicked) {
                 delete clicked.section;
                 break;
             case (clicked.hasOwnProperty('continuo')):
-                clicked.continuo.pause = clicked.continuo.pause ? false: true;
+                clicked.continuo.pause = clicked.continuo.pause ? false : true;
                 clicked.text = clicked.continuo.name;
                 delete clicked.continuo;
                 break;
@@ -1171,7 +1182,7 @@ function checkActionable (clicked) {
                 pad.nextState = 'playing';
                 pad.stateStartTime = Date.now(); //instant recording
                 pad.stateEndTime = pad.stateStartTime + pad.bars * 4 * 60 / bpm * 1000; //ms and after 4 * pad.bars it should stop recording
-                setTimeout(function(){
+                setTimeout(function () {
                     cleanLoop(raw, pad.bars);
                     clicked.text = 'complete transfer of raw ' + originKey + ' to loop ' + destinationKey + ' and clean up';
                     updateTitle(clicked);
@@ -1198,7 +1209,7 @@ function checkActionable (clicked) {
     return true;
 }
 
-function setEventListeners () {
+function setEventListeners() {
     var clicked, target;
     clicked = {};
     document.addEventListener('mouseup', function (e) {
@@ -1212,7 +1223,7 @@ function setEventListeners () {
                 page_title.innerHTML = page_title_original;
                 page_title.style.color = "#999";
             }
-            if(target) {
+            if (target) {
                 log('you clicked on: ' + target);
                 clicked.newInstrument = {};
                 clicked.newInstrument.instance = target.slice(0, target.lastIndexOf('/'));
@@ -1226,7 +1237,7 @@ function setEventListeners () {
     //press 'a' for toggling the gain on/off
     document.addEventListener('keydown', function (keyEvent) { //https://javascript.info/keyboard-events
         var conf, fade_direction, id, knob, period, port, instNumber;
-        log (keyEvent.code + ' key was pressed.', 10);
+        log(keyEvent.code + ' key was pressed.', 10);
         // https://unicode-table.com/en/#control-character
         // https://unicodelookup.com/
         if (instruments[keyEvent.code]) {
@@ -1265,9 +1276,10 @@ function setEventListeners () {
 }
 
 (function() {
+(function () {
     'use strict';
     log('TamperMod is waiting to load its configuration');
-    var si_id = setInterval(function() { //only loadConfiguration once the pedalboard is fully loaded
+    var si_id = setInterval(function () { //only loadConfiguration once the pedalboard is fully loaded
         if (document.getElementsByClassName('screen-loading blocker')[0].style.display == 'none') {
             clearInterval(si_id);
             setTimeout(function() {
