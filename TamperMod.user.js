@@ -51,10 +51,11 @@ GM_addStyle(MaterialIcons);
 // https://material.io/resources/icons/?style=baseline
 // <i class="material-icons">aspect_ratio</i>
 
-const logLevel = 10;
+const logLevel = 0; //0: tout les logs, sinon: 10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
 const logFilter = "always mute"; //cA steps uPB
 const logMods = ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSearch']; //FocusOnFilter: everything from the filter only goes through - Search not great when needing to log object...
 const logMod = 2;
+let bpmTimeoutID;
 
 function log(message, levelOrOrigin, level) {
     let origin, log;
@@ -268,7 +269,10 @@ var bpm, beat, actionSpan = 2;
 var page_title, page_title_original, x = 0, y = 0;
 var config_default = {};
 var config = {},
-    volumes, pedals_families = {}, pedals_types = {}, loopers, levels; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
+    volumes, pedals_families = {}, // descriptions of pedals
+    pedals_types = {}, // 
+    loopers,
+    levels; // keep track of buttons involved in the orchestra (continuos / sections) - before I was thinking of actions, this reverse the approach
 // I need to build this from configuration:
 // document.querySelector('[mod-instance="/graph/Gain_1"][class="mod-pedal ui-draggable"]').querySelector('[mod-port="/graph/Gain_1/Gain"]')
 // when browsing above a pedal, get all its potential control:
@@ -304,6 +308,25 @@ function port_style(remaining_steps, direction) { //number of steps away from ta
     return _style;
 }
 
+pedals_types = {
+    mono: {
+        symbol: 'Gain',
+        description: 'simple V3 pedal, v3 knob',
+        subFamily: 'volume',
+        steps: 65,
+        size: 98,
+        volumes: {
+            low: 0,
+            mid: 24,
+            high: 32,
+            size: 98
+        },
+        getVolume: function () {
+            return Math.round(parseInt(this.port.style.backgroundPositionX) / -1 / this.volumes.size);
+        },
+    },
+};
+
 pedals_families = {
     Gain: {
         symbol: 'Gain',
@@ -337,25 +360,25 @@ pedals_families = {
 //*** I kind of set a limit to 10 loops (0 to 9) - ok for the time being I guess
 volumes = {
     0: {
-        instance: "/graph/mono_1",
+        instance: "/graph/mono",
         description: "V3 pedal general",
         family: "Gain",
         code: "Digit0"
     },
     1: {
-        instance: "/graph/Gain",
+        instance: "/graph/mono_1",
         description: "V3 pedal BOTTOM looper",
         family: "Gain",
         code: "Digit1"
     },
     2: {
-        instance: "/graph/Gain_2",
+        instance: "/graph/mono_2",
         description: "V3 direct",
         family: "Gain",
         code: "Digit2"
     },
     3: {
-        instance: "/graph/Gain_3",
+        instance: "/graph/mono_3",
         description: "raw V3 ",
         family: "Gain",
         code: "Digit3"
@@ -389,11 +412,11 @@ levels = {
         family: 'tinyGain',
     },
     1: {
-        instance: "/graph/mono_6",
+        instance: "/graph/mono_1",
         family: 'tinyGain',
     },
     3: {
-        instance: "/graph/mono_4",
+        instance: "/graph/mono_2",
         family: 'tinyGain',
     },
 };
@@ -477,7 +500,7 @@ log('GM_setValue done', config_default, typeof GM_setValue.then); //
 function buildConfigAndActions() {
     var i;
     bpm = getBPM(); beat = 60 / bpm * 1000; //beat is in ms
-    //    investigationOfModPorts();
+    investigationOfModPorts();
     page_title_original = document.getElementById('pedalboard-info').children[0].innerHTML;
     page_title = document.getElementById('pedalboard-info').children[0];
     page_title.style.textTransform = 'none';
@@ -521,6 +544,7 @@ function buildConfigAndActions() {
         instrumentsAction.push(instrument.code);
         instrument.setTitle();
         if (levels[key]) {
+            log('config level and mute for level.instance: ' + key + ' / ' + levels[key].instance, 'buildConfiguration', 10);
             instrument.level = document.querySelector('[mod-instance="' + levels[key].instance + '"][class="mod-pedal ui-draggable"]');
             instrument.mute = document.querySelector('[mod-instance="' + levels[key].instance + '"][class="mod-settings"]').querySelector('[class="mod-switch-image mod-port"]');
             instrument.getLevel = function () {
@@ -620,7 +644,7 @@ function updateVolumes() { //**** need to validate: seems to be too fast.
 function investigationOfModPorts() { //look for all possible value of mod-port
     //many many different names: no logic I can see me exploit
     var el, attr, i, allGain = [], allGains = [], arr = [], els = document.body.getElementsByTagName('*'); //get all tags in body
-    log(els.length);
+    log('investigationModPorts, nb of elements: ' + els.length);
     for (i = 0; i < els.length; i++) {
         el = els[i];
         attr = el.getAttribute('mod-port-symbol');
@@ -632,8 +656,11 @@ function investigationOfModPorts() { //look for all possible value of mod-port
             allGains.push(el);
         }
     }
+    log('investigationOfModPorts all different kind with mod-port-symbol')
     log(arr);
+    log('investigationOfModPorts mod-port attribute of those with mod-port-symbol = Gain')
     log(allGain);
+    log('investigationOfModPorts elements with mod-port-symbol = Gain')
     log(allGains);
     return true;
 }
@@ -755,6 +782,11 @@ function modulo(a, b) {
 }
 
 function getBPM() {
+    document.getElementById('mod-transport-icon').firstElementChild.style.border = '1px solid red';
+    clearTimeout(bpmTimeoutID);
+    bpmTimeoutID = setTimeout(function () {
+        document.getElementById('mod-transport-icon').firstElementChild.style.border = "none";
+    }, 5000);
     return parseFloat(document.getElementById('mod-transport-icon').firstElementChild.innerHTML.match(/\d+(\.\d+)?/g, '')[0]);
 }
 
@@ -1285,8 +1317,18 @@ function getPedalboardInfo() {
     var types = {};
     pedals.forEach(function (pedal) { console.log(pedal.getAttribute('mod-instance').substr(7)); });
     pedals.forEach(function (pedal) {
-        var type = pedal.getAttribute('mod-instance').substr(7).replace(/_\d+$/, "");
-        if (types.hasOwnProperty(type)) { types[type]++; } else { types[type] = 1; console.log('new type found: ' + type); }
+        var pedalName = pedal.getAttribute('mod-instance');
+        var type = pedalName.substr(7).replace(/_\d+$/, "");
+        if (types.hasOwnProperty(type)) { types[type]++; } else {
+            if (pedals_types.hasOwnProperty(type)) {
+                console.log('know type found: ' + type);
+            } else console.log('new type found: ' + type);
+            types[type] = 1;
+        }
+        var label = document.createElement("span");
+        label.textContent = pedalName;
+        label.style.cssText = "position: absolute;top: -3em;color: red;font-size: 3em;overflow: hidden;white-space: nowrap;";
+        pedal.appendChild(label);
     });
     console.log(pedals.length + ' pedals being used');
     console.log(types);
