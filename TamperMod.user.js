@@ -58,10 +58,9 @@ const logMod = 2;
 
 function log(message, levelOrOrigin, level) {
     let origin, log;
-    //console.log (log.caller);
     //10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
     log = false;
-    origin = typeof levelOrOrigin == "string" ? levelOrOrigin : "shouldNotBeLogged";
+    origin = typeof levelOrOrigin == "string" ? levelOrOrigin : "noOrigin";
     level = typeof levelOrOrigin == "string" ? level || 15 : levelOrOrigin || 15;
     switch (logMod) {
         case 0:
@@ -77,7 +76,7 @@ function log(message, levelOrOrigin, level) {
             log = logFilter.split(" ").some(f => origin.includes(f));
             break;
     }
-    if (log) {
+    if (log || logLevel == 0) {
         console.log(typeof message == 'string' ? 'TamperMod-' + origin + ':' + message : message);
     }
 }
