@@ -1,0 +1,571 @@
+import 'package:flutter/material.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import 'services/websocket_service.dart';
+import 'models/plugin_instance.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Enable wakelock to prevent screen sleeping during live performance
+  WakelockPlus.enable();
+  
+  runApp(const ModControllerApp());
+}
+
+class ModControllerApp extends StatelessWidget {
+  const ModControllerApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'TamperMod - Live Remote',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0B0E14),
+        cardColor: const Color(0xFF161B22),
+        primaryColor: const Color(0xFF00FFCC),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF00FFCC),
+          secondary: Color(0xFFFF007F), // Fuchsia / Neon Pink
+          surface: Color(0xFF161B22),
+          background: Color(0xFF0B0E14),
+        ),
+        textTheme: const TextTheme(
+          headlineMedium: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+          ),
+          titleLarge: TextStyle(
+            color: Color(0xFF00FFCC),
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+          ),
+        ),
+      ),
+      home: const DashboardScreen(),
+    );
+  }
+}
+
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  final ModWebSocketService _webSocketService = ModWebSocketService();
+  final TextEditingController _ipController = TextEditingController(text: '192.168.51.1');
+  late TabController _tabController;
+
+  // Track volume slider values locally to make the slider extremely responsive
+  final Map<String, double> _localVolumes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _tabController = TabController(length: 2, vsync: this);
+    
+    // Connect automatically on launch
+    _webSocketService.connect(ip: _ipController.text);
+    
+    // Listen to value changes to update local volume values initially
+    _webSocketService.gainPedals.addListener(_initializeLocalVolumes);
+  }
+
+  void _initializeLocalVolumes() {
+    for (var pedal in _webSocketService.gainPedals.value) {
+      if (pedal.gainPortSymbol != null) {
+        final double? serverValue = pedal.parameters[pedal.gainPortSymbol];
+        if (serverValue != null && !_localVolumes.containsKey(pedal.instance)) {
+          _localVolumes[pedal.instance] = serverValue;
+        }
+      }
+    }
+    setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('App returned from background: automatically restoring remote connection...');
+      if (_webSocketService.status == ConnectionStatus.disconnected) {
+        _webSocketService.connect(ip: _ipController.text);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _webSocketService.gainPedals.removeListener(_initializeLocalVolumes);
+    _webSocketService.dispose();
+    _ipController.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Color _getStatusColor(ConnectionStatus status) {
+    switch (status) {
+      case ConnectionStatus.connected:
+        return const Color(0xFF00FFCC); // Neon Turquoise
+      case ConnectionStatus.connecting:
+        return Colors.amberAccent;
+      case ConnectionStatus.disconnected:
+        return const Color(0xFFFF007F); // Neon Pink
+    }
+  }
+
+  String _getStatusText(ConnectionStatus status) {
+    switch (status) {
+      case ConnectionStatus.connected:
+        return 'CONNECTED';
+      case ConnectionStatus.connecting:
+        return 'CONNECTING...';
+      case ConnectionStatus.disconnected:
+        return 'DISCONNECTED';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _webSocketService,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF0F141C),
+            elevation: 8,
+            title: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(_webSocketService.status),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _getStatusColor(_webSocketService.status).withOpacity(0.6),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      )
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'TAMPERMOD LIVE v1.0.1',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                    ),
+                    Text(
+                      _getStatusText(_webSocketService.status),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: _getStatusColor(_webSocketService.status),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Color(0xFF00FFCC)),
+                tooltip: 'Refresh Pedalboard',
+                onPressed: _webSocketService.status == ConnectionStatus.connected
+                    ? () => _webSocketService.requestPedalboard()
+                    : null,
+              ),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: const Color(0xFF00FFCC),
+              labelColor: const Color(0xFF00FFCC),
+              unselectedLabelColor: Colors.grey,
+              tabs: const [
+                Tab(icon: Icon(Icons.tune), text: 'GAIN CONTROL'),
+                Tab(icon: Icon(Icons.settings_ethernet), text: 'ALL PLUGINS'),
+              ],
+            ),
+          ),
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF0F141C), Color(0xFF05070A)],
+              ),
+            ),
+            child: Column(
+              children: [
+                // Top Connection Bar
+                _buildConnectionPanel(),
+                
+                // Content Areas
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildGainPadsTab(),
+                      _buildAllPluginsTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildConnectionPanel() {
+    final bool isDisconnected = _webSocketService.status == ConnectionStatus.disconnected;
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161B22),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _getStatusColor(_webSocketService.status).withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _ipController,
+              decoration: const InputDecoration(
+                labelText: 'MOD Dwarf IP',
+                labelStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                border: InputBorder.none,
+                prefixIcon: Icon(Icons.lan, color: Colors.grey, size: 20),
+              ),
+              style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
+              enabled: isDisconnected,
+            ),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDisconnected ? const Color(0xFF00FFCC) : const Color(0xFFFF007F),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 4,
+              shadowColor: (isDisconnected ? const Color(0xFF00FFCC) : const Color(0xFFFF007F)).withOpacity(0.5),
+            ),
+            onPressed: () {
+              if (isDisconnected) {
+                _webSocketService.connect(ip: _ipController.text);
+              } else {
+                _webSocketService.disconnect();
+              }
+            },
+            child: Text(
+              isDisconnected ? 'CONNECT' : 'DISCONNECT',
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGainPadsTab() {
+    if (_webSocketService.status != ConnectionStatus.connected) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.link_off, size: 64, color: const Color(0xFFFF007F).withOpacity(0.5)),
+            const SizedBox(height: 16),
+            const Text(
+              'Not connected to MOD Dwarf',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please verify IP and connection',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ValueListenableBuilder<List<PluginInstance>>(
+      valueListenable: _webSocketService.gainPedals,
+      builder: (context, gains, _) {
+        if (gains.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(color: Color(0xFF00FFCC)),
+                const SizedBox(height: 24),
+                const Text(
+                  'Scanning Pedalboard Graph...',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'No volume/gain pedals detected yet. Create a pedalboard with a Gain or Volume pedal on the Dwarf web GUI.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final double screenWidth = MediaQuery.of(context).size.width;
+        final int crossAxisCount = screenWidth > 600 ? 2 : 1;
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            childAspectRatio: 1.5,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+          ),
+          itemCount: gains.length,
+          itemBuilder: (context, index) {
+            final pedal = gains[index];
+            return _buildGainCard(pedal);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildGainCard(PluginInstance pedal) {
+    // Read from local volumes map first, then server parameter, or default to 0.0
+    final double currentValue = _localVolumes[pedal.instance] ?? 
+        (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null) ?? 
+        0.0;
+    
+    // Clamp to ensure the slider doesn't throw a validation error
+    final double clampedValue = currentValue.clamp(-60.0, 10.0);
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF161B22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF00FFCC).withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00FFCC).withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 2,
+          )
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Pedal Info Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pedal.title.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF00FFCC),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Instance: ${pedal.instance}  |  Port: ${pedal.gainPortSymbol ?? "Gain"}',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey[500],
+                          fontFamily: 'monospace',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFF00FFCC).withOpacity(0.5),
+                    ),
+                  ),
+                  child: Text(
+                    '${clampedValue.toStringAsFixed(1)} dB',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF00FFCC),
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            
+            // Slider Row (Custom designed, fat, and responsive)
+            Row(
+              children: [
+                Icon(Icons.volume_mute, color: Colors.grey[600], size: 20),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: const Color(0xFF00FFCC),
+                      inactiveTrackColor: Colors.grey[800],
+                      trackHeight: 12.0,
+                      thumbColor: Colors.white,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 16.0),
+                      overlayColor: const Color(0xFF00FFCC).withOpacity(0.2),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 28.0),
+                    ),
+                    child: Slider(
+                      value: clampedValue,
+                      min: -60.0,
+                      max: 10.0,
+                      onChanged: (newValue) {
+                        setState(() {
+                          _localVolumes[pedal.instance] = newValue;
+                        });
+                        
+                        if (pedal.gainPortSymbol != null) {
+                          _webSocketService.setParamValue(
+                            instance: pedal.instance,
+                            port: pedal.gainPortSymbol!,
+                            value: double.parse(newValue.toStringAsFixed(2)),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                Icon(Icons.volume_up, color: const Color(0xFF00FFCC), size: 20),
+              ],
+            ),
+            
+            const SizedBox(height: 8),
+            // Dynamic slope info or other details
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '-60.0 dB (Mute)',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                ),
+                Text(
+                  '+10.0 dB (Max)',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllPluginsTab() {
+    if (_webSocketService.status != ConnectionStatus.connected) {
+      return Center(
+        child: Icon(Icons.link_off, size: 64, color: const Color(0xFFFF007F).withOpacity(0.5)),
+      );
+    }
+
+    return ValueListenableBuilder<List<PluginInstance>>(
+      valueListenable: _webSocketService.allPlugins,
+      builder: (context, plugins, _) {
+        if (plugins.isEmpty) {
+          return const Center(
+            child: Text('No active plugins loaded in current pedalboard.'),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'DISCOVERED GRAPH COMPONENTS (${plugins.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: plugins.length,
+                separatorBuilder: (context, index) => Divider(color: Colors.grey[850]),
+                itemBuilder: (context, index) {
+                  final plugin = plugins[index];
+                  final isGain = _webSocketService.gainPedals.value.any((p) => p.instance == plugin.instance);
+                  
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      plugin.title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isGain ? const Color(0xFF00FFCC) : Colors.white,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Instance: ${plugin.instance}\nURI: ${plugin.uri}',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500], fontFamily: 'monospace'),
+                    ),
+                    trailing: isGain
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00FFCC).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFF00FFCC)),
+                            ),
+                            child: const Text(
+                              'VOL CONTROL',
+                              style: TextStyle(fontSize: 8, color: Color(0xFF00FFCC), fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : null,
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
