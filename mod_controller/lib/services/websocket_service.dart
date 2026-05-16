@@ -125,7 +125,16 @@ class ModWebSocketService extends ChangeNotifier {
           final String instance = parts[0];
           final String uri = parts[1];
           
-          final plugin = PluginInstance.fromRawFields(instance: instance, uri: uri);
+          bool bypassed = false;
+          if (parts.length >= 5) {
+            bypassed = parts[4] == '1';
+          }
+          
+          final plugin = PluginInstance.fromRawFields(
+            instance: instance,
+            uri: uri,
+            isBypassed: bypassed,
+          );
           
           final List<PluginInstance> current = List.from(allPlugins.value);
           if (!current.any((p) => p.instance == instance)) {
@@ -148,6 +157,12 @@ class ModWebSocketService extends ChangeNotifier {
             if (index != -1) {
               final plugin = current[index];
               plugin.parameters[portsymbol] = value;
+              
+              // Handle bypass status parameter
+              if (portsymbol == ':bypass') {
+                plugin.isBypassed = value == 1.0;
+                debugPrint('BYPASS STATE CHANGE FOR ${plugin.instance}: bypassed=${plugin.isBypassed}');
+              }
               
               // Dynamic gain symbol detection
               if (plugin.gainPortSymbol == null) {
@@ -231,6 +246,23 @@ class ModWebSocketService extends ChangeNotifier {
 
     // Format: param_set <instance>/<port> <value>
     final String rawPayload = 'param_set $instance/$port $value';
+    debugPrint('SENDING COMMAND: $rawPayload');
+    _channel!.sink.add(rawPayload);
+  }
+
+  // Sends a raw toggle bypass command
+  void toggleBypass({
+    required String instance,
+    required bool bypass,
+  }) {
+    if (_channel == null || _status != ConnectionStatus.connected) {
+      debugPrint('Cannot toggle bypass: Not connected to MOD Dwarf');
+      return;
+    }
+
+    // Format: param_set <instance>/:bypass <1.0 for bypassed/off, 0.0 for active/on>
+    final double val = bypass ? 1.0 : 0.0;
+    final String rawPayload = 'param_set $instance/:bypass $val';
     debugPrint('SENDING COMMAND: $rawPayload');
     _channel!.sink.add(rawPayload);
   }

@@ -5,7 +5,6 @@ import 'models/plugin_instance.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Enable wakelock to prevent screen sleeping during live performance
   WakelockPlus.enable();
   
   runApp(const ModControllerApp());
@@ -340,7 +339,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           padding: const EdgeInsets.all(16),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            childAspectRatio: 1.5,
+            childAspectRatio: 1.4,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
           ),
@@ -362,136 +361,170 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     
     // Clamp to ensure the slider doesn't throw a validation error
     final double clampedValue = currentValue.clamp(-60.0, 10.0);
+    final bool isBypassed = pedal.isBypassed;
+
+    // Premium styling choices based on bypass state
+    final Color accentColor = isBypassed 
+        ? Colors.grey[600]! 
+        : const Color(0xFF00FFCC); // Neon Turquoise
+        
+    final Color powerIconColor = isBypassed 
+        ? const Color(0xFFFF007F) // Fuchsia for deactivated/off
+        : const Color(0xFF00FFCC); // Turquoise for active/on
+
+    final double cardOpacity = isBypassed ? 0.45 : 1.0;
     
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF00FFCC).withOpacity(0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00FFCC).withOpacity(0.05),
-            blurRadius: 10,
-            spreadRadius: 2,
-          )
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Pedal Info Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        pedal.title.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF00FFCC),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Instance: ${pedal.instance}  |  Port: ${pedal.gainPortSymbol ?? "Gain"}',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.grey[500],
-                          fontFamily: 'monospace',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFF00FFCC).withOpacity(0.5),
-                    ),
-                  ),
-                  child: Text(
-                    '${clampedValue.toStringAsFixed(1)} dB',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF00FFCC),
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            
-            // Slider Row (Custom designed, fat, and responsive)
-            Row(
-              children: [
-                Icon(Icons.volume_mute, color: Colors.grey[600], size: 20),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF00FFCC),
-                      inactiveTrackColor: Colors.grey[800],
-                      trackHeight: 12.0,
-                      thumbColor: Colors.white,
-                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 16.0),
-                      overlayColor: const Color(0xFF00FFCC).withOpacity(0.2),
-                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 28.0),
-                    ),
-                    child: Slider(
-                      value: clampedValue,
-                      min: -60.0,
-                      max: 10.0,
-                      onChanged: (newValue) {
-                        setState(() {
-                          _localVolumes[pedal.instance] = newValue;
-                        });
-                        
-                        if (pedal.gainPortSymbol != null) {
-                          _webSocketService.setParamValue(
-                            instance: pedal.instance,
-                            port: pedal.gainPortSymbol!,
-                            value: double.parse(newValue.toStringAsFixed(2)),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                Icon(Icons.volume_up, color: const Color(0xFF00FFCC), size: 20),
-              ],
-            ),
-            
-            const SizedBox(height: 8),
-            // Dynamic slope info or other details
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '-60.0 dB (Mute)',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                ),
-                Text(
-                  '+10.0 dB (Max)',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-                ),
-              ],
-            ),
+    return Opacity(
+      opacity: cardOpacity,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF161B22),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+              blurRadius: 10,
+              spreadRadius: 2,
+            )
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Pedal Info Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          pedal.title.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: accentColor,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Instance: ${pedal.instance}  |  Port: ${pedal.gainPortSymbol ?? "Gain"}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.grey[500],
+                            fontFamily: 'monospace',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Power Toggle Switch (Stage Rack style)
+                  IconButton(
+                    icon: Icon(
+                      Icons.power_settings_new,
+                      color: powerIconColor,
+                      size: 26,
+                    ),
+                    tooltip: isBypassed ? 'Activate Pedal' : 'Bypass Pedal',
+                    onPressed: () {
+                      _webSocketService.toggleBypass(
+                        instance: pedal.instance,
+                        bypass: !isBypassed,
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Volume display box
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: accentColor.withOpacity(0.5),
+                      ),
+                    ),
+                    child: Text(
+                      '${clampedValue.toStringAsFixed(1)} dB',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: accentColor,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              
+              // Slider Row (Custom designed, fat, and responsive)
+              Row(
+                children: [
+                  Icon(Icons.volume_mute, color: Colors.grey[isBypassed ? 700 : 600], size: 20),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: accentColor,
+                        inactiveTrackColor: Colors.grey[850],
+                        trackHeight: 12.0,
+                        thumbColor: isBypassed ? Colors.grey[400] : Colors.white,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 15.0),
+                        overlayColor: accentColor.withOpacity(0.2),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 28.0),
+                      ),
+                      child: Slider(
+                        value: clampedValue,
+                        min: -60.0,
+                        max: 10.0,
+                        onChanged: isBypassed ? null : (newValue) {
+                          setState(() {
+                            _localVolumes[pedal.instance] = newValue;
+                          });
+                          
+                          if (pedal.gainPortSymbol != null) {
+                            _webSocketService.setParamValue(
+                              instance: pedal.instance,
+                              port: pedal.gainPortSymbol!,
+                              value: double.parse(newValue.toStringAsFixed(2)),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.volume_up, color: accentColor, size: 20),
+                ],
+              ),
+              
+              const SizedBox(height: 8),
+              // Dynamic slope info or other details
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '-60.0 dB (Mute)',
+                    style: TextStyle(fontSize: 10, color: Colors.grey[isBypassed ? 750 : 650]),
+                  ),
+                  Text(
+                    '+10.0 dB (Max)',
+                    style: TextStyle(fontSize: 10, color: Colors.grey[isBypassed ? 750 : 650]),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -538,7 +571,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       plugin.title,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: isGain ? const Color(0xFF00FFCC) : Colors.white,
+                        color: isGain 
+                            ? (plugin.isBypassed ? Colors.grey : const Color(0xFF00FFCC)) 
+                            : Colors.white,
                       ),
                     ),
                     subtitle: Text(
@@ -549,13 +584,17 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         ? Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF00FFCC).withOpacity(0.1),
+                              color: (plugin.isBypassed ? Colors.grey : const Color(0xFF00FFCC)).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFF00FFCC)),
+                              border: Border.all(color: plugin.isBypassed ? Colors.grey : const Color(0xFF00FFCC)),
                             ),
-                            child: const Text(
-                              'VOL CONTROL',
-                              style: TextStyle(fontSize: 8, color: Color(0xFF00FFCC), fontWeight: FontWeight.bold),
+                            child: Text(
+                              plugin.isBypassed ? 'BYPASSED' : 'ACTIVE VOL',
+                              style: TextStyle(
+                                fontSize: 8, 
+                                color: plugin.isBypassed ? Colors.grey : const Color(0xFF00FFCC), 
+                                fontWeight: FontWeight.bold
+                              ),
                             ),
                           )
                         : null,
