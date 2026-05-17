@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,7 +8,7 @@ import 'services/websocket_service.dart';
 import 'models/plugin_instance.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.0.6';
+const String kAppVersion = '1.0.7';
 
 enum ViewMode {
   split,
@@ -475,6 +476,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     _showControls = false;
                   });
                 },
+              ),
+              // Glowing button to locate all pedals in the Web GUI
+              IconButton(
+                icon: const Icon(Icons.radar, color: Color(0xFFFF007F), size: 22),
+                tooltip: 'Glow all Workspace Pedals in Web GUI',
+                onPressed: _webSocketService.status == ConnectionStatus.connected
+                    ? _highlightAllPedalsInWebView
+                    : null,
               ),
               const SizedBox(width: 4),
               IconButton(
@@ -1034,6 +1043,162 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  void _highlightAllPedalsInWebView() {
+    final List<String> instIds = _enabledPluginInstances;
+    if (instIds.isEmpty) return;
+    
+    // Show local UI feedback SnackBar
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          '⚡ GLOWING ALL WORKSPACE PEDALS IN WEB GUI',
+          style: TextStyle(
+            color: Color(0xFFFF007F), 
+            fontWeight: FontWeight.bold, 
+            letterSpacing: 1.0,
+            fontSize: 12
+          ),
+        ),
+        backgroundColor: const Color(0xFF161B22),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+
+    final String jsCode = '''
+      (function() {
+        const instIds = ${jsonEncode(instIds)};
+        console.log("TamperMod: Glowing all workspace pedals", instIds);
+        
+        // Remove previous highlights
+        const existing = document.querySelectorAll(".tamper-highlight");
+        existing.forEach(e => {
+          e.style.outline = "";
+          e.style.boxShadow = "";
+          if (e.removeAttribute) {
+            e.removeAttribute("stroke");
+            e.removeAttribute("stroke-width");
+          }
+          e.classList.remove("tamper-highlight");
+        });
+        
+        let matchCount = 0;
+        let firstMatch = null;
+        
+        instIds.forEach(instId => {
+          const cleanName = instId.split("/").pop();
+          
+          // Find matching elements using our robust strategy
+          let el = document.getElementById("pedal-" + cleanName) || 
+                   document.getElementById("instance-" + cleanName) ||
+                   document.getElementById(cleanName) ||
+                   document.getElementById(instId) ||
+                   document.querySelector("[data-instance='" + instId + "']") || 
+                   document.querySelector("[data-id='" + instId + "']") ||
+                   document.querySelector("[instance='" + instId + "']") ||
+                   document.querySelector("[data-instance*='" + cleanName + "']") ||
+                   document.querySelector("[data-id*='" + cleanName + "']") ||
+                   document.querySelector("[id*='" + cleanName + "']");
+                   
+          if (!el) {
+            const candidates = document.querySelectorAll("div, g, svg, rect, section, .plugin, .instance, [id*='graph']");
+            for (let c of candidates) {
+              const idVal = c.id || "";
+              const dataInst = c.getAttribute ? (c.getAttribute('data-instance') || "") : "";
+              const dataId = c.getAttribute ? (c.getAttribute('data-id') || "") : "";
+              
+              if (idVal === instId || 
+                  idVal === cleanName || 
+                  idVal.includes("pedal-" + cleanName) || 
+                  idVal.includes("instance-" + cleanName) ||
+                  dataInst === instId || 
+                  dataInst.includes(cleanName) ||
+                  dataId === instId || 
+                  dataId.includes(cleanName)) {
+                el = c;
+                break;
+              }
+            }
+          }
+          
+          if (el) {
+            matchCount++;
+            if (!firstMatch) firstMatch = el;
+            
+            // Highlight element
+            el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, stroke 0.3s ease";
+            el.style.outline = "6px solid #00FFCC";
+            el.style.outlineOffset = "4px";
+            el.style.boxShadow = "0 0 25px #00FFCC";
+            
+            if (el.setAttribute) {
+              el.setAttribute("stroke", "#00FFCC");
+              el.setAttribute("stroke-width", "6px");
+            }
+            
+            el.classList.add("tamper-highlight");
+          }
+        });
+        
+        // Scroll first match into view
+        if (firstMatch) {
+          firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        }
+        
+        // Render diagnostic panel overlay
+        let diag = document.getElementById("tamper-debug");
+        if (!diag) {
+          diag = document.createElement("div");
+          diag.id = "tamper-debug";
+          diag.style.position = "fixed";
+          diag.style.top = "10px";
+          diag.style.left = "10px";
+          diag.style.zIndex = "999999";
+          diag.style.background = "rgba(15, 20, 28, 0.95)";
+          diag.style.border = "2px solid #00FFCC";
+          diag.style.color = "#00FFCC";
+          diag.style.padding = "10px";
+          diag.style.borderRadius = "8px";
+          diag.style.fontFamily = "monospace";
+          diag.style.fontSize = "12px";
+          diag.style.maxHeight = "300px";
+          diag.style.overflowY = "auto";
+          diag.style.boxShadow = "0 0 15px #00FFCC";
+          document.body.appendChild(diag);
+        }
+        
+        // Scan ALL DOM nodes for user debugging
+        const allNodes = document.querySelectorAll("div, g, svg, rect, section, .plugin, .instance");
+        let sample = [];
+        allNodes.forEach(item => {
+          if (sample.length < 15 && (item.id || item.className)) {
+            sample.push({
+              tag: item.tagName.toLowerCase(),
+              id: item.id || "none",
+              class: item.className ? (item.className.baseVal || item.className || "none") : "none",
+              dataInst: item.getAttribute ? (item.getAttribute("data-instance") || "none") : "none"
+            });
+          }
+        });
+        
+        diag.innerHTML = "<b>TamperMod Diagnostic (GLOW ALL)</b><br>" +
+                         "Workspace Pedals: " + instIds.length + "<br>" +
+                         "Highlighted Matches: " + matchCount + "<br>" +
+                         "Total DOM Nodes Scanned: " + allNodes.length + "<br><br>" +
+                         "<b>Sample DOM Nodes Found:</b><br>" +
+                         sample.map(s => "• &lt;" + s.tag + "&gt; ID: " + s.id + " | Class: " + s.class + " | Inst: " + s.dataInst).join("<br>");
+      })();
+    ''';
+
+    try {
+      _webViewController.runJavaScript(jsCode);
+    } catch (e) {
+      debugPrint('Error glowing all pedals in WebView: \$e');
+    }
+  }
+
   void _highlightPedalInWebView(PluginInstance pedal) {
     final String instId = pedal.instance;
     
@@ -1134,6 +1299,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         }
       })();
     ''';
+
+    // Local controller UI feedback (SnackBar)
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '⚡ SEARCHING & GLOWING: ${pedal.title.toUpperCase()} (${pedal.instance})',
+          style: const TextStyle(
+            color: Color(0xFF00FFCC), 
+            fontWeight: FontWeight.bold, 
+            letterSpacing: 1.0,
+            fontSize: 12
+          ),
+        ),
+        backgroundColor: const Color(0xFF161B22),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
 
     try {
       _webViewController.runJavaScript(jsCode);
