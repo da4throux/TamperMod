@@ -1099,18 +1099,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             
             // Highlight element with neon turquoise theme
             el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-            el.style.outline = "6px solid #00FFCC";
+            el.style.outline = "12px solid #00FFCC";
             el.style.outlineOffset = "4px";
-            el.style.boxShadow = "0 0 35px #00FFCC, inset 0 0 20px #00FFCC";
-            el.style.backgroundColor = "rgba(0, 255, 204, 0.15)";
+            el.style.boxShadow = "0 0 60px 15px #00FFCC, inset 0 0 30px #00FFCC";
+            el.style.backgroundColor = "rgba(0, 255, 204, 0.35)";
             el.classList.add("tamper-highlight");
           }
         });
         
-        // Scroll first match into view
-        if (firstMatch) {
-          firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-        }
         
         // Render diagnostic panel overlay
         let diag = document.getElementById("tamper-debug");
@@ -1196,28 +1192,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           
           // Apply glowing neon pink outline, border and beautiful transparency wash
           el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-          el.style.outline = "6px solid #FF0055";
+          el.style.outline = "12px solid #FF0055";
           el.style.outlineOffset = "4px";
-          el.style.boxShadow = "0 0 35px #FF0055, inset 0 0 20px #FF0055";
-          el.style.backgroundColor = "rgba(255, 0, 85, 0.15)";
+          el.style.boxShadow = "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055";
+          el.style.backgroundColor = "rgba(255, 0, 85, 0.35)";
           el.classList.add("tamper-highlight");
-          
-          // Center smoothly in Web canvas
-          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
           
           // Pulse the aura a few times
           let flashCount = 0;
           const interval = setInterval(() => {
             const visible = (flashCount % 2 === 0);
             el.style.outlineColor = visible ? "#FF0055" : "transparent";
-            el.style.boxShadow = visible ? "0 0 35px #FF0055, inset 0 0 20px #FF0055" : "none";
-            el.style.backgroundColor = visible ? "rgba(255, 0, 85, 0.15)" : "transparent";
+            el.style.boxShadow = visible ? "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055" : "none";
+            el.style.backgroundColor = visible ? "rgba(255, 0, 85, 0.35)" : "transparent";
             flashCount++;
             if (flashCount > 7) {
               clearInterval(interval);
               el.style.outlineColor = "#FF0055";
-              el.style.boxShadow = "0 0 35px #FF0055, inset 0 0 20px #FF0055";
-              el.style.backgroundColor = "rgba(255, 0, 85, 0.15)";
+              el.style.boxShadow = "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055";
+              el.style.backgroundColor = "rgba(255, 0, 85, 0.35)";
             }
           }, 200);
         } else {
