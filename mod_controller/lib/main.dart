@@ -1049,14 +1049,24 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           existing.forEach(e => {
             e.style.outline = "";
             e.style.boxShadow = "";
+            if (e.removeAttribute) {
+              e.removeAttribute("stroke");
+              e.removeAttribute("stroke-width");
+            }
             e.classList.remove("tamper-highlight");
           });
           
           // Apply glowing neon outline & shadow highlight
-          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease";
+          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, stroke 0.3s ease";
           el.style.outline = "6px solid #FF0055";
           el.style.outlineOffset = "4px";
           el.style.boxShadow = "0 0 25px #FF0055";
+          
+          if (el.setAttribute) {
+            el.setAttribute("stroke", "#FF0055");
+            el.setAttribute("stroke-width", "6px");
+          }
+          
           el.classList.add("tamper-highlight");
           
           // Scroll smoothly into view
@@ -1065,38 +1075,59 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           // Make it pulse a few times for high visibility
           let flashCount = 0;
           const interval = setInterval(() => {
-            el.style.outlineColor = (flashCount % 2 === 0) ? "transparent" : "#FF0055";
-            el.style.boxShadow = (flashCount % 2 === 0) ? "none" : "0 0 25px #FF0055";
+            const visible = (flashCount % 2 === 0);
+            el.style.outlineColor = visible ? "#FF0055" : "transparent";
+            el.style.boxShadow = visible ? "0 0 25px #FF0055" : "none";
+            if (el.setAttribute) {
+              el.setAttribute("stroke", visible ? "#FF0055" : "none");
+            }
             flashCount++;
             if (flashCount > 7) {
               clearInterval(interval);
               el.style.outlineColor = "#FF0055";
               el.style.boxShadow = "0 0 25px #FF0055";
+              if (el.setAttribute) {
+                el.setAttribute("stroke", "#FF0055");
+                el.setAttribute("stroke-width", "6px");
+              }
             }
           }, 200);
         }
 
         // Broad search for the instance element in the MOD Web interface DOM
-        // 1. Try selector by ID or escaped ID
-        let escapedId = instId.replace(/\\//g, '\\\\/');
-        let el = document.querySelector("#" + escapedId) || document.getElementById(instId);
+        const cleanName = instId.split("/").pop(); // e.g. "Gain_1"
+        
+        // 1. Try selector by ID or common prefixes
+        let el = document.getElementById("pedal-" + cleanName) || 
+                 document.getElementById("instance-" + cleanName) ||
+                 document.getElementById(cleanName) ||
+                 document.getElementById(instId);
         if (el) { highlight(el); return; }
         
         // 2. Try by custom attributes commonly used in MOD Dwarf GUI
         el = document.querySelector("[data-instance='" + instId + "']") || 
              document.querySelector("[data-id='" + instId + "']") ||
-             document.querySelector("[instance='" + instId + "']");
+             document.querySelector("[instance='" + instId + "']") ||
+             document.querySelector("[data-instance*='" + cleanName + "']") ||
+             document.querySelector("[data-id*='" + cleanName + "']") ||
+             document.querySelector("[id*='" + cleanName + "']");
         if (el) { highlight(el); return; }
         
         // 3. Search all divs/g/svg elements
-        const candidates = document.querySelectorAll("div, g, svg, section, .plugin, .instance, [id*='graph']");
+        const candidates = document.querySelectorAll("div, g, svg, rect, section, .plugin, .instance, [id*='graph']");
         for (let c of candidates) {
-          if (c.getAttribute && 
-              (c.getAttribute('data-instance') === instId || 
-               c.getAttribute('data-id') === instId || 
-               c.getAttribute('id') === instId ||
-               c.getAttribute('instance') === instId ||
-               (c.id && c.id.includes(instId.replace('/graph/', ''))))) {
+          const idVal = c.id || "";
+          const dataInst = c.getAttribute ? (c.getAttribute('data-instance') || "") : "";
+          const dataId = c.getAttribute ? (c.getAttribute('data-id') || "") : "";
+          
+          if (idVal === instId || 
+              idVal === cleanName || 
+              idVal.includes("pedal-" + cleanName) || 
+              idVal.includes("instance-" + cleanName) ||
+              dataInst === instId || 
+              dataInst.includes(cleanName) ||
+              dataId === instId || 
+              dataId.includes(cleanName)) {
             highlight(c);
             return;
           }
