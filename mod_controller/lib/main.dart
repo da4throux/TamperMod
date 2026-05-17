@@ -725,34 +725,45 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           );
         }
 
-        final double screenWidth = MediaQuery.of(context).size.width;
-        final int crossAxisCount = (screenWidth > 900 && !_showWeb) ? 2 : 1;
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final double width = constraints.maxWidth;
+            final int crossAxisCount = (width > 700 && !_showWeb) ? 2 : 1;
+            
+            // Calculate column width taking spacing and padding into account
+            final double spacing = 16.0;
+            final double columnWidth = (width - (crossAxisCount - 1) * spacing) / crossAxisCount;
+            
+            // Lock height to exactly 185 logical pixels
+            final double childAspectRatio = columnWidth / 185.0;
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            childAspectRatio: 1.22,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-          ),
-          itemCount: enabledPlugins.length,
-          itemBuilder: (context, index) {
-            final pedal = enabledPlugins[index];
-            final uriLower = pedal.uri.toLowerCase();
-            final titleLower = pedal.title.toLowerCase();
-            
-            final isGainOrVolume = uriLower.contains('gain') || 
-                                   uriLower.contains('volume') || 
-                                   uriLower.contains('amp') ||
-                                   titleLower.contains('gain') || 
-                                   titleLower.contains('volume');
-            
-            if (isGainOrVolume) {
-              return _buildGainCard(pedal);
-            } else {
-              return _buildPlaceholderCard(pedal);
-            }
+            return GridView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: childAspectRatio,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+              ),
+              itemCount: enabledPlugins.length,
+              itemBuilder: (context, index) {
+                final pedal = enabledPlugins[index];
+                final uriLower = pedal.uri.toLowerCase();
+                final titleLower = pedal.title.toLowerCase();
+                
+                final isGainOrVolume = uriLower.contains('gain') || 
+                                       uriLower.contains('volume') || 
+                                       uriLower.contains('amp') ||
+                                       titleLower.contains('gain') || 
+                                       titleLower.contains('volume');
+                
+                if (isGainOrVolume) {
+                  return _buildGainCard(pedal);
+                } else {
+                  return _buildPlaceholderCard(pedal);
+                }
+              },
+            );
           },
         );
       },
