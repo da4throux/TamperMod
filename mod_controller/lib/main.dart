@@ -688,15 +688,44 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return ValueListenableBuilder<List<PluginInstance>>(
       valueListenable: _webSocketService.allPlugins,
       builder: (context, plugins, _) {
-        // Hydrate selected active controls list
+        // Self-healing: if a new pedalboard is loaded, stale instances in _enabledPluginInstances should be reset
+        if (_enabledPluginInstances.isNotEmpty && plugins.isNotEmpty) {
+          final bool hasAnyActive = _enabledPluginInstances.any(
+            (instanceId) => plugins.any((p) => p.instance == instanceId)
+          );
+          if (!hasAnyActive) {
+            final newGains = plugins.where((p) {
+              final uriLower = p.uri.toLowerCase();
+              final titleLower = p.title.toLowerCase();
+              return uriLower.contains('gain') || 
+                     uriLower.contains('volume') || 
+                     uriLower.contains('amp') ||
+                     titleLower.contains('gain') || 
+                     titleLower.contains('volume');
+            }).map((p) => p.instance).toList();
+            
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _enabledPluginInstances = newGains;
+                });
+              }
+            });
+          }
+        }
+
+        // Hydrate selected active controls list safely without type-cast null safety exceptions
         final List<PluginInstance> enabledPlugins = [];
         for (final instanceId in _enabledPluginInstances) {
-          final p = plugins.firstWhere(
-            (element) => element.instance == instanceId, 
-            orElse: () => null as dynamic
-          );
-          if (p != null) {
-            enabledPlugins.add(p);
+          PluginInstance? found;
+          for (final p in plugins) {
+            if (p.instance == instanceId) {
+              found = p;
+              break;
+            }
+          }
+          if (found != null) {
+            enabledPlugins.add(found);
           }
         }
 
@@ -1238,15 +1267,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return ValueListenableBuilder<List<PluginInstance>>(
       valueListenable: _webSocketService.allPlugins,
       builder: (context, allPlugins, _) {
-        // Hydrate checked/active list
+        // Hydrate checked/active list safely without type-cast null safety exceptions
         final List<PluginInstance> active = [];
         for (final instanceId in _enabledPluginInstances) {
-          final p = allPlugins.firstWhere(
-            (element) => element.instance == instanceId, 
-            orElse: () => null as dynamic
-          );
-          if (p != null) {
-            active.add(p);
+          PluginInstance? found;
+          for (final p in allPlugins) {
+            if (p.instance == instanceId) {
+              found = p;
+              break;
+            }
+          }
+          if (found != null) {
+            active.add(found);
           }
         }
 
