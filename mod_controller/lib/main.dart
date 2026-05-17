@@ -1084,70 +1084,122 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           e.classList.remove("tamper-highlight");
         });
         
+        // Dynamic search strategy: Scan all elements for matches
+        let matches = [];
+        const all = document.getElementsByTagName("*");
+        
+        for (let i = 0; i < all.length; i++) {
+          const el = all[i];
+          const id = el.id || "";
+          
+          // Safely parse SVGAnimatedString or String classes
+          let className = "";
+          if (el.className) {
+            if (typeof el.className === "string") className = el.className;
+            else if (el.className.baseVal) className = el.className.baseVal;
+          }
+          
+          let attrs = {};
+          if (el.attributes) {
+            for (let j = 0; j < el.attributes.length; j++) {
+              const a = el.attributes[j];
+              attrs[a.name] = a.value;
+            }
+          }
+          
+          // Check if this element matches any of our target instance IDs
+          instIds.forEach(instId => {
+            const cleanName = instId.split("/").pop().toLowerCase();
+            const instLower = instId.toLowerCase();
+            
+            let matched = false;
+            if (id.toLowerCase() === instLower || id.toLowerCase() === cleanName || id.toLowerCase().includes("pedal-" + cleanName) || id.toLowerCase().includes("instance-" + cleanName)) {
+              matched = true;
+            }
+            Object.keys(attrs).forEach(k => {
+              const v = attrs[k].toLowerCase();
+              if (v === instLower || v === cleanName || v.includes("/" + cleanName)) {
+                matched = true;
+              }
+            });
+            
+            if (matched) {
+              matches.push({ el: el, instId: instId, clean: cleanName });
+            }
+          });
+        }
+        
+        // Glow each matched element
         let matchCount = 0;
         let firstMatch = null;
-        
-        instIds.forEach(instId => {
-          const cleanName = instId.split("/").pop();
+        matches.forEach(m => {
+          const el = m.el;
+          matchCount++;
+          if (!firstMatch) firstMatch = el;
           
-          // Find matching elements using our robust strategy
-          let el = document.getElementById("pedal-" + cleanName) || 
-                   document.getElementById("instance-" + cleanName) ||
-                   document.getElementById(cleanName) ||
-                   document.getElementById(instId) ||
-                   document.querySelector("[data-instance='" + instId + "']") || 
-                   document.querySelector("[data-id='" + instId + "']") ||
-                   document.querySelector("[instance='" + instId + "']") ||
-                   document.querySelector("[data-instance*='" + cleanName + "']") ||
-                   document.querySelector("[data-id*='" + cleanName + "']") ||
-                   document.querySelector("[id*='" + cleanName + "']");
-                   
-          if (!el) {
-            const candidates = document.querySelectorAll("div, g, svg, rect, section, .plugin, .instance, [id*='graph']");
-            for (let c of candidates) {
-              const idVal = c.id || "";
-              const dataInst = c.getAttribute ? (c.getAttribute('data-instance') || "") : "";
-              const dataId = c.getAttribute ? (c.getAttribute('data-id') || "") : "";
-              
-              if (idVal === instId || 
-                  idVal === cleanName || 
-                  idVal.includes("pedal-" + cleanName) || 
-                  idVal.includes("instance-" + cleanName) ||
-                  dataInst === instId || 
-                  dataInst.includes(cleanName) ||
-                  dataId === instId || 
-                  dataId.includes(cleanName)) {
-                el = c;
-                break;
-              }
-            }
-          }
+          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, stroke 0.3s ease";
+          el.style.outline = "6px solid #FF00CC";
+          el.style.outlineOffset = "4px";
+          el.style.boxShadow = "0 0 25px #FF00CC";
           
-          if (el) {
-            matchCount++;
-            if (!firstMatch) firstMatch = el;
-            
-            // Highlight element
-            el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, stroke 0.3s ease";
-            el.style.outline = "6px solid #00FFCC";
-            el.style.outlineOffset = "4px";
-            el.style.boxShadow = "0 0 25px #00FFCC";
-            
-            if (el.setAttribute) {
-              el.setAttribute("stroke", "#00FFCC");
-              el.setAttribute("stroke-width", "6px");
-            }
-            
-            el.classList.add("tamper-highlight");
+          if (el.setAttribute) {
+            el.setAttribute("stroke", "#FF00CC");
+            el.setAttribute("stroke-width", "6px");
           }
+          el.classList.add("tamper-highlight");
         });
         
-        // Scroll first match into view
         if (firstMatch) {
           firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         }
         
-        // Render diagnostic panel overlay
+        // Let's also do a broad keyword scanner specifically for user debugging!
+        const debugKeywords = ["mono", "dist", "lp3", "audiofile"];
+        let dbgMatches = [];
+        for (let i = 0; i < all.length; i++) {
+          const el = all[i];
+          const id = el.id || "";
+          let className = "";
+          if (el.className) {
+            if (typeof el.className === "string") className = el.className;
+            else if (el.className.baseVal) className = el.className.baseVal;
+          }
+          
+          let hasKw = false;
+          let matchKw = "";
+          let attrs = {};
+          if (el.attributes) {
+            for (let j = 0; j < el.attributes.length; j++) {
+              const a = el.attributes[j];
+              attrs[a.name] = a.value;
+              debugKeywords.forEach(kw => {
+                if (a.value.toLowerCase().includes(kw) || a.name.toLowerCase().includes(kw)) {
+                  hasKw = true;
+                  matchKw = kw;
+                }
+              });
+            }
+          }
+          
+          debugKeywords.forEach(kw => {
+            if (id.toLowerCase().includes(kw) || className.toLowerCase().includes(kw)) {
+              hasKw = true;
+              matchKw = kw;
+            }
+          });
+          
+          if (hasKw && dbgMatches.length < 8) {
+            dbgMatches.push({
+              tag: el.tagName.toLowerCase(),
+              id: id || "none",
+              class: className || "none",
+              attrs: JSON.stringify(attrs),
+              kw: matchKw
+            });
+          }
+        }
+        
+        // Update diagnostic panel
         let diag = document.getElementById("tamper-debug");
         if (!diag) {
           diag = document.createElement("div");
@@ -1162,33 +1214,24 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           diag.style.padding = "10px";
           diag.style.borderRadius = "8px";
           diag.style.fontFamily = "monospace";
-          diag.style.fontSize = "12px";
-          diag.style.maxHeight = "300px";
+          diag.style.fontSize = "11px";
+          diag.style.maxHeight = "450px";
+          diag.style.maxWidth = "90%";
           diag.style.overflowY = "auto";
           diag.style.boxShadow = "0 0 15px #00FFCC";
           document.body.appendChild(diag);
         }
         
-        // Scan ALL DOM nodes for user debugging
-        const allNodes = document.querySelectorAll("div, g, svg, rect, section, .plugin, .instance");
-        let sample = [];
-        allNodes.forEach(item => {
-          if (sample.length < 15 && (item.id || item.className)) {
-            sample.push({
-              tag: item.tagName.toLowerCase(),
-              id: item.id || "none",
-              class: item.className ? (item.className.baseVal || item.className || "none") : "none",
-              dataInst: item.getAttribute ? (item.getAttribute("data-instance") || "none") : "none"
-            });
-          }
-        });
-        
-        diag.innerHTML = "<b>TamperMod Diagnostic (GLOW ALL)</b><br>" +
+        diag.innerHTML = "<b>TamperMod Advanced Diagnostic</b><br>" +
                          "Workspace Pedals: " + instIds.length + "<br>" +
-                         "Highlighted Matches: " + matchCount + "<br>" +
-                         "Total DOM Nodes Scanned: " + allNodes.length + "<br><br>" +
-                         "<b>Sample DOM Nodes Found:</b><br>" +
-                         sample.map(s => "• &lt;" + s.tag + "&gt; ID: " + s.id + " | Class: " + s.class + " | Inst: " + s.dataInst).join("<br>");
+                         "Highlighted Matches: " + matchCount + "<br><br>" +
+                         "<b>Broad DOM Search Matches (" + dbgMatches.length + " found):</b><br>" +
+                         dbgMatches.map((m, idx) => {
+                           return (idx + 1) + ". &lt;" + m.tag + "&gt; Keyword: " + m.kw.toUpperCase() + "<br>" +
+                                  "&nbsp;&nbsp;ID: <span style='color:#FF007F'>" + m.id + "</span><br>" +
+                                  "&nbsp;&nbsp;Class: <span style='color:#00FFCC'>" + m.class + "</span><br>" +
+                                  "&nbsp;&nbsp;Attrs: <span style='color:#FFFF00'>" + m.attrs + "</span>";
+                         }).join("<br><br>");
       })();
     ''';
 
