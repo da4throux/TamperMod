@@ -1142,9 +1142,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     } catch (e) {
       debugPrint('Error glowing all pedals in WebView: \$e');
     }
-  }
-
-  void _highlightPedalInWebView(PluginInstance pedal) {
+  }  void _highlightPedalInWebView(PluginInstance pedal) {
     final String instId = pedal.instance;
     
     // Construct robust JavaScript to find, scroll and glow-highlight the pedal element in the Web GUI
@@ -1153,7 +1151,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         const instId = "$instId";
         console.log("TamperMod: Highlighting single pedal " + instId);
         
-        // Remove previous highlights
+        // 1. Toggle Check: Check if THIS pedal is already glowing! If so, toggle it OFF and return!
+        const existingHighlight = document.querySelector(".tamper-highlight");
+        if (existingHighlight && existingHighlight.getAttribute("mod-instance") === instId) {
+          existingHighlight.style.outline = "";
+          existingHighlight.style.boxShadow = "";
+          existingHighlight.style.backgroundColor = "";
+          existingHighlight.classList.remove("tamper-highlight");
+          return;
+        }
+
+        // 2. Otherwise, clear previous highlights
         const existing = document.querySelectorAll(".tamper-highlight");
         existing.forEach(e => {
           e.style.outline = "";
@@ -1166,16 +1174,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         let diag = document.getElementById("tamper-debug");
         if (diag) diag.remove();
 
-        // 1. Direct query using the mod-instance attribute discovered via diagnostics!
+        // 3. Direct query using the mod-instance attribute discovered via diagnostics!
         let el = document.querySelector('[mod-instance="' + instId + '"]');
         
-        // 2. Backup query by substring
+        // 4. Backup query by substring
         if (!el) {
           const cleanName = instId.split("/").pop();
           el = document.querySelector('[mod-instance*="' + cleanName + '"]');
         }
         
-        // 3. Candidate scan fallback
+        // 5. Candidate scan fallback
         if (!el) {
           const candidates = document.querySelectorAll(".mod-pedal, [mod-instance]");
           for (let c of candidates) {
@@ -1190,29 +1198,35 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         if (el) {
           console.log("TamperMod: Located element", el);
           
-          // Apply glowing neon pink outline, border and beautiful transparency wash
-          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-          el.style.outline = "12px solid #FF0055";
-          el.style.outlineOffset = "4px";
-          el.style.boxShadow = "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055";
-          el.style.backgroundColor = "rgba(255, 0, 85, 0.35)";
+          // Apply initial high-speed transition properties
+          el.style.transition = "outline 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease";
           el.classList.add("tamper-highlight");
           
-          // Pulse the aura a few times
+          // Blink 3 times: Bright White <=> Intense Pink Glow
           let flashCount = 0;
           const interval = setInterval(() => {
-            const visible = (flashCount % 2 === 0);
-            el.style.outlineColor = visible ? "#FF0055" : "transparent";
-            el.style.boxShadow = visible ? "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055" : "none";
-            el.style.backgroundColor = visible ? "rgba(255, 0, 85, 0.35)" : "transparent";
-            flashCount++;
-            if (flashCount > 7) {
-              clearInterval(interval);
-              el.style.outlineColor = "#FF0055";
+            const isWhite = (flashCount % 2 === 0);
+            if (isWhite) {
+              el.style.outline = "12px solid #FFFFFF";
+              el.style.outlineOffset = "4px";
+              el.style.boxShadow = "0 0 70px 25px #FFFFFF, inset 0 0 35px #FFFFFF";
+              el.style.backgroundColor = "rgba(255, 255, 255, 0.85)";
+            } else {
+              el.style.outline = "12px solid #FF0055";
+              el.style.outlineOffset = "4px";
               el.style.boxShadow = "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055";
               el.style.backgroundColor = "rgba(255, 0, 85, 0.35)";
             }
-          }, 200);
+            flashCount++;
+            if (flashCount > 5) { // 3 full cycles of white flash
+              clearInterval(interval);
+              el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
+              el.style.outline = "12px solid #FF0055";
+              el.style.outlineOffset = "4px";
+              el.style.boxShadow = "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055";
+              el.style.backgroundColor = "rgba(255, 0, 85, 0.35)";
+            }
+          }, 180);
         } else {
           console.log("TamperMod: Failed to locate element");
         }
