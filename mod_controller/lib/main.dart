@@ -160,7 +160,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'TAMPERMOD LIVE v1.0.4',
+                      'TAMPERMOD LIVE v1.0.5',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                     ),
                     Text(
