@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'services/websocket_service.dart';
 import 'models/plugin_instance.dart';
+
+enum ViewMode {
+  split,
+  controls,
+  web,
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,10 +62,19 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _DashboardScreenState extends State<DashboardScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   final ModWebSocketService _webSocketService = ModWebSocketService();
   final TextEditingController _ipController = TextEditingController(text: '192.168.51.1');
   late TabController _tabController;
+  late final WebViewController _webViewController;
+  bool _showControls = true;
+  bool _showWeb = true;
+
+  ViewMode get _viewMode {
+    if (_showControls && _showWeb) return ViewMode.split;
+    if (_showControls) return ViewMode.controls;
+    return ViewMode.web;
+  }
 
   // Track volume slider values locally to make the slider extremely responsive
   final Map<String, double> _localVolumes = {};
@@ -66,13 +83,56 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tabController = TabController(length: 2, vsync: this);
     
+    // We will initialize with 3 tabs initially (Gain, All Plugins, Web GUI)
+    _tabController = TabController(length: 3, vsync: this);
+    
+    // Initialize WebViewController
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF0B0E14));
+      
+    // Load initial URL
+    _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
+
     // Connect automatically on launch
     _webSocketService.connect(ip: _ipController.text);
     
     // Listen to value changes to update local volume values initially
     _webSocketService.gainPedals.addListener(_initializeLocalVolumes);
+  }
+
+  void _updateTabController(int targetLength) {
+    if (_tabController.length != targetLength) {
+      final oldIndex = _tabController.index;
+      final newIndex = oldIndex.clamp(0, targetLength - 1);
+      
+      // Delay recreation to avoid modifying state during the build phase
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _tabController.dispose();
+          _tabController = TabController(
+            length: targetLength,
+            vsync: this,
+            initialIndex: newIndex,
+          );
+        });
+      });
+    }
+  }
+
+  int get _targetTabLength {
+    if (_viewMode == ViewMode.web) {
+      return 1; // TabController needs at least 1 tab
+    }
+    if (_viewMode == ViewMode.controls) {
+      return 2;
+    }
+    // split view: length 2 for tablets, 3 for phones
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    return isTablet ? 2 : 3;
   }
 
   void _initializeLocalVolumes() {
@@ -107,6 +167,26 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     super.dispose();
   }
 
+  Future<void> _openWebInterface() async {
+    final ip = _ipController.text;
+    if (ip.isEmpty) return;
+    
+    final uri = Uri.parse('http://$ip');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not launch http://$ip: $e')),
+          );
+        }
+      }
+    }
+  }
+
   Color _getStatusColor(ConnectionStatus status) {
     switch (status) {
       case ConnectionStatus.connected:
@@ -134,6 +214,13 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     return ListenableBuilder(
       listenable: _webSocketService,
       builder: (context, _) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final orientation = MediaQuery.of(context).orientation;
+        final isTablet = screenWidth > 600;
+        final isLandscape = orientation == Orientation.landscape;
+        
+        _updateTabController(_targetTabLength);
+
         return Scaffold(
           appBar: AppBar(
             backgroundColor: const Color(0xFF0F141C),
@@ -160,7 +247,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'TAMPERMOD LIVE v1.0.5',
+                      'TAMPERMOD LIVE v1.0.6',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                     ),
                     Text(
@@ -176,6 +263,46 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               ],
             ),
             actions: [
+              _buildLayoutButton(
+                icon: Icons.tune,
+                tooltip: 'Tap: Toggle Controls | Long Press: Full Controls',
+                isActive: _showControls,
+                onTap: () {
+                  if (_showControls && !_showWeb) return; // Keep at least one view
+                  setState(() {
+                    _showControls = !_showControls;
+                  });
+                },
+                onLongPress: () {
+                  setState(() {
+                    _showControls = true;
+                    _showWeb = false;
+                  });
+                },
+              ),
+              _buildLayoutButton(
+                icon: Icons.language,
+                tooltip: 'Tap: Toggle Web | Long Press: Full Web Interface',
+                isActive: _showWeb,
+                onTap: () {
+                  if (_showWeb && !_showControls) return; // Keep at least one view
+                  setState(() {
+                    _showWeb = !_showWeb;
+                  });
+                },
+                onLongPress: () {
+                  setState(() {
+                    _showWeb = true;
+                    _showControls = false;
+                  });
+                },
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.open_in_browser, color: Color(0xFF00FFCC)),
+                tooltip: 'Open MOD Web GUI',
+                onPressed: _openWebInterface,
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh, color: Color(0xFF00FFCC)),
                 tooltip: 'Refresh Pedalboard',
@@ -184,16 +311,24 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     : null,
               ),
             ],
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: const Color(0xFF00FFCC),
-              labelColor: const Color(0xFF00FFCC),
-              unselectedLabelColor: Colors.grey,
-              tabs: const [
-                Tab(icon: Icon(Icons.tune), text: 'GAIN CONTROL'),
-                Tab(icon: Icon(Icons.settings_ethernet), text: 'ALL PLUGINS'),
-              ],
-            ),
+            bottom: _viewMode == ViewMode.web
+                ? null
+                : TabBar(
+                    controller: _tabController,
+                    indicatorColor: const Color(0xFF00FFCC),
+                    labelColor: const Color(0xFF00FFCC),
+                    unselectedLabelColor: Colors.grey,
+                    tabs: (_viewMode == ViewMode.controls || isTablet)
+                        ? const [
+                            Tab(icon: Icon(Icons.tune), text: 'GAIN CONTROL'),
+                            Tab(icon: Icon(Icons.settings_ethernet), text: 'ALL PLUGINS'),
+                          ]
+                        : const [
+                            Tab(icon: Icon(Icons.tune), text: 'GAIN CONTROL'),
+                            Tab(icon: Icon(Icons.settings_ethernet), text: 'ALL PLUGINS'),
+                            Tab(icon: Icon(Icons.language), text: 'WEB GUI'),
+                          ],
+                  ),
           ),
           body: Container(
             decoration: const BoxDecoration(
@@ -210,19 +345,135 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 
                 // Content Areas
                 Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildGainPadsTab(),
-                      _buildAllPluginsTab(),
-                    ],
-                  ),
+                  child: _buildBodyContent(isTablet, isLandscape),
                 ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBodyContent(bool isTablet, bool isLandscape) {
+    if (_viewMode == ViewMode.web) {
+      return _buildWebView();
+    }
+    
+    if (_viewMode == ViewMode.controls) {
+      return TabBarView(
+        controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _buildGainPadsTab(),
+          _buildAllPluginsTab(),
+        ],
+      );
+    }
+    
+    // _viewMode == ViewMode.split
+    if (isTablet) {
+      return isLandscape
+          ? Row(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: TabBarView(
+                    controller: _tabController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _buildGainPadsTab(),
+                      _buildAllPluginsTab(),
+                    ],
+                  ),
+                ),
+                Container(width: 1, color: Colors.grey[850]),
+                Expanded(
+                  flex: 6,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                    child: _buildWebView(),
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: TabBarView(
+                    controller: _tabController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _buildGainPadsTab(),
+                      _buildAllPluginsTab(),
+                    ],
+                  ),
+                ),
+                Container(height: 1, color: Colors.grey[850]),
+                Expanded(
+                  flex: 6,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                    child: _buildWebView(),
+                  ),
+                ),
+              ],
+            );
+    } else {
+      // Small mobile split-screen = tabbed view
+      return TabBarView(
+        controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _buildGainPadsTab(),
+          _buildAllPluginsTab(),
+          _buildWebView(),
+        ],
+      );
+    }
+  }
+
+  Widget _buildWebView() {
+    return WebViewWidget(controller: _webViewController);
+  }
+
+  Widget _buildLayoutButton({
+    required IconData icon,
+    required String tooltip,
+    required bool isActive,
+    required VoidCallback onTap,
+    required VoidCallback onLongPress,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF00FFCC).withOpacity(0.12) : Colors.transparent,
+            border: Border.all(
+              color: isActive ? const Color(0xFF00FFCC).withOpacity(0.4) : Colors.transparent,
+              width: 1,
+            ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: isActive ? const Color(0xFF00FFCC) : Colors.grey[600],
+            size: 22,
+          ),
+        ),
+      ),
     );
   }
 
@@ -268,6 +519,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             onPressed: () {
               if (isDisconnected) {
                 _webSocketService.connect(ip: _ipController.text);
+                _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
               } else {
                 _webSocketService.disconnect();
               }
