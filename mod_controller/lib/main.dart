@@ -1077,129 +1077,42 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         existing.forEach(e => {
           e.style.outline = "";
           e.style.boxShadow = "";
-          if (e.removeAttribute) {
-            e.removeAttribute("stroke");
-            e.removeAttribute("stroke-width");
-          }
+          e.style.backgroundColor = "";
           e.classList.remove("tamper-highlight");
         });
         
-        // Dynamic search strategy: Scan all elements for matches
-        let matches = [];
-        const all = document.getElementsByTagName("*");
-        
-        for (let i = 0; i < all.length; i++) {
-          const el = all[i];
-          const id = el.id || "";
-          
-          // Safely parse SVGAnimatedString or String classes
-          let className = "";
-          if (el.className) {
-            if (typeof el.className === "string") className = el.className;
-            else if (el.className.baseVal) className = el.className.baseVal;
-          }
-          
-          let attrs = {};
-          if (el.attributes) {
-            for (let j = 0; j < el.attributes.length; j++) {
-              const a = el.attributes[j];
-              attrs[a.name] = a.value;
-            }
-          }
-          
-          // Check if this element matches any of our target instance IDs
-          instIds.forEach(instId => {
-            const cleanName = instId.split("/").pop().toLowerCase();
-            const instLower = instId.toLowerCase();
-            
-            let matched = false;
-            if (id.toLowerCase() === instLower || id.toLowerCase() === cleanName || id.toLowerCase().includes("pedal-" + cleanName) || id.toLowerCase().includes("instance-" + cleanName)) {
-              matched = true;
-            }
-            Object.keys(attrs).forEach(k => {
-              const v = attrs[k].toLowerCase();
-              if (v === instLower || v === cleanName || v.includes("/" + cleanName)) {
-                matched = true;
-              }
-            });
-            
-            if (matched) {
-              matches.push({ el: el, instId: instId, clean: cleanName });
-            }
-          });
-        }
-        
-        // Glow each matched element
         let matchCount = 0;
         let firstMatch = null;
-        matches.forEach(m => {
-          const el = m.el;
-          matchCount++;
-          if (!firstMatch) firstMatch = el;
+        
+        instIds.forEach(instId => {
+          // Direct query by mod-instance attribute!
+          let el = document.querySelector('[mod-instance="' + instId + '"]');
           
-          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, stroke 0.3s ease";
-          el.style.outline = "6px solid #FF00CC";
-          el.style.outlineOffset = "4px";
-          el.style.boxShadow = "0 0 25px #FF00CC";
-          
-          if (el.setAttribute) {
-            el.setAttribute("stroke", "#FF00CC");
-            el.setAttribute("stroke-width", "6px");
+          if (!el) {
+            const cleanName = instId.split("/").pop();
+            el = document.querySelector('[mod-instance*="' + cleanName + '"]');
           }
-          el.classList.add("tamper-highlight");
+          
+          if (el) {
+            matchCount++;
+            if (!firstMatch) firstMatch = el;
+            
+            // Highlight element with neon turquoise theme
+            el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
+            el.style.outline = "6px solid #00FFCC";
+            el.style.outlineOffset = "4px";
+            el.style.boxShadow = "0 0 35px #00FFCC, inset 0 0 20px #00FFCC";
+            el.style.backgroundColor = "rgba(0, 255, 204, 0.15)";
+            el.classList.add("tamper-highlight");
+          }
         });
         
+        // Scroll first match into view
         if (firstMatch) {
           firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         }
         
-        // Let's also do a broad keyword scanner specifically for user debugging!
-        const debugKeywords = ["mono", "dist", "lp3", "audiofile"];
-        let dbgMatches = [];
-        for (let i = 0; i < all.length; i++) {
-          const el = all[i];
-          const id = el.id || "";
-          let className = "";
-          if (el.className) {
-            if (typeof el.className === "string") className = el.className;
-            else if (el.className.baseVal) className = el.className.baseVal;
-          }
-          
-          let hasKw = false;
-          let matchKw = "";
-          let attrs = {};
-          if (el.attributes) {
-            for (let j = 0; j < el.attributes.length; j++) {
-              const a = el.attributes[j];
-              attrs[a.name] = a.value;
-              debugKeywords.forEach(kw => {
-                if (a.value.toLowerCase().includes(kw) || a.name.toLowerCase().includes(kw)) {
-                  hasKw = true;
-                  matchKw = kw;
-                }
-              });
-            }
-          }
-          
-          debugKeywords.forEach(kw => {
-            if (id.toLowerCase().includes(kw) || className.toLowerCase().includes(kw)) {
-              hasKw = true;
-              matchKw = kw;
-            }
-          });
-          
-          if (hasKw && dbgMatches.length < 8) {
-            dbgMatches.push({
-              tag: el.tagName.toLowerCase(),
-              id: id || "none",
-              class: className || "none",
-              attrs: JSON.stringify(attrs),
-              kw: matchKw
-            });
-          }
-        }
-        
-        // Update diagnostic panel
+        // Render diagnostic panel overlay
         let diag = document.getElementById("tamper-debug");
         if (!diag) {
           diag = document.createElement("div");
@@ -1222,16 +1135,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           document.body.appendChild(diag);
         }
         
-        diag.innerHTML = "<b>TamperMod Advanced Diagnostic</b><br>" +
+        diag.innerHTML = "<b>TamperMod Diagnostic</b><br>" +
                          "Workspace Pedals: " + instIds.length + "<br>" +
-                         "Highlighted Matches: " + matchCount + "<br><br>" +
-                         "<b>Broad DOM Search Matches (" + dbgMatches.length + " found):</b><br>" +
-                         dbgMatches.map((m, idx) => {
-                           return (idx + 1) + ". &lt;" + m.tag + "&gt; Keyword: " + m.kw.toUpperCase() + "<br>" +
-                                  "&nbsp;&nbsp;ID: <span style='color:#FF007F'>" + m.id + "</span><br>" +
-                                  "&nbsp;&nbsp;Class: <span style='color:#00FFCC'>" + m.class + "</span><br>" +
-                                  "&nbsp;&nbsp;Attrs: <span style='color:#FFFF00'>" + m.attrs + "</span>";
-                         }).join("<br><br>");
+                         "Highlighted Matches: " + matchCount + " (Glow Engaged!)";
       })();
     ''';
 
@@ -1249,96 +1155,73 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final String jsCode = '''
       (function() {
         const instId = "$instId";
+        console.log("TamperMod: Highlighting single pedal " + instId);
         
-        // Helper to highlight and scroll
-        function highlight(el) {
-          // Remove any existing highlights first
-          const existing = document.querySelectorAll(".tamper-highlight");
-          existing.forEach(e => {
-            e.style.outline = "";
-            e.style.boxShadow = "";
-            if (e.removeAttribute) {
-              e.removeAttribute("stroke");
-              e.removeAttribute("stroke-width");
+        // Remove previous highlights
+        const existing = document.querySelectorAll(".tamper-highlight");
+        existing.forEach(e => {
+          e.style.outline = "";
+          e.style.boxShadow = "";
+          e.style.backgroundColor = "";
+          e.classList.remove("tamper-highlight");
+        });
+        
+        // Clean any diagnostic panel overlay when focusing on a single pedal
+        let diag = document.getElementById("tamper-debug");
+        if (diag) diag.remove();
+
+        // 1. Direct query using the mod-instance attribute discovered via diagnostics!
+        let el = document.querySelector('[mod-instance="' + instId + '"]');
+        
+        // 2. Backup query by substring
+        if (!el) {
+          const cleanName = instId.split("/").pop();
+          el = document.querySelector('[mod-instance*="' + cleanName + '"]');
+        }
+        
+        // 3. Candidate scan fallback
+        if (!el) {
+          const candidates = document.querySelectorAll(".mod-pedal, [mod-instance]");
+          for (let c of candidates) {
+            const modInst = c.getAttribute ? c.getAttribute("mod-instance") : "";
+            if (modInst && modInst.toLowerCase().includes(instId.toLowerCase())) {
+              el = c;
+              break;
             }
-            e.classList.remove("tamper-highlight");
-          });
+          }
+        }
+        
+        if (el) {
+          console.log("TamperMod: Located element", el);
           
-          // Apply glowing neon outline & shadow highlight
-          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, stroke 0.3s ease";
+          // Apply glowing neon pink outline, border and beautiful transparency wash
+          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
           el.style.outline = "6px solid #FF0055";
           el.style.outlineOffset = "4px";
-          el.style.boxShadow = "0 0 25px #FF0055";
-          
-          if (el.setAttribute) {
-            el.setAttribute("stroke", "#FF0055");
-            el.setAttribute("stroke-width", "6px");
-          }
-          
+          el.style.boxShadow = "0 0 35px #FF0055, inset 0 0 20px #FF0055";
+          el.style.backgroundColor = "rgba(255, 0, 85, 0.15)";
           el.classList.add("tamper-highlight");
           
-          // Scroll smoothly into view
+          // Center smoothly in Web canvas
           el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
           
-          // Make it pulse a few times for high visibility
+          // Pulse the aura a few times
           let flashCount = 0;
           const interval = setInterval(() => {
             const visible = (flashCount % 2 === 0);
             el.style.outlineColor = visible ? "#FF0055" : "transparent";
-            el.style.boxShadow = visible ? "0 0 25px #FF0055" : "none";
-            if (el.setAttribute) {
-              el.setAttribute("stroke", visible ? "#FF0055" : "none");
-            }
+            el.style.boxShadow = visible ? "0 0 35px #FF0055, inset 0 0 20px #FF0055" : "none";
+            el.style.backgroundColor = visible ? "rgba(255, 0, 85, 0.15)" : "transparent";
             flashCount++;
             if (flashCount > 7) {
               clearInterval(interval);
               el.style.outlineColor = "#FF0055";
-              el.style.boxShadow = "0 0 25px #FF0055";
-              if (el.setAttribute) {
-                el.setAttribute("stroke", "#FF0055");
-                el.setAttribute("stroke-width", "6px");
-              }
+              el.style.boxShadow = "0 0 35px #FF0055, inset 0 0 20px #FF0055";
+              el.style.backgroundColor = "rgba(255, 0, 85, 0.15)";
             }
           }, 200);
-        }
-
-        // Broad search for the instance element in the MOD Web interface DOM
-        const cleanName = instId.split("/").pop(); // e.g. "Gain_1"
-        
-        // 1. Try selector by ID or common prefixes
-        let el = document.getElementById("pedal-" + cleanName) || 
-                 document.getElementById("instance-" + cleanName) ||
-                 document.getElementById(cleanName) ||
-                 document.getElementById(instId);
-        if (el) { highlight(el); return; }
-        
-        // 2. Try by custom attributes commonly used in MOD Dwarf GUI
-        el = document.querySelector("[data-instance='" + instId + "']") || 
-             document.querySelector("[data-id='" + instId + "']") ||
-             document.querySelector("[instance='" + instId + "']") ||
-             document.querySelector("[data-instance*='" + cleanName + "']") ||
-             document.querySelector("[data-id*='" + cleanName + "']") ||
-             document.querySelector("[id*='" + cleanName + "']");
-        if (el) { highlight(el); return; }
-        
-        // 3. Search all divs/g/svg elements
-        const candidates = document.querySelectorAll("div, g, svg, rect, section, .plugin, .instance, [id*='graph']");
-        for (let c of candidates) {
-          const idVal = c.id || "";
-          const dataInst = c.getAttribute ? (c.getAttribute('data-instance') || "") : "";
-          const dataId = c.getAttribute ? (c.getAttribute('data-id') || "") : "";
-          
-          if (idVal === instId || 
-              idVal === cleanName || 
-              idVal.includes("pedal-" + cleanName) || 
-              idVal.includes("instance-" + cleanName) ||
-              dataInst === instId || 
-              dataInst.includes(cleanName) ||
-              dataId === instId || 
-              dataId.includes(cleanName)) {
-            highlight(c);
-            return;
-          }
+        } else {
+          console.log("TamperMod: Failed to locate element");
         }
       })();
     ''';
