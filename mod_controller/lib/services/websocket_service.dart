@@ -250,11 +250,29 @@ class ModWebSocketService extends ChangeNotifier {
     _channel!.sink.add(rawPayload);
   }
 
-  // Sends a raw toggle bypass command
+  // Sends a raw toggle bypass command with instantaneous optimistic state updates
   void toggleBypass({
     required String instance,
     required bool bypass,
   }) {
+    // 1. OPTIMISTIC UPDATE: Update the state immediately in all collections so the UI reacts in under 1ms
+    final List<PluginInstance> currentAll = List.from(allPlugins.value);
+    final int indexAll = currentAll.indexWhere((p) => p.instance == instance);
+    if (indexAll != -1) {
+      currentAll[indexAll].isBypassed = bypass;
+      allPlugins.value = currentAll;
+    }
+
+    final List<PluginInstance> currentGains = List.from(gainPedals.value);
+    final int indexGains = currentGains.indexWhere((p) => p.instance == instance);
+    if (indexGains != -1) {
+      currentGains[indexGains].isBypassed = bypass;
+      gainPedals.value = currentGains;
+    }
+    
+    // Explicitly notify any widget listeners (like main.dart)
+    notifyListeners();
+
     if (_channel == null || _status != ConnectionStatus.connected) {
       debugPrint('Cannot toggle bypass: Not connected to MOD Dwarf');
       return;
