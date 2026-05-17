@@ -760,7 +760,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         return LayoutBuilder(
           builder: (context, constraints) {
             final double width = constraints.maxWidth;
-            final int crossAxisCount = (width > 700 && !_showWeb) ? 2 : 1;
+            final int crossAxisCount = width > 600 ? 2 : 1;
             
             // Calculate column width taking spacing and padding into account
             final double spacing = 16.0;
@@ -862,41 +862,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _highlightPedalInWebView(pedal),
+                      child: Tooltip(
+                        message: 'Tap to locate in Web interface',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                  color: accentColor,
-                                  overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w900,
+                                      color: accentColor,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                IconButton(
+                                  icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _showRenameDialog(pedal),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () => _showRenameDialog(pedal),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Instance: ${pedal.instance}  |  Port: ${pedal.gainPortSymbol ?? "Gain"}',
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: Colors.grey[500],
+                                fontFamily: 'monospace',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Instance: ${pedal.instance}  |  Port: ${pedal.gainPortSymbol ?? "Gain"}',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.grey[500],
-                            fontFamily: 'monospace',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   
@@ -1027,6 +1034,83 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  void _highlightPedalInWebView(PluginInstance pedal) {
+    final String instId = pedal.instance;
+    
+    // Construct robust JavaScript to find, scroll and glow-highlight the pedal element in the Web GUI
+    final String jsCode = '''
+      (function() {
+        const instId = "$instId";
+        
+        // Helper to highlight and scroll
+        function highlight(el) {
+          // Remove any existing highlights first
+          const existing = document.querySelectorAll(".tamper-highlight");
+          existing.forEach(e => {
+            e.style.outline = "";
+            e.style.boxShadow = "";
+            e.classList.remove("tamper-highlight");
+          });
+          
+          // Apply glowing neon outline & shadow highlight
+          el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease";
+          el.style.outline = "6px solid #FF0055";
+          el.style.outlineOffset = "4px";
+          el.style.boxShadow = "0 0 25px #FF0055";
+          el.classList.add("tamper-highlight");
+          
+          // Scroll smoothly into view
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          
+          // Make it pulse a few times for high visibility
+          let flashCount = 0;
+          const interval = setInterval(() => {
+            el.style.outlineColor = (flashCount % 2 === 0) ? "transparent" : "#FF0055";
+            el.style.boxShadow = (flashCount % 2 === 0) ? "none" : "0 0 25px #FF0055";
+            flashCount++;
+            if (flashCount > 7) {
+              clearInterval(interval);
+              el.style.outlineColor = "#FF0055";
+              el.style.boxShadow = "0 0 25px #FF0055";
+            }
+          }, 200);
+        }
+
+        // Broad search for the instance element in the MOD Web interface DOM
+        // 1. Try selector by ID or escaped ID
+        let escapedId = instId.replace(/\\//g, '\\\\/');
+        let el = document.querySelector("#" + escapedId) || document.getElementById(instId);
+        if (el) { highlight(el); return; }
+        
+        // 2. Try by custom attributes commonly used in MOD Dwarf GUI
+        el = document.querySelector("[data-instance='" + instId + "']") || 
+             document.querySelector("[data-id='" + instId + "']") ||
+             document.querySelector("[instance='" + instId + "']");
+        if (el) { highlight(el); return; }
+        
+        // 3. Search all divs/g/svg elements
+        const candidates = document.querySelectorAll("div, g, svg, section, .plugin, .instance, [id*='graph']");
+        for (let c of candidates) {
+          if (c.getAttribute && 
+              (c.getAttribute('data-instance') === instId || 
+               c.getAttribute('data-id') === instId || 
+               c.getAttribute('id') === instId ||
+               c.getAttribute('instance') === instId ||
+               (c.id && c.id.includes(instId.replace('/graph/', ''))))) {
+            highlight(c);
+            return;
+          }
+        }
+      })();
+    ''';
+
+    try {
+      _webViewController.runJavaScript(jsCode);
+    } catch (e) {
+      debugPrint('Error highlighting pedal in WebView: \$e');
+    }
+  }
+
   void _showRenameDialog(PluginInstance pedal) {
     final currentTitle = _customTitles[pedal.instance] ?? pedal.title;
     final controller = TextEditingController(text: currentTitle);
@@ -1150,41 +1234,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _highlightPedalInWebView(pedal),
+                      child: Tooltip(
+                        message: 'Tap to locate in Web interface',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                displayName.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                  color: accentColor,
-                                  overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    displayName.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w900,
+                                      color: accentColor,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                IconButton(
+                                  icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _showRenameDialog(pedal),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () => _showRenameDialog(pedal),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Instance: ${pedal.instance}  |  Switch: ${switchPort ?? "None"}',
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.grey[500],
+                                  fontFamily: 'monospace',
+                                  overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Instance: ${pedal.instance}  |  Switch: ${switchPort ?? "None"}',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.grey[500],
-                            fontFamily: 'monospace',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                   IconButton(
@@ -1348,41 +1439,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _highlightPedalInWebView(pedal),
+                    child: Tooltip(
+                      message: 'Tap to locate in Web interface',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: accentColor,
-                                overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    color: accentColor,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ),
-                            ),
+                              IconButton(
+                                icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () => _showRenameDialog(pedal),
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _showRenameDialog(pedal),
+                          const SizedBox(height: 2),
+                          Text(
+                            'URI: ${pedal.uri}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.grey[500],
+                              fontFamily: 'monospace',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'URI: ${pedal.uri}',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.grey[500],
-                          fontFamily: 'monospace',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 IconButton(
