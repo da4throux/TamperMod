@@ -22,6 +22,8 @@ class ModWebSocketService extends ChangeNotifier {
   final ValueNotifier<List<PluginInstance>> gainPedals = ValueNotifier<List<PluginInstance>>([]);
   // Expose all parsed plugins (useful for debugging/discovery)
   final ValueNotifier<List<PluginInstance>> allPlugins = ValueNotifier<List<PluginInstance>>([]);
+  // Expose parsed BPM (tempo)
+  final ValueNotifier<double> bpm = ValueNotifier<double>(120.0);
 
   ConnectionStatus get status => _status;
   Stream<String> get messages => _rawMessageStreamController.stream;
@@ -227,10 +229,29 @@ class ModWebSocketService extends ChangeNotifier {
 
         gainPedals.value = gains;
         debugPrint('SUCCESSFULLY DISCOVERED ${gains.length} GAIN PEDALS: $gains');
+      } else if (cmd == 'bpm') {
+        final double? val = double.tryParse(data);
+        if (val != null) {
+          bpm.value = val;
+          debugPrint('RECEIVED BPM FROM HOST: $val');
+        }
       }
     } catch (e, stack) {
       debugPrint('Error parsing command $cmd: $e\n$stack');
     }
+  }
+
+  // Sends a raw set BPM command
+  void setBpm(double value) {
+    if (_channel == null || _status != ConnectionStatus.connected) {
+      debugPrint('Cannot set BPM: Not connected to MOD Dwarf');
+      return;
+    }
+
+    final String rawPayload = 'bpm $value';
+    debugPrint('SENDING COMMAND: $rawPayload');
+    _channel!.sink.add(rawPayload);
+    bpm.value = value; // Optimistic update
   }
 
   // Sends a raw parameter set command
