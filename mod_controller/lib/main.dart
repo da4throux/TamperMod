@@ -8,7 +8,7 @@ import 'services/websocket_service.dart';
 import 'models/plugin_instance.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.0.7';
+const String kAppVersion = '1.0.8';
 
 enum ViewMode {
   split,
@@ -87,6 +87,261 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   // Custom User Ordering and Visibility List
   List<String> _enabledPluginInstances = [];
 
+  // Neon Colors Palette for permanent visual cues
+  static const List<String> kNeonColors = [
+    '#00FFCC', // Turquoise
+    '#FF0055', // Pink
+    '#9D00FF', // Purple
+    '#00FF66', // Green
+    '#FF7700', // Orange
+  ];
+
+  final Map<String, String> _pedalGlowColors = {};
+  final Map<String, bool> _pedalGlowEnabled = {};
+  final Set<String> _expandedColorPickers = {};
+
+  Color _hexToColor(String hex) {
+    final String cleanHex = hex.replaceAll('#', '');
+    if (cleanHex.length == 6) {
+      return Color(int.parse('FF$cleanHex', radix: 16));
+    }
+    return const Color(0xFF00FFCC);
+  }
+
+  String _getDefaultColorForPedal(PluginInstance pedal) {
+    final int index = _enabledPluginInstances.indexOf(pedal.instance);
+    if (index >= 0) {
+      return kNeonColors[index % kNeonColors.length];
+    }
+    return kNeonColors[0];
+  }
+
+  void _updateAllGlowsInWebView() {
+    final List<Map<String, dynamic>> configs = [];
+    for (final instanceId in _enabledPluginInstances) {
+      final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
+      String colorHex = _pedalGlowColors[instanceId] ?? '';
+      if (colorHex.isEmpty) {
+        final int index = _enabledPluginInstances.indexOf(instanceId);
+        colorHex = kNeonColors[index >= 0 ? (index % kNeonColors.length) : 0];
+      }
+      configs.add({
+        'instance': instanceId,
+        'enabled': isEnabled,
+        'color': colorHex,
+      });
+    }
+
+    final String jsCode = '''
+      (function() {
+        const configs = ${jsonEncode(configs)};
+        console.log("TamperMod: Updating permanent glows", configs);
+        
+        // Remove all previous glows
+        const existing = document.querySelectorAll(".tamper-highlight, .tamper-permanent-glow");
+        existing.forEach(e => {
+          e.style.outline = "";
+          e.style.boxShadow = "";
+          e.style.backgroundColor = "";
+          e.classList.remove("tamper-highlight");
+          e.classList.remove("tamper-permanent-glow");
+        });
+        
+        // Clean any diagnostic panel overlay if present
+        let diag = document.getElementById("tamper-debug");
+        if (diag) diag.remove();
+
+        configs.forEach(c => {
+          if (!c.enabled) return;
+          
+          let el = document.querySelector('[mod-instance="' + c.instance + '"]');
+          if (!el) {
+            const cleanName = c.instance.split("/").pop();
+            el = document.querySelector('[mod-instance*="' + cleanName + '"]');
+          }
+          
+          if (el) {
+            el.classList.add("tamper-permanent-glow");
+            el.setAttribute("data-glow-color", c.color);
+            
+            // Apply permanent glow with massive visual propagation (neon cloud expands far out!)
+            el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
+            el.style.outline = "6px solid " + c.color;
+            el.style.outlineOffset = "4px";
+            el.style.boxShadow = "0 0 100px 25px " + c.color + ", inset 0 0 30px " + c.color;
+            el.style.backgroundColor = hexToRgba(c.color, 0.12);
+          }
+        });
+        
+        function hexToRgba(hex, alpha) {
+          let c = hex.substring(1);
+          if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+          const r = parseInt(c.substring(0, 2), 16);
+          const g = parseInt(c.substring(2, 4), 16);
+          const b = parseInt(c.substring(4, 6), 16);
+          return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
+        }
+      })();
+    ''';
+
+    try {
+      _webViewController.runJavaScript(jsCode);
+    } catch (e) {
+      debugPrint('Error updating all glows: \$e');
+    }
+  }
+
+  Widget _buildGlowSettingsRow(PluginInstance pedal) {
+    final String instId = pedal.instance;
+    final bool isGlowEnabled = _pedalGlowEnabled[instId] ?? true;
+    final String colorHex = _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
+    final Color selectedColor = _hexToColor(colorHex);
+
+    final bool isExpanded = _expandedColorPickers.contains(instId);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+      child: Row(
+        children: [
+          // Icon and Toggle
+          Icon(
+            isGlowEnabled ? Icons.wb_sunny : Icons.wb_sunny_outlined,
+            size: 16,
+            color: isGlowEnabled ? selectedColor : Colors.grey[600],
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'GLOW',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: isGlowEnabled ? selectedColor : Colors.grey[600],
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            height: 20,
+            width: 32,
+            child: Transform.scale(
+              scale: 0.7,
+              child: Switch(
+                value: isGlowEnabled,
+                activeColor: selectedColor,
+                activeTrackColor: selectedColor.withOpacity(0.3),
+                inactiveThumbColor: Colors.grey[600],
+                inactiveTrackColor: Colors.grey[850],
+                onChanged: (val) {
+                  setState(() {
+                    _pedalGlowEnabled[instId] = val;
+                  });
+                  _updateAllGlowsInWebView();
+                },
+              ),
+            ),
+          ),
+          const Spacer(),
+          
+          // Color picker dots
+          if (isGlowEnabled) ...[
+            if (isExpanded) ...[
+              // Expanded: Show full palette
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...kNeonColors.map((hex) {
+                    final Color dotColor = _hexToColor(hex);
+                    final bool isSelected = hex == colorHex;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _pedalGlowColors[instId] = hex;
+                          _expandedColorPickers.remove(instId); // collapse after selection
+                        });
+                        _updateAllGlowsInWebView();
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: dotColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? Colors.white : Colors.transparent,
+                            width: 1.5,
+                          ),
+                          boxShadow: isSelected ? [
+                            BoxShadow(
+                              color: dotColor.withOpacity(0.8),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            )
+                          ] : null,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(width: 6),
+                  // Small collapse checkmark or close button
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _expandedColorPickers.remove(instId);
+                      });
+                    },
+                    child: Icon(
+                      Icons.check_circle_outline,
+                      size: 15,
+                      color: selectedColor,
+                    ),
+                  ),
+                ],
+              )
+            ] else ...[
+              // Collapsed: Show only the active selected color dot (Tap to customize color)
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _expandedColorPickers.add(instId);
+                  });
+                },
+                child: Tooltip(
+                  message: 'Tap to change neon color',
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selectedColor.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: selectedColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: selectedColor.withOpacity(0.6),
+                            blurRadius: 4,
+                            spreadRadius: 0.5,
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            ]
+          ]
+        ],
+      ),
+    );
+  }
+
   // Fading and BPM Parameter State
   double _bpm = 120.0;
   int _fadeBars = 8; // Default fade speed period in bars (configurable: 1, 2, 4, 8, 16)
@@ -109,7 +364,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Initialize WebViewController
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF0B0E14));
+      ..setBackgroundColor(const Color(0xFF0B0E14))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) {
+            // Apply all permanent glows automatically when the page is finished loading!
+            _updateAllGlowsInWebView();
+          },
+        ),
+      );
       
     // Load initial URL
     _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
@@ -136,6 +399,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Auto-populate custom control workspace by default with gains
     if (_enabledPluginInstances.isEmpty && gains.isNotEmpty) {
       _enabledPluginInstances = gains.map((p) => p.instance).toList();
+      _updateAllGlowsInWebView();
     }
     
     setState(() {});
@@ -721,6 +985,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 setState(() {
                   _enabledPluginInstances = newGains;
                 });
+                _updateAllGlowsInWebView();
               }
             });
           }
@@ -775,8 +1040,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             final double spacing = 16.0;
             final double columnWidth = (width - (crossAxisCount - 1) * spacing) / crossAxisCount;
             
-            // Lock height to exactly 185 logical pixels
-            final double childAspectRatio = columnWidth / 185.0;
+            // Lock height to exactly 225 logical pixels
+            final double childAspectRatio = columnWidth / 225.0;
 
             return GridView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
@@ -827,14 +1092,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final double clampedValue = currentValue.clamp(minRange, maxRange);
     final bool isBypassed = pedal.isBypassed;
 
-    // Design states based on active status
+    // Read the custom glow configuration
+    final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
+    final Color glowColor = _hexToColor(colorHex);
+    final bool isGlowEnabled = _pedalGlowEnabled[pedal.instance] ?? true;
+
+    // Design states based on active status and chosen neon color
     final Color accentColor = isBypassed 
         ? Colors.grey[600]! 
-        : const Color(0xFF00FFCC);
+        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
         
     final Color powerIconColor = isBypassed 
         ? const Color(0xFFFF007F) 
-        : const Color(0xFF00FFCC);
+        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
 
     final double cardOpacity = isBypassed ? 0.70 : 1.0;
     
@@ -850,12 +1120,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           color: const Color(0xFF161B22),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
-            width: 1,
+            color: isGlowEnabled 
+                ? glowColor.withOpacity(isBypassed ? 0.25 : 0.6) 
+                : accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
+            width: isGlowEnabled ? 1.5 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+              color: isGlowEnabled 
+                  ? glowColor.withOpacity(isBypassed ? 0.0 : 0.12) 
+                  : accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
               blurRadius: 10,
               spreadRadius: 2,
             )
@@ -955,6 +1229,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                 ],
               ),
+              _buildGlowSettingsRow(pedal),
               const Spacer(),
               
               // Custom styled Volume Slider
@@ -1044,17 +1319,92 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   void _highlightAllPedalsInWebView() {
-    final List<String> instIds = _enabledPluginInstances;
-    if (instIds.isEmpty) return;
-    
-    // Show local UI feedback SnackBar
+    final List<Map<String, dynamic>> configs = [];
+    for (final instanceId in _enabledPluginInstances) {
+      final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
+      String colorHex = _pedalGlowColors[instanceId] ?? '';
+      if (colorHex.isEmpty) {
+        final int index = _enabledPluginInstances.indexOf(instanceId);
+        colorHex = kNeonColors[index >= 0 ? (index % kNeonColors.length) : 0];
+      }
+      configs.add({
+        'instance': instanceId,
+        'enabled': isEnabled,
+        'color': colorHex,
+      });
+    }
+
+    final String jsCode = '''
+      (function() {
+        const configs = ${jsonEncode(configs)};
+        console.log("TamperMod: Synchronous board-wide blink pulse", configs);
+        
+        configs.forEach(c => {
+          let el = document.querySelector('[mod-instance="' + c.instance + '"]');
+          if (!el) {
+            const cleanName = c.instance.split("/").pop();
+            el = document.querySelector('[mod-instance*="' + cleanName + '"]');
+          }
+          
+          if (el) {
+            // Speed up transitions
+            el.style.transition = "outline 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease";
+            
+            // Blink 5 times (2 seconds)
+            let flashCount = 0;
+            const interval = setInterval(() => {
+              const isWhite = (flashCount % 2 === 0);
+              if (isWhite) {
+                el.style.outline = "16px solid #FFFFFF";
+                el.style.outlineOffset = "6px";
+                el.style.boxShadow = "0 0 120px 40px #FFFFFF, inset 0 0 45px #FFFFFF";
+                el.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
+              } else {
+                el.style.outline = "12px solid " + c.color;
+                el.style.outlineOffset = "4px";
+                el.style.boxShadow = "0 0 80px 20px " + c.color + ", inset 0 0 35px " + c.color;
+                el.style.backgroundColor = hexToRgba(c.color, 0.4);
+              }
+              flashCount++;
+              if (flashCount > 9) {
+                clearInterval(interval);
+                
+                // Restore permanent glow state cleanly!
+                if (c.enabled) {
+                  el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
+                  el.style.outline = "6px solid " + c.color;
+                  el.style.outlineOffset = "4px";
+                  el.style.boxShadow = "0 0 100px 25px " + c.color + ", inset 0 0 30px " + c.color;
+                  el.style.backgroundColor = hexToRgba(c.color, 0.12);
+                } else {
+                  el.style.outline = "";
+                  el.style.boxShadow = "";
+                  el.style.backgroundColor = "";
+                }
+              }
+            }, 200);
+          }
+        });
+        
+        function hexToRgba(hex, alpha) {
+          let c = hex.substring(1);
+          if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+          const r = parseInt(c.substring(0, 2), 16);
+          const g = parseInt(c.substring(2, 4), 16);
+          const b = parseInt(c.substring(4, 6), 16);
+          return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
+        }
+      })();
+    ''';
+
+    // SnackBar feedback
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text(
-          '⚡ GLOWING ALL WORKSPACE PEDALS IN WEB GUI',
+          '⚡ SYNCHRONIZED BOARD-WIDE NEON IDENTIFICATION PULSE',
           style: TextStyle(
-            color: Color(0xFFFF007F), 
+            color: Color(0xFF00FFCC), 
             fontWeight: FontWeight.bold, 
             letterSpacing: 1.0,
             fontSize: 12
@@ -1067,168 +1417,78 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       ),
     );
 
-    final String jsCode = '''
-      (function() {
-        const instIds = ${jsonEncode(instIds)};
-        console.log("TamperMod: Glowing all workspace pedals", instIds);
-        
-        // Remove previous highlights
-        const existing = document.querySelectorAll(".tamper-highlight");
-        existing.forEach(e => {
-          e.style.outline = "";
-          e.style.boxShadow = "";
-          e.style.backgroundColor = "";
-          e.classList.remove("tamper-highlight");
-        });
-        
-        let matchCount = 0;
-        let firstMatch = null;
-        
-        instIds.forEach(instId => {
-          // Direct query by mod-instance attribute!
-          let el = document.querySelector('[mod-instance="' + instId + '"]');
-          
-          if (!el) {
-            const cleanName = instId.split("/").pop();
-            el = document.querySelector('[mod-instance*="' + cleanName + '"]');
-          }
-          
-          if (el) {
-            matchCount++;
-            if (!firstMatch) firstMatch = el;
-            
-            // Highlight element with neon turquoise theme
-            el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-            el.style.outline = "12px solid #00FFCC";
-            el.style.outlineOffset = "4px";
-            el.style.boxShadow = "0 0 60px 15px #00FFCC, inset 0 0 30px #00FFCC";
-            el.style.backgroundColor = "rgba(0, 255, 204, 0.35)";
-            el.classList.add("tamper-highlight");
-          }
-        });
-        
-        
-        // Render diagnostic panel overlay
-        let diag = document.getElementById("tamper-debug");
-        if (!diag) {
-          diag = document.createElement("div");
-          diag.id = "tamper-debug";
-          diag.style.position = "fixed";
-          diag.style.top = "10px";
-          diag.style.left = "10px";
-          diag.style.zIndex = "999999";
-          diag.style.background = "rgba(15, 20, 28, 0.95)";
-          diag.style.border = "2px solid #00FFCC";
-          diag.style.color = "#00FFCC";
-          diag.style.padding = "10px";
-          diag.style.borderRadius = "8px";
-          diag.style.fontFamily = "monospace";
-          diag.style.fontSize = "11px";
-          diag.style.maxHeight = "450px";
-          diag.style.maxWidth = "90%";
-          diag.style.overflowY = "auto";
-          diag.style.boxShadow = "0 0 15px #00FFCC";
-          document.body.appendChild(diag);
-        }
-        
-        diag.innerHTML = "<b>TamperMod Diagnostic</b><br>" +
-                         "Workspace Pedals: " + instIds.length + "<br>" +
-                         "Highlighted Matches: " + matchCount + " (Glow Engaged!)";
-      })();
-    ''';
-
     try {
       _webViewController.runJavaScript(jsCode);
     } catch (e) {
-      debugPrint('Error glowing all pedals in WebView: \$e');
+      debugPrint('Error running board sync blink: \$e');
     }
-  }  void _highlightPedalInWebView(PluginInstance pedal) {
+  }
+
+  void _highlightPedalInWebView(PluginInstance pedal) {
     final String instId = pedal.instance;
+    final String colorHex = _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
+    final bool isGlowEnabled = _pedalGlowEnabled[instId] ?? true;
     
-    // Construct robust JavaScript to find, scroll and glow-highlight the pedal element in the Web GUI
+    // Construct robust JavaScript to blink the pedal element in the Web GUI for 2 seconds
     final String jsCode = '''
       (function() {
         const instId = "$instId";
-        console.log("TamperMod: Highlighting single pedal " + instId);
+        const color = "$colorHex";
+        const isGlowEnabled = $isGlowEnabled;
+        console.log("TamperMod: Blinking pedal " + instId);
         
-        // 1. Toggle Check: Check if THIS pedal is already glowing! If so, toggle it OFF and return!
-        const existingHighlight = document.querySelector(".tamper-highlight");
-        if (existingHighlight && existingHighlight.getAttribute("mod-instance") === instId) {
-          existingHighlight.style.outline = "";
-          existingHighlight.style.boxShadow = "";
-          existingHighlight.style.backgroundColor = "";
-          existingHighlight.classList.remove("tamper-highlight");
-          return;
-        }
-
-        // 2. Otherwise, clear previous highlights
-        const existing = document.querySelectorAll(".tamper-highlight");
-        existing.forEach(e => {
-          e.style.outline = "";
-          e.style.boxShadow = "";
-          e.style.backgroundColor = "";
-          e.classList.remove("tamper-highlight");
-        });
-        
-        // Clean any diagnostic panel overlay when focusing on a single pedal
-        let diag = document.getElementById("tamper-debug");
-        if (diag) diag.remove();
-
-        // 3. Direct query using the mod-instance attribute discovered via diagnostics!
         let el = document.querySelector('[mod-instance="' + instId + '"]');
-        
-        // 4. Backup query by substring
         if (!el) {
           const cleanName = instId.split("/").pop();
           el = document.querySelector('[mod-instance*="' + cleanName + '"]');
         }
         
-        // 5. Candidate scan fallback
-        if (!el) {
-          const candidates = document.querySelectorAll(".mod-pedal, [mod-instance]");
-          for (let c of candidates) {
-            const modInst = c.getAttribute ? c.getAttribute("mod-instance") : "";
-            if (modInst && modInst.toLowerCase().includes(instId.toLowerCase())) {
-              el = c;
-              break;
-            }
-          }
-        }
-        
         if (el) {
-          console.log("TamperMod: Located element", el);
+          // Temporarily accelerate transition speeds
+          el.style.transition = "outline 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease";
           
-          // Apply initial high-speed transition properties
-          el.style.transition = "outline 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease";
-          el.classList.add("tamper-highlight");
-          
-          // Blink 3 times: Bright White <=> Intense Pink Glow
+          // Blink 5 times over 2 seconds (each cycle takes 400ms: 200ms white, 200ms default/off)
           let flashCount = 0;
           const interval = setInterval(() => {
             const isWhite = (flashCount % 2 === 0);
             if (isWhite) {
-              el.style.outline = "12px solid #FFFFFF";
-              el.style.outlineOffset = "4px";
-              el.style.boxShadow = "0 0 70px 25px #FFFFFF, inset 0 0 35px #FFFFFF";
-              el.style.backgroundColor = "rgba(255, 255, 255, 0.85)";
+              el.style.outline = "16px solid #FFFFFF";
+              el.style.outlineOffset = "6px";
+              el.style.boxShadow = "0 0 120px 40px #FFFFFF, inset 0 0 45px #FFFFFF";
+              el.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
             } else {
-              el.style.outline = "12px solid #FF0055";
+              el.style.outline = "12px solid " + color;
               el.style.outlineOffset = "4px";
-              el.style.boxShadow = "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055";
-              el.style.backgroundColor = "rgba(255, 0, 85, 0.35)";
+              el.style.boxShadow = "0 0 80px 20px " + color + ", inset 0 0 35px " + color;
+              el.style.backgroundColor = hexToRgba(color, 0.4);
             }
             flashCount++;
-            if (flashCount > 5) { // 3 full cycles of white flash
+            if (flashCount > 9) { // 5 complete blinking cycles (2 seconds)
               clearInterval(interval);
-              el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-              el.style.outline = "12px solid #FF0055";
-              el.style.outlineOffset = "4px";
-              el.style.boxShadow = "0 0 60px 15px #FF0055, inset 0 0 30px #FF0055";
-              el.style.backgroundColor = "rgba(255, 0, 85, 0.35)";
+              
+              // Restore permanent glow state cleanly!
+              if (isGlowEnabled) {
+                el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
+                el.style.outline = "6px solid " + color;
+                el.style.outlineOffset = "4px";
+                el.style.boxShadow = "0 0 100px 25px " + color + ", inset 0 0 30px " + color;
+                el.style.backgroundColor = hexToRgba(color, 0.12);
+              } else {
+                el.style.outline = "";
+                el.style.boxShadow = "";
+                el.style.backgroundColor = "";
+              }
             }
-          }, 180);
-        } else {
-          console.log("TamperMod: Failed to locate element");
+          }, 200);
+        }
+        
+        function hexToRgba(hex, alpha) {
+          let c = hex.substring(1);
+          if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+          const r = parseInt(c.substring(0, 2), 16);
+          const g = parseInt(c.substring(2, 4), 16);
+          const b = parseInt(c.substring(4, 6), 16);
+          return "rgba(" + r + ", " + g + ", " + b + ", " + alpha + ")";
         }
       })();
     ''';
@@ -1238,7 +1498,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '⚡ SEARCHING & GLOWING: ${pedal.title.toUpperCase()} (${pedal.instance})',
+          '⚡ BLINK IDENTIFYING: ${pedal.title.toUpperCase()}',
           style: const TextStyle(
             color: Color(0xFF00FFCC), 
             fontWeight: FontWeight.bold, 
@@ -1352,8 +1612,19 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Typically: 0 = Path A, 1 = Path B
     final bool isPathB = currentValue >= 0.5;
 
-    final Color accentColor = isBypassed ? Colors.grey[600]! : const Color(0xFF00FFCC);
-    final Color powerIconColor = isBypassed ? const Color(0xFFFF007F) : const Color(0xFF00FFCC);
+    // Read the custom glow configuration
+    final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
+    final Color glowColor = _hexToColor(colorHex);
+    final bool isGlowEnabled = _pedalGlowEnabled[pedal.instance] ?? true;
+
+    // Design states based on active status and chosen neon color
+    final Color accentColor = isBypassed 
+        ? Colors.grey[600]! 
+        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        
+    final Color powerIconColor = isBypassed 
+        ? const Color(0xFFFF007F) 
+        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
 
     return Opacity(
       opacity: isBypassed ? 0.70 : 1.0,
@@ -1362,12 +1633,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           color: const Color(0xFF161B22),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
-            width: 1,
+            color: isGlowEnabled 
+                ? glowColor.withOpacity(isBypassed ? 0.25 : 0.6) 
+                : accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
+            width: isGlowEnabled ? 1.5 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+              color: isGlowEnabled 
+                  ? glowColor.withOpacity(isBypassed ? 0.0 : 0.12) 
+                  : accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
               blurRadius: 10,
               spreadRadius: 2,
             )
@@ -1442,6 +1717,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                 ],
               ),
+              _buildGlowSettingsRow(pedal),
               const Spacer(),
               
               // Custom A / B Switch Control
@@ -1567,16 +1843,40 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Widget _buildPlaceholderCard(PluginInstance pedal) {
     final bool isBypassed = pedal.isBypassed;
-    final Color accentColor = isBypassed ? Colors.grey[600]! : const Color(0xFF00FFCC);
+
+    // Read the custom glow configuration
+    final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
+    final Color glowColor = _hexToColor(colorHex);
+    final bool isGlowEnabled = _pedalGlowEnabled[pedal.instance] ?? true;
+
+    // Design states based on active status and chosen neon color
+    final Color accentColor = isBypassed 
+        ? Colors.grey[600]! 
+        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        
+    final Color powerIconColor = isBypassed 
+        ? const Color(0xFFFF007F) 
+        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
     
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF161B22),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: accentColor.withOpacity(0.2),
-          width: 1,
+          color: isGlowEnabled 
+              ? glowColor.withOpacity(isBypassed ? 0.25 : 0.6) 
+              : accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
+          width: isGlowEnabled ? 1.5 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: isGlowEnabled 
+                ? glowColor.withOpacity(isBypassed ? 0.0 : 0.12) 
+                : accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+            blurRadius: 10,
+            spreadRadius: 2,
+          )
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1635,7 +1935,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 IconButton(
                   icon: Icon(
                     Icons.power_settings_new,
-                    color: isBypassed ? const Color(0xFFFF007F) : const Color(0xFF00FFCC),
+                    color: powerIconColor,
                     size: 24,
                   ),
                   onPressed: () {
@@ -1647,6 +1947,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
               ],
             ),
+            _buildGlowSettingsRow(pedal),
             const Divider(color: Colors.grey, height: 1),
             Row(
               children: [
@@ -1858,6 +2159,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         final item = _enabledPluginInstances.removeAt(oldIdx);
                         _enabledPluginInstances.insert(newIdx, item);
                       });
+                      _updateAllGlowsInWebView();
                     },
                     itemBuilder: (context, index) {
                       final pedal = active[index];
@@ -1872,6 +2174,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             setState(() {
                               _enabledPluginInstances.remove(pedal.instance);
                             });
+                            _updateAllGlowsInWebView();
                           },
                         ),
                         title: Text(
@@ -1937,6 +2240,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               setState(() {
                                 _enabledPluginInstances.add(pedal.instance);
                               });
+                              _updateAllGlowsInWebView();
                             },
                           ),
                           title: Text(
