@@ -94,6 +94,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   final Map<String, Timer?> _fadeTimers = {};
   final Map<String, bool> _fadeDirections = {}; // true for Fade In, false for Fade Out
 
+  // User custom display titles for plugin cards (renaming support)
+  final Map<String, String> _customTitles = {};
+
   // Tap-tempo times keeper
   final List<DateTime> _tapTimes = [];
 
@@ -780,13 +783,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 final uriLower = pedal.uri.toLowerCase();
                 final titleLower = pedal.title.toLowerCase();
                 
+                final isSwitch = uriLower.contains('switch') || 
+                                 titleLower.contains('switch');
+                
                 final isGainOrVolume = uriLower.contains('gain') || 
                                        uriLower.contains('volume') || 
                                        uriLower.contains('amp') ||
                                        titleLower.contains('gain') || 
                                        titleLower.contains('volume');
                 
-                if (isGainOrVolume) {
+                if (isSwitch) {
+                  return _buildSwitchCard(pedal);
+                } else if (isGainOrVolume) {
                   return _buildGainCard(pedal);
                 } else {
                   return _buildPlaceholderCard(pedal);
@@ -857,14 +865,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          pedal.title.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: accentColor,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: accentColor,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _showRenameDialog(pedal),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -1007,6 +1027,258 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  void _showRenameDialog(PluginInstance pedal) {
+    final currentTitle = _customTitles[pedal.instance] ?? pedal.title;
+    final controller = TextEditingController(text: currentTitle);
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0F141C),
+          title: const Text(
+            'RENAME PEDAL',
+            style: TextStyle(
+              color: Color(0xFF00FFCC), 
+              fontWeight: FontWeight.bold, 
+              letterSpacing: 1.2, 
+              fontSize: 16
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Custom Display Name',
+              labelStyle: TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00FFCC))),
+            ),
+            style: const TextStyle(color: Colors.white),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00FFCC), 
+                foregroundColor: Colors.black
+              ),
+              onPressed: () {
+                if (controller.text.trim().isNotEmpty) {
+                  setState(() {
+                    _customTitles[pedal.instance] = controller.text.trim();
+                  });
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String? _getSwitchPortSymbol(PluginInstance pedal) {
+    for (final symbol in pedal.parameters.keys) {
+      final s = symbol.toLowerCase();
+      if (s.contains('select') || 
+          s.contains('out') || 
+          s.contains('route') || 
+          s.contains('switch') || 
+          s.contains('channel') ||
+          s.contains('param')) {
+        return symbol;
+      }
+    }
+    return pedal.parameters.isNotEmpty ? pedal.parameters.keys.first : null;
+  }
+
+  void _setSwitchPath(PluginInstance pedal, String port, double value) {
+    _webSocketService.setParamValue(
+      instance: pedal.instance,
+      port: port,
+      value: value,
+    );
+    setState(() {
+      pedal.parameters[port] = value;
+    });
+  }
+
+  Widget _buildSwitchCard(PluginInstance pedal) {
+    final bool isBypassed = pedal.isBypassed;
+    final String displayName = _customTitles[pedal.instance] ?? pedal.title;
+    
+    // Detect the routing parameter and its value
+    final String? switchPort = _getSwitchPortSymbol(pedal);
+    final double currentValue = switchPort != null ? (pedal.parameters[switchPort] ?? 0.0) : 0.0;
+    
+    // Typically: 0 = Path A, 1 = Path B
+    final bool isPathB = currentValue >= 0.5;
+
+    final Color accentColor = isBypassed ? Colors.grey[600]! : const Color(0xFF00FFCC);
+    final Color powerIconColor = isBypassed ? const Color(0xFFFF007F) : const Color(0xFF00FFCC);
+
+    return Opacity(
+      opacity: isBypassed ? 0.70 : 1.0,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF161B22),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+              blurRadius: 10,
+              spreadRadius: 2,
+            )
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                displayName.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: accentColor,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () => _showRenameDialog(pedal),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Instance: ${pedal.instance}  |  Switch: ${switchPort ?? "None"}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.grey[500],
+                            fontFamily: 'monospace',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.power_settings_new,
+                      color: powerIconColor,
+                      size: 26,
+                    ),
+                    onPressed: () {
+                      _webSocketService.toggleBypass(
+                        instance: pedal.instance,
+                        bypass: !isBypassed,
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const Spacer(),
+              
+              // Custom A / B Switch Control
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // PATH A Button
+                  GestureDetector(
+                    onTap: isBypassed || switchPort == null
+                        ? null
+                        : () => _setSwitchPath(pedal, switchPort, 0.0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: (!isPathB && !isBypassed) 
+                            ? const Color(0xFF00FFCC).withOpacity(0.12)
+                            : Colors.black.withOpacity(0.3),
+                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                        border: Border.all(
+                          color: (!isPathB && !isBypassed)
+                              ? const Color(0xFF00FFCC)
+                              : Colors.grey[800]!,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        'PATH A (CLEAN)',
+                        style: TextStyle(
+                          color: (!isPathB && !isBypassed) ? const Color(0xFF00FFCC) : Colors.grey[600],
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // PATH B Button
+                  GestureDetector(
+                    onTap: isBypassed || switchPort == null
+                        ? null
+                        : () => _setSwitchPath(pedal, switchPort, 1.0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: (isPathB && !isBypassed) 
+                            ? const Color(0xFFFF007F).withOpacity(0.12)
+                            : Colors.black.withOpacity(0.3),
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                        border: Border.all(
+                          color: (isPathB && !isBypassed)
+                              ? const Color(0xFFFF007F)
+                              : Colors.grey[800]!,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
+                        'PATH B (HEAVY)',
+                        style: TextStyle(
+                          color: (isPathB && !isBypassed) ? const Color(0xFFFF007F) : Colors.grey[600],
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFadeButton({
     required String label,
     required IconData icon,
@@ -1079,14 +1351,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        pedal.title.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                          color: accentColor,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: accentColor,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _showRenameDialog(pedal),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
