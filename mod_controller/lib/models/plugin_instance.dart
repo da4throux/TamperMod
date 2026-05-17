@@ -40,6 +40,38 @@ class PluginInstance {
     );
   }
 
+  double get minGain {
+    final uriLower = uri.toLowerCase();
+    final titleLower = title.toLowerCase();
+    
+    if (uriLower.contains('volume') || titleLower.contains('volume')) {
+      return -60.0;
+    }
+    if (uriLower.contains('amp') || titleLower.contains('amp')) {
+      return -20.0;
+    }
+    if (uriLower.contains('gain') || titleLower.contains('gain')) {
+      return -40.0;
+    }
+    return -60.0; // Safe default
+  }
+
+  double get maxGain {
+    final uriLower = uri.toLowerCase();
+    final titleLower = title.toLowerCase();
+    
+    if (uriLower.contains('volume') || titleLower.contains('volume')) {
+      return 0.0;
+    }
+    if (uriLower.contains('amp') || titleLower.contains('amp')) {
+      return 20.0;
+    }
+    if (uriLower.contains('gain') || titleLower.contains('gain')) {
+      return 40.0;
+    }
+    return 20.0; // Safe default
+  }
+
   @override
   String toString() {
     return 'PluginInstance(instance: $instance, uri: $uri, title: $title, gainPortSymbol: $gainPortSymbol, isBypassed: $isBypassed, parameters: $parameters)';

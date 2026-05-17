@@ -611,8 +611,11 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
         (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null) ?? 
         0.0;
     
+    final double minRange = pedal.minGain;
+    final double maxRange = pedal.maxGain;
+
     // Clamp to ensure the slider doesn't throw a validation error
-    final double clampedValue = currentValue.clamp(-60.0, 10.0);
+    final double clampedValue = currentValue.clamp(minRange, maxRange);
     final bool isBypassed = pedal.isBypassed;
 
     // Premium styling choices based on bypass state
@@ -696,7 +699,7 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                     },
                   ),
                   const SizedBox(width: 8),
-
+ 
                   // Volume display box
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -738,8 +741,8 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                       ),
                       child: Slider(
                         value: clampedValue,
-                        min: -60.0,
-                        max: 10.0,
+                        min: minRange,
+                        max: maxRange,
                         onChanged: (newValue) {
                           setState(() {
                             _localVolumes[pedal.instance] = newValue;
@@ -766,11 +769,11 @@ class _DashboardScreenState extends State<DashboardScreen> with TickerProviderSt
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '-60.0 dB (Mute)',
+                    '${minRange.toStringAsFixed(1)} dB',
                     style: TextStyle(fontSize: 10, color: Colors.grey[isBypassed ? 750 : 650]),
                   ),
                   Text(
-                    '+10.0 dB (Max)',
+                    '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB (Max)',
                     style: TextStyle(fontSize: 10, color: Colors.grey[isBypassed ? 750 : 650]),
                   ),
                 ],
