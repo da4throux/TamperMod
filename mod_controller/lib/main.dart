@@ -160,7 +160,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'TAMPERMOD LIVE v1.0.3',
+                      'TAMPERMOD LIVE v1.0.4',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                     ),
                     Text(
@@ -372,7 +372,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         ? const Color(0xFFFF007F) // Fuchsia for deactivated/off
         : const Color(0xFF00FFCC); // Turquoise for active/on
 
-    final double cardOpacity = isBypassed ? 0.45 : 1.0;
+    final double cardOpacity = isBypassed ? 0.70 : 1.0;
     
     return Opacity(
       opacity: cardOpacity,
@@ -488,7 +488,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                         value: clampedValue,
                         min: -60.0,
                         max: 10.0,
-                        onChanged: isBypassed ? null : (newValue) {
+                        onChanged: (newValue) {
                           setState(() {
                             _localVolumes[pedal.instance] = newValue;
                           });
