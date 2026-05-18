@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'services/websocket_service.dart';
 import 'models/plugin_instance.dart';
+import 'services/looper_controller.dart';
+import 'models/module_help_data.dart';
 
 // Global application version tracking constant
 const String kAppVersion = '1.0.8';
@@ -69,6 +71,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
   final ModWebSocketService _webSocketService = ModWebSocketService();
+  late final LooperController _looperController;
   final TextEditingController _ipController = TextEditingController(text: '192.168.51.1');
   late final WebViewController _webViewController;
   
@@ -360,6 +363,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   @override
   void initState() {
     super.initState();
+    _looperController = LooperController(webSocketService: _webSocketService);
     WidgetsBinding.instance.addObserver(this);
     
     // Initialize WebViewController
@@ -594,6 +598,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       timer?.cancel();
     }
     
+    _looperController.dispose();
     _webSocketService.dispose();
     _ipController.dispose();
     super.dispose();
@@ -1142,37 +1147,44 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Lock height to exactly 225 logical pixels
             final double childAspectRatio = columnWidth / 225.0;
 
-            return GridView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                childAspectRatio: childAspectRatio,
-                crossAxisSpacing: spacing,
-                mainAxisSpacing: spacing,
-              ),
-              itemCount: enabledPlugins.length,
-              itemBuilder: (context, index) {
-                final pedal = enabledPlugins[index];
-                final uriLower = pedal.uri.toLowerCase();
-                final titleLower = pedal.title.toLowerCase();
-                
-                final isSwitch = uriLower.contains('switch') || 
-                                 titleLower.contains('switch');
-                
-                final isGainOrVolume = uriLower.contains('gain') || 
-                                       uriLower.contains('volume') || 
-                                       uriLower.contains('amp') ||
-                                       titleLower.contains('gain') || 
-                                       titleLower.contains('volume');
-                
-                if (isSwitch) {
-                  return _buildSwitchCard(pedal);
-                } else if (isGainOrVolume) {
-                  return _buildGainCard(pedal);
-                } else {
-                  return _buildPlaceholderCard(pedal);
-                }
-              },
+            return Column(
+              children: [
+                _buildLooperControlPanel(),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      childAspectRatio: childAspectRatio,
+                      crossAxisSpacing: spacing,
+                      mainAxisSpacing: spacing,
+                    ),
+                    itemCount: enabledPlugins.length,
+                    itemBuilder: (context, index) {
+                      final pedal = enabledPlugins[index];
+                      final uriLower = pedal.uri.toLowerCase();
+                      final titleLower = pedal.title.toLowerCase();
+                      
+                      final isSwitch = uriLower.contains('switch') || 
+                                       titleLower.contains('switch');
+                      
+                      final isGainOrVolume = uriLower.contains('gain') || 
+                                             uriLower.contains('volume') || 
+                                             uriLower.contains('amp') ||
+                                             titleLower.contains('gain') || 
+                                             titleLower.contains('volume');
+                      
+                      if (isSwitch) {
+                        return _buildSwitchCard(pedal);
+                      } else if (isGainOrVolume) {
+                        return _buildGainCard(pedal);
+                      } else {
+                        return _buildPlaceholderCard(pedal);
+                      }
+                    },
+                  ),
+                ),
+              ],
             );
           },
         );
@@ -1270,6 +1282,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   onPressed: () => _showRenameDialog(pedal),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.8)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _showModuleHelpSheet(context, 'gain'),
                                 ),
                               ],
                             ),
@@ -1804,6 +1823,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   onPressed: () => _showRenameDialog(pedal),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.8)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _showModuleHelpSheet(context, 'switch'),
                                 ),
                               ],
                             ),
@@ -2723,6 +2749,684 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ],
         );
       },
+    );
+  }
+
+  void _showModuleHelpSheet(BuildContext context, String moduleKey) {
+    final help = ModuleHelpData.registry[moduleKey];
+    if (help == null) return;
+
+    final primaryThemeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
+    final accentThemeColor = const Color(0xFFFF007F);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                border: Border.all(
+                  color: primaryThemeColor.withOpacity(0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: _isDarkMode ? Colors.grey[800] : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [primaryThemeColor, accentThemeColor],
+                            ),
+                          ),
+                          child: Icon(
+                            help.icon,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                help.title.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.0,
+                                  color: _isDarkMode ? Colors.white : Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'TamperMod Companion Documentation',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, color: _isDarkMode ? Colors.grey[500] : Colors.grey[750]),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: _isDarkMode ? Colors.grey[900] : Colors.grey[300]),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      children: [
+                        _buildHelpSectionHeader('Overview', Icons.info_outline, primaryThemeColor),
+                        const SizedBox(height: 8),
+                        Text(
+                          help.overview,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildHelpSectionHeader('Parameters', Icons.settings, primaryThemeColor),
+                        const SizedBox(height: 8),
+                        ...help.parameters.map((param) {
+                          final parts = param.split(':');
+                          final label = parts[0];
+                          final desc = parts.length > 1 ? parts.sublist(1).join(':') : '';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6, right: 12),
+                                  child: Icon(Icons.radio_button_checked, size: 8, color: primaryThemeColor),
+                                ),
+                                Expanded(
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        height: 1.4,
+                                        color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: '$label:',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        TextSpan(text: desc),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        const SizedBox(height: 20),
+                        _buildHelpSectionHeader('Keyboard Hotkeys', Icons.keyboard, primaryThemeColor),
+                        const SizedBox(height: 8),
+                        ...help.hotkeys.map((hotkey) {
+                          final parts = hotkey.split(':');
+                          final label = parts[0];
+                          final desc = parts.length > 1 ? parts.sublist(1).join(':') : '';
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _isDarkMode ? Colors.black : Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    label,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.bold,
+                                      color: primaryThemeColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    desc,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        const SizedBox(height: 20),
+                        _buildHelpSectionHeader('Mod Dwarf Under-The-Hood', Icons.settings_ethernet, primaryThemeColor),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+                            ),
+                          ),
+                          child: Text(
+                            help.underTheHood,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.5,
+                              fontFamily: 'monospace',
+                              color: _isDarkMode ? Colors.grey[400] : Colors.grey[750],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHelpSectionHeader(String title, IconData icon, Color color) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 8),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLooperControlPanel() {
+    return AnimatedBuilder(
+      animation: _looperController,
+      builder: (context, _) {
+        final loopers = _looperController.discoveredLoopers.value;
+        if (loopers.isEmpty || _looperController.activeLooper == null) {
+          return const SizedBox.shrink();
+        }
+
+        final looper = _looperController.activeLooper!;
+        final state = _looperController.state;
+        
+        final primaryThemeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
+        
+        Color stateColor;
+        String stateText = '';
+        IconData stateIcon;
+        bool isPulsing = false;
+
+        switch (state) {
+          case LooperState.empty:
+            stateColor = _isDarkMode ? Colors.grey[600]! : Colors.grey[600]!;
+            stateText = 'Empty Loop';
+            stateIcon = Icons.music_note_outlined;
+            break;
+          case LooperState.countIn:
+            stateColor = Colors.orange;
+            stateText = 'COUNT-IN (Recording in ${((16 - _looperController.currentBeatIndex) * _looperController.beatDurationMs / 1000).toStringAsFixed(1)}s)';
+            stateIcon = Icons.hourglass_top;
+            isPulsing = true;
+            break;
+          case LooperState.recording:
+            stateColor = const Color(0xFFFF0055);
+            stateText = 'RECORDING (Beat ${_looperController.currentBeatIndex + 1}/16)';
+            stateIcon = Icons.fiber_manual_record;
+            isPulsing = true;
+            break;
+          case LooperState.playing:
+            stateColor = const Color(0xFF00FFCC);
+            stateText = 'PLAYING LOOP (Bar ${_looperController.currentBar}, Beat ${_looperController.currentBeatInBar})';
+            stateIcon = Icons.play_arrow;
+            break;
+          case LooperState.paused:
+            stateColor = Colors.amber;
+            stateText = 'PAUSED';
+            stateIcon = Icons.pause;
+            break;
+        }
+
+        Widget stateIndicator = Icon(stateIcon, color: stateColor, size: 16);
+        if (isPulsing) {
+          stateIndicator = _PulsingIndicator(icon: stateIcon, color: stateColor);
+        }
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: stateColor.withOpacity(_isDarkMode ? 0.35 : 0.65),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: stateColor.withOpacity(_isDarkMode ? 0.08 : 0.18),
+                blurRadius: 10,
+                spreadRadius: 2,
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Icon(Icons.music_video, color: primaryThemeColor, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'ALO SYNC LOOPER',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            color: _isDarkMode ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        IconButton(
+                          icon: Icon(Icons.help_outline, size: 14, color: primaryThemeColor.withOpacity(0.8)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _showModuleHelpSheet(context, 'looper'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _isDarkMode ? Colors.black : Colors.grey[200],
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: primaryThemeColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.query_builder, size: 12, color: primaryThemeColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_bpm.toStringAsFixed(1)} BPM',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                            color: primaryThemeColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              if (loopers.length > 1) ...[
+                Row(
+                  children: [
+                    Text(
+                      'Target Pedal: ',
+                      style: TextStyle(
+                        fontSize: 11, 
+                        color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<PluginInstance>(
+                      value: looper,
+                      dropdownColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.arrow_drop_down, size: 18),
+                      style: TextStyle(
+                        color: _isDarkMode ? Colors.white : Colors.black,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      onChanged: (val) {
+                        if (val != null) {
+                          _looperController.setActiveLooper(val);
+                        }
+                      },
+                      items: loopers.map((p) {
+                        final displayName = _customTitles[p.instance] ?? p.title;
+                        return DropdownMenuItem<PluginInstance>(
+                          value: p,
+                          child: Text(displayName),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+              
+              Row(
+                children: [
+                  stateIndicator,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      stateText,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: stateColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              
+              _build4BarTimeline(stateColor),
+              const SizedBox(height: 12),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: (state == LooperState.countIn || state == LooperState.recording)
+                            ? Colors.grey[800]
+                            : const Color(0xFFFF0055),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: Icon(
+                        (state == LooperState.countIn || state == LooperState.recording)
+                            ? Icons.cancel
+                            : Icons.fiber_manual_record,
+                        size: 16,
+                      ),
+                      label: Text(
+                        (state == LooperState.countIn || state == LooperState.recording)
+                            ? 'CANCEL'
+                            : 'RECORD 4-BAR',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                      ),
+                      onPressed: () {
+                        if (state == LooperState.countIn || state == LooperState.recording) {
+                          _looperController.clearLoop();
+                        } else {
+                          _looperController.recordSequence();
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey[200],
+                      foregroundColor: _isDarkMode ? Colors.white : Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                        ),
+                      ),
+                    ),
+                    onPressed: (state == LooperState.playing)
+                        ? () => _looperController.pauseLoop()
+                        : (state == LooperState.paused)
+                            ? () => _looperController.playLoop()
+                            : null,
+                    child: Icon(
+                      (state == LooperState.paused) ? Icons.play_arrow : Icons.pause,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber.withOpacity(0.12),
+                      foregroundColor: Colors.amber,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Colors.amber),
+                      ),
+                    ),
+                    onPressed: (state != LooperState.empty)
+                        ? () => _looperController.clearLoop()
+                        : null,
+                    child: const Icon(Icons.delete_outline, size: 18),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _build4BarTimeline(Color stateColor) {
+    final progress = _looperController.sweepProgress;
+    
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: _isDarkMode ? Colors.black.withOpacity(0.5) : Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: _isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+        ),
+      ),
+      child: Stack(
+        children: [
+          if (_looperController.state == LooperState.recording)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              right: 0,
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: progress,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF0055).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                ),
+              ),
+            ),
+            
+          Row(
+            children: List.generate(4, (barIndex) {
+              final isCurrentBar = (_looperController.state != LooperState.empty) && 
+                                   (_looperController.currentBar == barIndex + 1);
+              return Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      right: barIndex < 3
+                          ? BorderSide(
+                              color: _isDarkMode ? Colors.grey[900]! : Colors.grey[350]!,
+                              width: 1,
+                            )
+                          : BorderSide.none,
+                    ),
+                  ),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Text(
+                          'BAR ${barIndex + 1}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: isCurrentBar ? FontWeight.w900 : FontWeight.bold,
+                            color: isCurrentBar 
+                                ? stateColor 
+                                : (_isDarkMode ? Colors.grey[700] : Colors.grey[400]),
+                          ),
+                        ),
+                      ),
+                      
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 4,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(4, (beatIndex) {
+                            final globalBeatIndex = barIndex * 4 + beatIndex;
+                            final isCurrentBeat = (_looperController.state != LooperState.empty) &&
+                                                  (_looperController.currentBeatIndex == globalBeatIndex);
+                            return Container(
+                              width: isCurrentBeat ? 6 : 4,
+                              height: isCurrentBeat ? 6 : 4,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isCurrentBeat
+                                    ? stateColor
+                                    : (_isDarkMode ? Colors.grey[850] : Colors.grey[300]),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+          
+          if (_looperController.state != LooperState.empty)
+            Positioned.fill(
+              child: Align(
+                alignment: Alignment(progress * 2.0 - 1.0, 0.0),
+                child: Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: stateColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: stateColor.withOpacity(0.8),
+                        blurRadius: 6,
+                        spreadRadius: 1.5,
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingIndicator extends StatefulWidget {
+  final IconData icon;
+  final Color color;
+
+  const _PulsingIndicator({required this.icon, required this.color});
+
+  @override
+  State<_PulsingIndicator> createState() => _PulsingIndicatorState();
+}
+
+class _PulsingIndicatorState extends State<_PulsingIndicator> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Icon(widget.icon, color: widget.color, size: 16),
     );
   }
 }
