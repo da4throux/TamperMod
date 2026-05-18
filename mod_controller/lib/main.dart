@@ -74,6 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   
   bool _showControls = true;
   bool _showWeb = true;
+  bool _isDarkMode = true;
 
   ViewMode get _viewMode {
     if (_showControls && _showWeb) return ViewMode.split;
@@ -441,11 +442,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF0F141C),
-          title: const Text(
+          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+          title: Text(
             'SET HOST TEMPO',
             style: TextStyle(
-              color: Color(0xFF00FFCC), 
+              color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
               fontWeight: FontWeight.bold, 
               letterSpacing: 1.2, 
               fontSize: 16
@@ -454,23 +455,33 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           content: TextField(
             controller: controller,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Tempo (BPM)',
-              labelStyle: TextStyle(color: Colors.grey),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00FFCC))),
+              labelStyle: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[750]),
+              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                ),
+              ),
             ),
-            style: const TextStyle(color: Colors.white, fontFamily: 'monospace'),
+            style: TextStyle(
+              color: _isDarkMode ? Colors.white : Colors.black, 
+              fontFamily: 'monospace'
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL', style: TextStyle(color: Colors.grey)),
+              child: Text(
+                'CANCEL', 
+                style: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[600])
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00FFCC), 
-                foregroundColor: Colors.black
+                backgroundColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
+                foregroundColor: _isDarkMode ? Colors.black : Colors.white,
               ),
               onPressed: () {
                 final double? newBpm = double.tryParse(controller.text);
@@ -648,54 +659,116 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             elevation: 0,
             child: Container(
               margin: EdgeInsets.only(top: kToolbarHeight + statusBarHeight),
-              decoration: const BoxDecoration(
-                color: Color(0xFF0F141C),
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
                 border: Border(
-                  left: BorderSide(color: Color(0xFF00FFCC), width: 1.5),
-                  top: BorderSide(color: Color(0xFF00FFCC), width: 1.5),
+                  left: BorderSide(
+                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
+                    width: 1.5
+                  ),
+                  top: BorderSide(
+                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
+                    width: 1.5
+                  ),
                 ),
               ),
               child: _buildDrawerContent(),
             ),
           ),
-          appBar: AppBar(
-            backgroundColor: const Color(0xFF0F141C),
-            elevation: 8,
-            // Custom Application Drawer Menu trigger in top-right
-            leadingWidth: 0,
-            leading: const SizedBox(),
-            title: Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(_webSocketService.status),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getStatusColor(_webSocketService.status).withOpacity(0.6),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      )
-                    ],
+          
+          // Continuous Left-aligned navigation and metrics drawer
+          drawer: Drawer(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+                border: Border(
+                  right: BorderSide(
+                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
+                    width: 1.5
                   ),
                 ),
-                const SizedBox(width: 12),
+              ),
+              child: _buildLeftDrawerContent(),
+            ),
+          ),
+          
+          appBar: AppBar(
+            backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : const Color(0xFFE4E6EB),
+            elevation: 8,
+            leadingWidth: 52,
+            leading: Builder(
+              builder: (context) => GestureDetector(
+                onTap: () {
+                  Scaffold.of(context).openDrawer();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 14.0, top: 10.0, bottom: 10.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: _isDarkMode
+                            ? [const Color(0xFF00FFCC), const Color(0xFFFF007F)]
+                            : [const Color(0xFF00B3FF), const Color(0xFFFF0055)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)).withOpacity(0.4),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        )
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.tune,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            titleSpacing: 12,
+            title: Row(
+              children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'TAMPERMOD LIVE',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-                    ),
                     Text(
-                      _getStatusText(_webSocketService.status),
+                      'TAMPERMOD LIVE',
                       style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: _getStatusColor(_webSocketService.status),
+                        fontSize: 14, 
+                        fontWeight: FontWeight.w900, 
+                        letterSpacing: 1.5,
+                        color: _isDarkMode ? Colors.white : Colors.black,
                       ),
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(_webSocketService.status),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _getStatusText(_webSocketService.status),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode 
+                                ? _getStatusColor(_webSocketService.status) 
+                                : _getStatusColor(_webSocketService.status).withOpacity(0.85),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -703,7 +776,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ),
             actions: [
               // Premium Integrated BPM & Fade Controller
-              if (screenWidth > 550) _buildBpmControllerWidget(),
+              if (screenWidth > 580) _buildBpmControllerWidget(),
               const SizedBox(width: 8),
               
               // Custom View Layout Selectors
@@ -751,11 +824,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
               const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(Icons.refresh, color: Color(0xFF00FFCC), size: 22),
+                icon: Icon(
+                  Icons.refresh, 
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF009977), 
+                  size: 22
+                ),
                 tooltip: 'Refresh Pedalboard',
                 onPressed: _webSocketService.status == ConnectionStatus.connected
                     ? () => _webSocketService.requestPedalboard()
                     : null,
+              ),
+              // Daylight Theme toggle button
+              IconButton(
+                icon: Icon(
+                  _isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                  color: _isDarkMode ? const Color(0xFFFF7700) : const Color(0xFF9D00FF),
+                  size: 22,
+                ),
+                tooltip: _isDarkMode ? 'Switch to Daylight Theme' : 'Switch to Midnight Theme',
+                onPressed: () {
+                  setState(() {
+                    _isDarkMode = !_isDarkMode;
+                  });
+                },
               ),
               // Open Settings Drawer
               Builder(
@@ -771,11 +862,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ],
           ),
           body: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF0F141C), Color(0xFF05070A)],
+                colors: _isDarkMode 
+                    ? [const Color(0xFF0F141C), const Color(0xFF05070A)]
+                    : [const Color(0xFFF0F2F5), const Color(0xFFE4E6EB)],
               ),
             ),
             child: Column(
@@ -784,12 +877,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 _buildConnectionPanel(),
                 
                 // BPM inline widget on tiny screens to avoid AppBar overcrowding
-                if (screenWidth <= 550) 
+                if (screenWidth <= 580) 
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                     child: _buildBpmControllerWidget(),
                   ),
-
+ 
                 // Responsive layout container
                 Expanded(
                   child: _buildBodyContent(isLandscape),
@@ -808,9 +901,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.35),
+        color: _isDarkMode ? Colors.black.withOpacity(0.35) : Colors.grey[300]!.withOpacity(0.5),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF00FFCC).withOpacity(0.2)),
+        border: Border.all(
+          color: (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)).withOpacity(0.2)
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -843,11 +938,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             onTap: _showBpmDialog,
             child: Text(
               '${_bpm.toStringAsFixed(1)} BPM',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'monospace',
                 fontSize: 12.5,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF00FFCC),
+                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF0099FF),
               ),
             ),
           ),
@@ -856,10 +951,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           // Dropdown selector for Fade Beats length
           DropdownButton<int>(
             value: _fadeBars,
-            dropdownColor: const Color(0xFF0F141C),
+            dropdownColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
             underline: const SizedBox(),
             icon: const Icon(Icons.arrow_drop_down, color: Colors.grey, size: 16),
-            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: _isDarkMode ? Colors.white : Colors.black, 
+              fontSize: 11.5, 
+              fontWeight: FontWeight.bold
+            ),
             onChanged: (val) {
               if (val != null) {
                 setState(() {
@@ -879,7 +978,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           // Live duration calculation text
           Text(
             '(${seconds.toStringAsFixed(1)}s)',
-            style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 10, color: _isDarkMode ? Colors.grey[500] : Colors.grey[700]),
           ),
         ],
       ),
@@ -1117,7 +1216,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       opacity: cardOpacity,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF161B22),
+          color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isGlowEnabled 
@@ -1128,8 +1227,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           boxShadow: [
             BoxShadow(
               color: isGlowEnabled 
-                  ? glowColor.withOpacity(isBypassed ? 0.0 : 0.12) 
-                  : accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+                  ? glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.12 : 0.22)) 
+                  : accentColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.06 : 0.12)),
               blurRadius: 10,
               spreadRadius: 2,
             )
@@ -1167,7 +1266,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   ),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                                  icon: Icon(Icons.edit, size: 14, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   onPressed: () => _showRenameDialog(pedal),
@@ -1179,7 +1278,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               'Instance: ${pedal.instance}  |  Port: ${pedal.gainPortSymbol ?? "Gain"}',
                               style: TextStyle(
                                 fontSize: 9,
-                                color: Colors.grey[500],
+                                color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
                                 fontFamily: 'monospace',
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1211,7 +1310,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black,
+                      color: _isDarkMode ? Colors.black : Colors.grey[900],
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: accentColor.withOpacity(0.5),
@@ -1235,14 +1334,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               // Custom styled Volume Slider
               Row(
                 children: [
-                  Icon(Icons.volume_mute, color: Colors.grey[isBypassed ? 700 : 600], size: 20),
+                  Icon(
+                    Icons.volume_mute, 
+                    color: _isDarkMode ? Colors.grey[isBypassed ? 700 : 600] : Colors.grey[isBypassed ? 600 : 700], 
+                    size: 20
+                  ),
                   Expanded(
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         activeTrackColor: accentColor,
-                        inactiveTrackColor: Colors.grey[850],
+                        inactiveTrackColor: _isDarkMode ? Colors.grey[850] : Colors.grey[300],
                         trackHeight: 12.0,
-                        thumbColor: isBypassed ? Colors.grey[400] : Colors.white,
+                        thumbColor: isBypassed ? Colors.grey[400] : (_isDarkMode ? Colors.white : Colors.grey[100]),
                         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 15.0),
                         overlayColor: accentColor.withOpacity(0.2),
                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 28.0),
@@ -1280,11 +1383,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 children: [
                   Text(
                     '${minRange.toStringAsFixed(1)} dB',
-                    style: TextStyle(fontSize: 10, color: Colors.grey[isBypassed ? 750 : 650]),
+                    style: TextStyle(
+                      fontSize: 10, 
+                      color: _isDarkMode 
+                          ? Colors.grey[isBypassed ? 750 : 650] 
+                          : Colors.grey[isBypassed ? 600 : 700]
+                    ),
                   ),
                   Text(
                     '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB (Max)',
-                    style: TextStyle(fontSize: 10, color: Colors.grey[isBypassed ? 750 : 650]),
+                    style: TextStyle(
+                      fontSize: 10, 
+                      color: _isDarkMode 
+                          ? Colors.grey[isBypassed ? 750 : 650] 
+                          : Colors.grey[isBypassed ? 600 : 700]
+                    ),
                   ),
                 ],
               ),
@@ -1528,11 +1641,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF0F141C),
-          title: const Text(
+          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+          title: Text(
             'RENAME PEDAL',
             style: TextStyle(
-              color: Color(0xFF00FFCC), 
+              color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
               fontWeight: FontWeight.bold, 
               letterSpacing: 1.2, 
               fontSize: 16
@@ -1540,24 +1653,31 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Custom Display Name',
-              labelStyle: TextStyle(color: Colors.grey),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00FFCC))),
+              labelStyle: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[700]),
+              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                ),
+              ),
             ),
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
             autofocus: true,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL', style: TextStyle(color: Colors.grey)),
+              child: Text(
+                'CANCEL', 
+                style: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[600])
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00FFCC), 
-                foregroundColor: Colors.black
+                backgroundColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
+                foregroundColor: _isDarkMode ? Colors.black : Colors.white,
               ),
               onPressed: () {
                 if (controller.text.trim().isNotEmpty) {
@@ -1630,7 +1750,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       opacity: isBypassed ? 0.70 : 1.0,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF161B22),
+          color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isGlowEnabled 
@@ -1641,8 +1761,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           boxShadow: [
             BoxShadow(
               color: isGlowEnabled 
-                  ? glowColor.withOpacity(isBypassed ? 0.0 : 0.12) 
-                  : accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+                  ? glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.12 : 0.22)) 
+                  : accentColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.06 : 0.12)),
               blurRadius: 10,
               spreadRadius: 2,
             )
@@ -1680,7 +1800,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   ),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                                  icon: Icon(Icons.edit, size: 14, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   onPressed: () => _showRenameDialog(pedal),
@@ -1692,7 +1812,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               'Instance: ${pedal.instance}  |  Switch: ${switchPort ?? "None"}',
                               style: TextStyle(
                                   fontSize: 9,
-                                  color: Colors.grey[500],
+                                  color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
                                   fontFamily: 'monospace',
                                   overflow: TextOverflow.ellipsis,
                               ),
@@ -1734,19 +1854,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       decoration: BoxDecoration(
                         color: (!isPathB && !isBypassed) 
                             ? const Color(0xFF00FFCC).withOpacity(0.12)
-                            : Colors.black.withOpacity(0.3),
+                            : (_isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[200]),
                         borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
                         border: Border.all(
                           color: (!isPathB && !isBypassed)
                               ? const Color(0xFF00FFCC)
-                              : Colors.grey[800]!,
+                              : (_isDarkMode ? Colors.grey[800]! : Colors.grey[400]!),
                           width: 1.5,
                         ),
                       ),
                       child: Text(
                         'PATH A (CLEAN)',
                         style: TextStyle(
-                          color: (!isPathB && !isBypassed) ? const Color(0xFF00FFCC) : Colors.grey[600],
+                          color: (!isPathB && !isBypassed) 
+                              ? const Color(0xFF00FFCC) 
+                              : (_isDarkMode ? Colors.grey[600] : Colors.grey[700]),
                           fontWeight: FontWeight.w900,
                           fontSize: 12,
                           letterSpacing: 1.0,
@@ -1765,19 +1887,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       decoration: BoxDecoration(
                         color: (isPathB && !isBypassed) 
                             ? const Color(0xFFFF007F).withOpacity(0.12)
-                            : Colors.black.withOpacity(0.3),
+                            : (_isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[200]),
                         borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
                         border: Border.all(
                           color: (isPathB && !isBypassed)
                               ? const Color(0xFFFF007F)
-                              : Colors.grey[800]!,
+                              : (_isDarkMode ? Colors.grey[800]! : Colors.grey[400]!),
                           width: 1.5,
                         ),
                       ),
                       child: Text(
                         'PATH B (HEAVY)',
                         style: TextStyle(
-                          color: (isPathB && !isBypassed) ? const Color(0xFFFF007F) : Colors.grey[600],
+                          color: (isPathB && !isBypassed) 
+                              ? const Color(0xFFFF007F) 
+                              : (_isDarkMode ? Colors.grey[600] : Colors.grey[700]),
                           fontWeight: FontWeight.w900,
                           fontSize: 12,
                           letterSpacing: 1.0,
@@ -1860,7 +1984,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
+        color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isGlowEnabled 
@@ -1871,8 +1995,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         boxShadow: [
           BoxShadow(
             color: isGlowEnabled 
-                ? glowColor.withOpacity(isBypassed ? 0.0 : 0.12) 
-                : accentColor.withOpacity(isBypassed ? 0.0 : 0.06),
+                ? glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.12 : 0.22)) 
+                : accentColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.06 : 0.12)),
             blurRadius: 10,
             spreadRadius: 2,
           )
@@ -1910,10 +2034,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 ),
                               ),
                               IconButton(
-                                icon: Icon(Icons.edit, size: 14, color: Colors.grey[500]),
+                                icon: Icon(Icons.edit, size: 14, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
-                                onPressed: () => _showRenameDialog(pedal),
+                                  onPressed: () => _showRenameDialog(pedal),
                               ),
                             ],
                           ),
@@ -1922,7 +2046,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             'URI: ${pedal.uri}',
                             style: TextStyle(
                               fontSize: 9,
-                              color: Colors.grey[500],
+                              color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
                               fontFamily: 'monospace',
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1951,11 +2075,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             const Divider(color: Colors.grey, height: 1),
             Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.grey[600], size: 16),
+                Icon(Icons.info_outline, color: _isDarkMode ? Colors.grey[600] : Colors.grey[700], size: 16),
                 const SizedBox(width: 8),
                 Text(
                   'Custom card layout coming soon.',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                    fontSize: 11, 
+                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[700], 
+                    fontStyle: FontStyle.italic
+                  ),
                 ),
               ],
             ),
@@ -2008,39 +2136,61 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
+        color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _getStatusColor(_webSocketService.status).withOpacity(0.2),
           width: 1,
         ),
+        boxShadow: _isDarkMode ? null : [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            spreadRadius: 2,
+          )
+        ],
       ),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _ipController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'MOD Dwarf IP',
-                labelStyle: TextStyle(color: Colors.grey, fontSize: 11),
+                labelStyle: TextStyle(
+                  color: _isDarkMode ? Colors.grey : Colors.grey[700], 
+                  fontSize: 11
+                ),
                 border: InputBorder.none,
-                prefixIcon: Icon(Icons.lan, color: Colors.grey, size: 18),
+                prefixIcon: Icon(
+                  Icons.lan, 
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600], 
+                  size: 18
+                ),
               ),
-              style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontSize: 13),
+              style: TextStyle(
+                color: _isDarkMode ? Colors.white : Colors.black, 
+                fontFamily: 'monospace', 
+                fontSize: 13
+              ),
               enabled: isDisconnected,
             ),
           ),
           const SizedBox(width: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDisconnected ? const Color(0xFF00FFCC) : const Color(0xFFFF007F),
-              foregroundColor: Colors.black,
+              backgroundColor: isDisconnected 
+                  ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                  : const Color(0xFFFF007F),
+              foregroundColor: isDisconnected ? Colors.black : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
               elevation: 4,
-              shadowColor: (isDisconnected ? const Color(0xFF00FFCC) : const Color(0xFFFF007F)).withOpacity(0.5),
+              shadowColor: (isDisconnected 
+                  ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                  : const Color(0xFFFF007F)).withOpacity(0.5),
             ),
             onPressed: () {
               if (isDisconnected) {
@@ -2060,35 +2210,303 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  Widget _buildLeftDrawerHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
+          letterSpacing: 1.0,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLeftDrawerTile({
+    required IconData icon,
+    required String title,
+    required String trailingText,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: _isDarkMode ? Colors.grey[350] : Colors.grey[800],
+            ),
+          ),
+          const Spacer(),
+          Text(
+            trailingText,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftDrawerContent() {
+    final status = _webSocketService.status;
+    final isConnected = status == ConnectionStatus.connected;
+    final int activeCount = _enabledPluginInstances.length;
+    final int totalCount = _webSocketService.allPlugins.value.length;
+
+    return Container(
+      color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+      child: Column(
+        children: [
+          // Drawer Header
+          Container(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 20,
+              bottom: 24,
+              left: 20,
+              right: 20,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _isDarkMode
+                    ? [const Color(0xFF161B22), const Color(0xFF0F141C)]
+                    : [const Color(0xFFE4E6EB), const Color(0xFFF0F2F5)],
+              ),
+              border: Border(
+                bottom: BorderSide(
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  width: 1.5,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: _isDarkMode
+                          ? [const Color(0xFF00FFCC), const Color(0xFFFF007F)]
+                          : [const Color(0xFF00B3FF), const Color(0xFFFF0055)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)).withOpacity(0.4),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      )
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.tune,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TAMPERMOD',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.0,
+                          color: _isDarkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      Text(
+                        'LIVE CONTROLLER',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Drawer Navigation / Info Items
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              children: [
+                _buildLeftDrawerHeader('DASHBOARD METRICS'),
+                _buildLeftDrawerTile(
+                  icon: Icons.grid_view,
+                  title: 'Active Controls',
+                  trailingText: '$activeCount / $totalCount',
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                ),
+                _buildLeftDrawerTile(
+                  icon: Icons.speed,
+                  title: 'BPM / Tempo',
+                  trailingText: '${_bpm.toStringAsFixed(0)} BPM',
+                  color: const Color(0xFFFF007F),
+                ),
+                _buildLeftDrawerTile(
+                  icon: Icons.link,
+                  title: 'Connection State',
+                  trailingText: isConnected ? 'CONNECTED' : 'DISCONNECTED',
+                  color: _getStatusColor(status),
+                ),
+                
+                const Divider(height: 24, thickness: 1, color: Colors.grey),
+                _buildLeftDrawerHeader('QUICK UTILITIES'),
+                
+                ListTile(
+                  leading: const Icon(
+                    Icons.radar,
+                    color: Color(0xFFFF007F),
+                    size: 20,
+                  ),
+                  title: Text(
+                    'Locate Workspace Pedals',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  subtitle: const Text('strobe pulses on the web canvas', style: TextStyle(fontSize: 10)),
+                  onTap: isConnected
+                      ? () {
+                          Navigator.pop(context);
+                          _highlightAllPedalsInWebView();
+                        }
+                      : null,
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.refresh,
+                    color: Color(0xFF00FFCC),
+                    size: 20,
+                  ),
+                  title: Text(
+                    'Refresh Pedalboard',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  subtitle: const Text('query parameters from mod dwarf', style: TextStyle(fontSize: 10)),
+                  onTap: isConnected
+                      ? () {
+                          Navigator.pop(context);
+                          _webSocketService.requestPedalboard();
+                        }
+                      : null,
+                ),
+                ListTile(
+                  leading: Icon(
+                    _isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                    color: _isDarkMode ? const Color(0xFFFF7700) : const Color(0xFF9D00FF),
+                    size: 20,
+                  ),
+                  title: Text(
+                    _isDarkMode ? 'Daylight Theme' : 'Midnight Theme',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  subtitle: const Text('optimize display for direct sunlight', style: TextStyle(fontSize: 10)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _isDarkMode = !_isDarkMode;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          
+          // Drawer Footer Version Tracking
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: _isDarkMode ? const Color(0xFF161B22) : const Color(0xFFE4E6EB),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Text(
+              'VERSION $kAppVersion',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDrawerHeader() {
     return Container(
       padding: const EdgeInsets.all(16),
-      color: const Color(0xFF0F141C),
+      color: _isDarkMode ? const Color(0xFF0F141C) : Colors.grey[200],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'WORKSPACE SETTINGS',
                 style: TextStyle(
-                  color: Color(0xFF00FFCC),
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.2,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.grey),
+                icon: Icon(Icons.close, color: _isDarkMode ? Colors.grey : Colors.grey[600]),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Select and drag to order plugins to show on your screen.',
-            style: TextStyle(color: Colors.grey, fontSize: 11),
+            style: TextStyle(
+              color: _isDarkMode ? Colors.grey : Colors.grey[750], 
+              fontSize: 11
+            ),
           ),
         ],
       ),
@@ -2129,14 +2547,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.drag_indicator, size: 16, color: Color(0xFF00FFCC)),
+                    Icon(
+                      Icons.drag_indicator, 
+                      size: 16, 
+                      color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'ACTIVE CONTROLS (${active.length})',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold, 
                         fontSize: 11, 
-                        color: Colors.grey, 
+                        color: _isDarkMode ? Colors.grey : Colors.grey[700], 
                         letterSpacing: 1.0
                       ),
                     ),
@@ -2147,7 +2569,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 flex: 3,
                 child: Theme(
                   data: Theme.of(context).copyWith(
-                    canvasColor: const Color(0xFF161B22),
+                    canvasColor: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
                   ),
                   child: ReorderableListView.builder(
                     itemCount: active.length,
@@ -2167,8 +2589,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         key: ValueKey(pedal.instance),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                         leading: Checkbox(
-                          activeColor: const Color(0xFF00FFCC),
-                          checkColor: Colors.black,
+                          activeColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                          checkColor: _isDarkMode ? Colors.black : Colors.white,
                           value: true,
                           onChanged: (_) {
                             setState(() {
@@ -2179,21 +2601,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         ),
                         title: Text(
                           pedal.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            fontSize: 13.5,
+                            color: _isDarkMode ? Colors.white : Colors.black
+                          ),
                         ),
                         subtitle: Text(
                           pedal.instance,
-                          style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: Colors.grey),
+                          style: TextStyle(
+                            fontFamily: 'monospace', 
+                            fontSize: 9, 
+                            color: _isDarkMode ? Colors.grey : Colors.grey[700]
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        trailing: const Icon(Icons.drag_handle, color: Colors.grey),
+                        trailing: Icon(Icons.drag_handle, color: _isDarkMode ? Colors.grey : Colors.grey[500]),
                       );
                     },
                   ),
                 ),
               ),
             ],
-
+ 
             // AVAILABLE PLUGINS
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2202,15 +2632,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Icon(
                     Icons.add_circle_outline, 
                     size: 16, 
-                    color: inactive.isEmpty ? Colors.grey : const Color(0xFFFF007F)
+                    color: inactive.isEmpty 
+                        ? Colors.grey 
+                        : (_isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055))
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'AVAILABLE COMPONENTS (${inactive.length})',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold, 
                       fontSize: 11, 
-                      color: Colors.grey, 
+                      color: _isDarkMode ? Colors.grey : Colors.grey[700], 
                       letterSpacing: 1.0
                     ),
                   ),
@@ -2221,10 +2653,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             Expanded(
               flex: 2,
               child: inactive.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'All plugins are currently active.',
-                        style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                          color: _isDarkMode ? Colors.grey : Colors.grey[600], 
+                          fontSize: 12, 
+                          fontStyle: FontStyle.italic
+                        ),
                       ),
                     )
                   : ListView.builder(
@@ -2234,7 +2670,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                           leading: Checkbox(
-                            activeColor: const Color(0xFF00FFCC),
+                            activeColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                            checkColor: _isDarkMode ? Colors.black : Colors.white,
                             value: false,
                             onChanged: (_) {
                               setState(() {
@@ -2245,28 +2682,36 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           ),
                           title: Text(
                             pedal.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.grey),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold, 
+                              fontSize: 13.5, 
+                              color: _isDarkMode ? Colors.grey : Colors.grey[750]
+                            ),
                           ),
                           subtitle: Text(
                             pedal.instance,
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 9, color: Colors.grey),
+                            style: TextStyle(
+                              fontFamily: 'monospace', 
+                              fontSize: 9, 
+                              color: _isDarkMode ? Colors.grey : Colors.grey[700]
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         );
                       },
                     ),
             ),
-
+ 
             // Continuous App version tag
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              color: Colors.black.withOpacity(0.3),
-              child: const Center(
+              color: _isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[100],
+              child: Center(
                 child: Text(
                   'TAMPERMOD LIVE v$kAppVersion',
                   style: TextStyle(
-                    color: Color(0xFFFF007F),
+                    color: _isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055),
                     fontFamily: 'monospace',
                     fontWeight: FontWeight.w900,
                     fontSize: 12,
