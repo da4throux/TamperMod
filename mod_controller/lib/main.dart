@@ -136,6 +136,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       });
     }
 
+    // Also include active ALO Looper if discovered and selected
+    if (_looperController.activeLooper != null) {
+      final String looperId = _looperController.activeLooper!.instance;
+      final bool isEnabled = _pedalGlowEnabled[looperId] ?? true;
+      String colorHex = _pedalGlowColors[looperId] ?? '';
+      if (colorHex.isEmpty) {
+        colorHex = '#FF0055'; // Vibrant, iconic looper red by default
+      }
+      configs.add({
+        'instance': looperId,
+        'enabled': isEnabled,
+        'color': colorHex,
+      });
+    }
+
     final String jsCode = '''
       (function() {
         const configs = ${jsonEncode(configs)};
@@ -3009,7 +3024,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         final looper = _looperController.activeLooper!;
         final state = _looperController.state;
         
+        final String looperId = looper.instance;
+        final String colorHex = _pedalGlowColors[looperId] ?? '#FF0055';
+        final Color glowColor = _hexToColor(colorHex);
+        final bool isGlowEnabled = _pedalGlowEnabled[looperId] ?? true;
+
         final primaryThemeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
+        final Color looperAccentColor = isGlowEnabled ? glowColor : primaryThemeColor;
         
         Color stateColor;
         String stateText = '';
@@ -3035,7 +3056,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             isPulsing = true;
             break;
           case LooperState.playing:
-            stateColor = const Color(0xFF00FFCC);
+            stateColor = isGlowEnabled ? glowColor : const Color(0xFF00FFCC);
             stateText = 'PLAYING LOOP (Bar ${_looperController.currentBar}, Beat ${_looperController.currentBeatInBar})';
             stateIcon = Icons.play_arrow;
             break;
@@ -3058,12 +3079,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: stateColor.withOpacity(_isDarkMode ? 0.35 : 0.65),
-              width: 1.5,
+              color: isGlowEnabled
+                  ? glowColor.withOpacity(_isDarkMode ? 0.35 : 0.65)
+                  : stateColor.withOpacity(_isDarkMode ? 0.35 : 0.65),
+              width: isGlowEnabled ? 1.5 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: stateColor.withOpacity(_isDarkMode ? 0.08 : 0.18),
+                color: isGlowEnabled
+                    ? glowColor.withOpacity(_isDarkMode ? 0.08 : 0.18)
+                    : stateColor.withOpacity(_isDarkMode ? 0.08 : 0.18),
                 blurRadius: 10,
                 spreadRadius: 2,
               )
@@ -3078,7 +3103,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Expanded(
                     child: Row(
                       children: [
-                        Icon(Icons.music_video, color: primaryThemeColor, size: 20),
+                        Icon(Icons.music_video, color: looperAccentColor, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           'ALO SYNC LOOPER',
@@ -3168,6 +3193,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
                 const SizedBox(height: 8),
               ],
+              
+              _buildGlowSettingsRow(looper),
+              const SizedBox(height: 4),
+              Divider(color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])?.withOpacity(0.5)),
+              const SizedBox(height: 6),
               
               Row(
                 children: [
