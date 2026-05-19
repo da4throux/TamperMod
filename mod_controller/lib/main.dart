@@ -12,7 +12,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.1.0+10';
+const String kAppVersion = '1.1.1+11';
 
 enum ViewMode {
   split,
