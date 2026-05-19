@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'services/websocket_service.dart';
 import 'models/plugin_instance.dart';
 import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.0.8';
+const String kAppVersion = '1.1.0+10';
 
 enum ViewMode {
   split,
@@ -78,12 +80,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   bool _showControls = true;
   bool _showWeb = true;
   bool _isDarkMode = true;
-
-  ViewMode get _viewMode {
-    if (_showControls && _showWeb) return ViewMode.split;
-    if (_showControls) return ViewMode.controls;
-    return ViewMode.web;
-  }
+  bool _showPills = true;
+  List<String> _orderedPluginInstances = [];
 
   // Track volume slider values locally to make the slider extremely responsive
   final Map<String, double> _localVolumes = {};
@@ -100,9 +98,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     '#FF7700', // Orange
   ];
 
+  final ScrollController _cardsScrollController = ScrollController();
   final Map<String, String> _pedalGlowColors = {};
   final Map<String, bool> _pedalGlowEnabled = {};
-  final Set<String> _expandedColorPickers = {};
 
   Color _hexToColor(String hex) {
     final String cleanHex = hex.replaceAll('#', '');
@@ -112,13 +110,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return const Color(0xFF00FFCC);
   }
 
-  String _getDefaultColorForPedal(PluginInstance pedal) {
-    final int index = _enabledPluginInstances.indexOf(pedal.instance);
-    if (index >= 0) {
-      return kNeonColors[index % kNeonColors.length];
-    }
-    return kNeonColors[0];
-  }
+
 
   void _updateAllGlowsInWebView() {
     final List<Map<String, dynamic>> configs = [];
@@ -126,8 +118,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
       String colorHex = _pedalGlowColors[instanceId] ?? '';
       if (colorHex.isEmpty) {
-        final int index = _enabledPluginInstances.indexOf(instanceId);
-        colorHex = kNeonColors[index >= 0 ? (index % kNeonColors.length) : 0];
+        colorHex = _getDefaultColorForInstanceId(instanceId);
       }
       configs.add({
         'instance': instanceId,
@@ -185,10 +176,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             
             // Apply permanent glow with massive visual propagation (neon cloud expands far out!)
             el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-            el.style.outline = "6px solid " + c.color;
-            el.style.outlineOffset = "4px";
-            el.style.boxShadow = "0 0 100px 25px " + c.color + ", inset 0 0 30px " + c.color;
-            el.style.backgroundColor = hexToRgba(c.color, 0.12);
+            el.style.outline = "3px solid " + c.color;
+            el.style.outlineOffset = "2px";
+            el.style.boxShadow = "0 0 120px 2px " + c.color + ", inset 0 0 15px " + c.color;
+            el.style.backgroundColor = hexToRgba(c.color, 0.08);
           }
         });
         
@@ -210,179 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
-  Widget _buildGlowSettingsRow(PluginInstance pedal) {
-    final String instId = pedal.instance;
-    final bool isGlowEnabled = _pedalGlowEnabled[instId] ?? true;
-    final String colorHex = _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
-    final Color selectedColor = _hexToColor(colorHex);
 
-    final bool isExpanded = _expandedColorPickers.contains(instId);
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-      child: Row(
-        children: [
-          // Icon and Toggle
-          Icon(
-            isGlowEnabled ? Icons.wb_sunny : Icons.wb_sunny_outlined,
-            size: 16,
-            color: isGlowEnabled ? selectedColor : Colors.grey[600],
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'GLOW',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: isGlowEnabled ? selectedColor : Colors.grey[600],
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(width: 4),
-          SizedBox(
-            height: 20,
-            width: 32,
-            child: Transform.scale(
-              scale: 0.7,
-              child: Switch(
-                value: isGlowEnabled,
-                activeColor: selectedColor,
-                activeTrackColor: selectedColor.withOpacity(0.3),
-                inactiveThumbColor: Colors.grey[600],
-                inactiveTrackColor: Colors.grey[850],
-                onChanged: (val) {
-                  setState(() {
-                    _pedalGlowEnabled[instId] = val;
-                  });
-                  _updateAllGlowsInWebView();
-                },
-              ),
-            ),
-          ),
-          const Spacer(),
-          
-          // Color picker dots
-          if (isGlowEnabled) ...[
-            if (isExpanded) ...[
-              // Expanded: Show full palette
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ...kNeonColors.map((hex) {
-                    final Color dotColor = _hexToColor(hex);
-                    final bool isSelected = hex == colorHex;
-                    
-                    int usageCount = 0;
-                    for (var p in _webSocketService.allPlugins.value) {
-                      final String pId = p.instance;
-                      final String pColor = _pedalGlowColors[pId] ?? _getDefaultColorForPedal(p);
-                      final bool pGlow = _pedalGlowEnabled[pId] ?? true;
-                      if (pGlow && pColor.toUpperCase() == hex.toUpperCase()) {
-                        usageCount++;
-                      }
-                    }
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _pedalGlowColors[instId] = hex;
-                          _expandedColorPickers.remove(instId); // collapse after selection
-                        });
-                        _updateAllGlowsInWebView();
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: dotColor,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isSelected ? Colors.white : Colors.transparent,
-                            width: 1.5,
-                          ),
-                          boxShadow: isSelected ? [
-                            BoxShadow(
-                              color: dotColor.withOpacity(0.8),
-                              blurRadius: 6,
-                              spreadRadius: 1,
-                            )
-                          ] : null,
-                        ),
-                        child: usageCount > 0
-                            ? Center(
-                                child: Text(
-                                  '$usageCount',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: dotColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                    );
-                  }).toList(),
-                  const SizedBox(width: 6),
-                  // Small collapse checkmark or close button
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _expandedColorPickers.remove(instId);
-                      });
-                    },
-                    child: Icon(
-                      Icons.check_circle_outline,
-                      size: 15,
-                      color: selectedColor,
-                    ),
-                  ),
-                ],
-              )
-            ] else ...[
-              // Collapsed: Show only the active selected color dot (Tap to customize color)
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _expandedColorPickers.add(instId);
-                  });
-                },
-                child: Tooltip(
-                  message: 'Tap to change neon color',
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selectedColor.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: selectedColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: selectedColor.withOpacity(0.6),
-                            blurRadius: 4,
-                            spreadRadius: 0.5,
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            ]
-          ]
-        ],
-      ),
-    );
-  }
 
   // Fading and BPM Parameter State
   double _bpm = 120.0;
@@ -426,6 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Listen to value changes to update local volume values and BPM initially
     _webSocketService.gainPedals.addListener(_initializeLocalVolumes);
     _webSocketService.bpm.addListener(_updateBpmFromService);
+    _webSocketService.allPlugins.addListener(_syncOrderedPlugins);
   }
 
   void _initializeLocalVolumes() {
@@ -456,6 +276,78 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
+  void _syncOrderedPlugins() {
+    _syncAndLoadLayoutSettings();
+  }
+
+  Future<void> _syncAndLoadLayoutSettings() async {
+    final plugins = _webSocketService.allPlugins.value;
+    if (plugins.isEmpty) return;
+
+    final key = _getPedalboardKey();
+    final List<String> currentIds = plugins.map((p) => p.instance).toList();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String>? savedOrder = prefs.getStringList('${key}_order');
+      final List<String>? savedEnabled = prefs.getStringList('${key}_enabled');
+      final String? savedColorsJson = prefs.getString('${key}_colors');
+
+      // 1. Order
+      List<String> newOrder = [];
+      if (savedOrder != null) {
+        for (final id in savedOrder) {
+          if (currentIds.contains(id)) {
+            newOrder.add(id);
+          }
+        }
+      }
+      for (final id in currentIds) {
+        if (!newOrder.contains(id)) {
+          newOrder.add(id);
+        }
+      }
+
+      // 2. Enabled/Visible
+      List<String> newEnabled = [];
+      if (savedEnabled != null) {
+        newEnabled = savedEnabled.where((id) => currentIds.contains(id)).toList();
+      } else {
+        // default populate with gains
+        final gains = _webSocketService.gainPedals.value;
+        newEnabled = gains.map((p) => p.instance).toList();
+      }
+
+      // Force loopers to be enabled/visible
+      for (final p in plugins) {
+        final uriLower = p.uri.toLowerCase();
+        final titleLower = p.title.toLowerCase();
+        final isLooper = uriLower.contains('alo') || titleLower.contains('alo');
+        if (isLooper && !newEnabled.contains(p.instance)) {
+          newEnabled.add(p.instance);
+        }
+      }
+
+      // 3. Colors
+      if (savedColorsJson != null) {
+        final Map<String, dynamic> decoded = jsonDecode(savedColorsJson);
+        decoded.forEach((k, v) {
+          _pedalGlowColors[k] = v.toString();
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _orderedPluginInstances = newOrder;
+          _enabledPluginInstances = newEnabled;
+        });
+        _updateAllGlowsInWebView();
+      }
+    } catch (e) {
+      debugPrint('Error loading layout settings: $e');
+    }
+  }
+
   void _onTapTempo() {
     final now = DateTime.now();
     _tapTimes.add(now);
@@ -474,6 +366,44 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       if (avgMs > 200 && avgMs < 2000) { // Limit to 30 to 300 BPM
         final double calculatedBpm = 60000 / avgMs;
         _webSocketService.setBpm(double.parse(calculatedBpm.toStringAsFixed(1)));
+      }
+    }
+  }
+
+  Future<void> _syncNow() async {
+    final ip = _ipController.text;
+    if (ip.isEmpty) return;
+    
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final request = await client.postUrl(Uri.parse('http://$ip/pedalboard/transport/sync/none'));
+      final response = await request.close();
+      debugPrint('Sync POST Response status code: ${response.statusCode}');
+      
+      // Also send rolling command via websocket
+      _webSocketService.sendRawMessage('transport-rolling 1');
+    } catch (e) {
+      debugPrint('Error during Sync POST: $e');
+      // Fallback: send websocket command anyway
+      _webSocketService.sendRawMessage('transport-rolling 1');
+    }
+  }
+
+  Future<void> _openPluginUri(String url) async {
+    if (url.isEmpty) return;
+    final uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open URL: $e')),
+        );
       }
     }
   }
@@ -630,6 +560,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     WidgetsBinding.instance.removeObserver(this);
     _webSocketService.gainPedals.removeListener(_initializeLocalVolumes);
     _webSocketService.bpm.removeListener(_updateBpmFromService);
+    _webSocketService.allPlugins.removeListener(_syncOrderedPlugins);
+    _cardsScrollController.dispose();
     
     // Cancel all running fade timers
     for (var timer in _fadeTimers.values) {
@@ -919,6 +851,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 // Inline Connection / IP bar
                 _buildConnectionPanel(),
                 
+                // Inline horizontal scrollable pills panel
+                if (_showPills && _webSocketService.status == ConnectionStatus.connected)
+                  _buildPillsPanel(),
+                
                 // BPM inline widget on tiny screens to avoid AppBar overcrowding
                 if (screenWidth <= 580) 
                   Padding(
@@ -1185,44 +1121,43 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             // Lock height to exactly 225 logical pixels
             final double childAspectRatio = columnWidth / 225.0;
 
-            return Column(
-              children: [
-                _buildLooperControlPanel(),
-                Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      childAspectRatio: childAspectRatio,
-                      crossAxisSpacing: spacing,
-                      mainAxisSpacing: spacing,
-                    ),
-                    itemCount: enabledPlugins.length,
-                    itemBuilder: (context, index) {
-                      final pedal = enabledPlugins[index];
-                      final uriLower = pedal.uri.toLowerCase();
-                      final titleLower = pedal.title.toLowerCase();
-                      
-                      final isSwitch = uriLower.contains('switch') || 
-                                       titleLower.contains('switch');
-                      
-                      final isGainOrVolume = uriLower.contains('gain') || 
-                                             uriLower.contains('volume') || 
-                                             uriLower.contains('amp') ||
-                                             titleLower.contains('gain') || 
-                                             titleLower.contains('volume');
-                      
-                      if (isSwitch) {
-                        return _buildSwitchCard(pedal);
-                      } else if (isGainOrVolume) {
-                        return _buildGainCard(pedal);
-                      } else {
-                        return _buildPlaceholderCard(pedal);
-                      }
-                    },
-                  ),
-                ),
-              ],
+            return GridView.builder(
+              controller: _cardsScrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: childAspectRatio,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+              ),
+              itemCount: enabledPlugins.length,
+              itemBuilder: (context, index) {
+                final pedal = enabledPlugins[index];
+                final uriLower = pedal.uri.toLowerCase();
+                final titleLower = pedal.title.toLowerCase();
+                
+                final isLooper = uriLower.contains('alo') || 
+                                 titleLower.contains('alo');
+                
+                final isSwitch = uriLower.contains('switch') || 
+                                 titleLower.contains('switch');
+                
+                final isGainOrVolume = uriLower.contains('gain') || 
+                                       uriLower.contains('volume') || 
+                                       uriLower.contains('amp') ||
+                                       titleLower.contains('gain') || 
+                                       titleLower.contains('volume');
+                
+                if (isLooper) {
+                  return _buildLooperControlPanel(pedal);
+                } else if (isSwitch) {
+                  return _buildSwitchCard(pedal);
+                } else if (isGainOrVolume) {
+                  return _buildGainCard(pedal);
+                } else {
+                  return _buildPlaceholderCard(pedal);
+                }
+              },
             );
           },
         );
@@ -1244,16 +1179,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Read the custom glow configuration
     final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
-    final bool isGlowEnabled = _pedalGlowEnabled[pedal.instance] ?? true;
 
     // Design states based on active status and chosen neon color
     final Color accentColor = isBypassed 
         ? Colors.grey[600]! 
-        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        : glowColor;
         
     final Color powerIconColor = isBypassed 
         ? const Color(0xFFFF007F) 
-        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        : glowColor;
 
     final double cardOpacity = isBypassed ? 0.70 : 1.0;
     
@@ -1262,33 +1196,31 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final bool isFadingIn = isFading && (_fadeDirections[pedal.instance] == true);
     final bool isFadingOut = isFading && (_fadeDirections[pedal.instance] == false);
 
-    return Opacity(
-      opacity: cardOpacity,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isGlowEnabled 
-                ? glowColor.withOpacity(isBypassed ? 0.25 : 0.6) 
-                : accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
-            width: isGlowEnabled ? 1.5 : 1,
+    return GestureDetector(
+      onLongPress: () => _showColorPickerDialog(pedal),
+      child: Opacity(
+        opacity: cardOpacity,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: glowColor.withOpacity(isBypassed ? 0.25 : 0.6),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35)),
+                blurRadius: 80,
+                spreadRadius: 2,
+              )
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isGlowEnabled 
-                  ? glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.12 : 0.22)) 
-                  : accentColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.06 : 0.12)),
-              blurRadius: 10,
-              spreadRadius: 2,
-            )
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Header parameters
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1331,14 +1263,33 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               ],
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              'Instance: ${pedal.instance}  |  Port: ${pedal.gainPortSymbol ?? "Gain"}',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
-                                fontFamily: 'monospace',
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _openPluginUri(pedal.uri),
+                                    child: Text(
+                                      pedal.uri,
+                                      style: TextStyle(
+                                        fontSize: 8.5,
+                                        color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                                        decoration: TextDecoration.underline,
+                                        fontFamily: 'monospace',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Port: ${pedal.gainPortSymbol ?? "Gain"}',
+                                  style: TextStyle(
+                                    fontSize: 8.5,
+                                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1385,7 +1336,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                 ],
               ),
-              _buildGlowSettingsRow(pedal),
               const Spacer(),
               
               // Custom styled Volume Slider
@@ -1485,6 +1435,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ),
         ),
       ),
+     ),
     );
   }
 
@@ -1494,8 +1445,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
       String colorHex = _pedalGlowColors[instanceId] ?? '';
       if (colorHex.isEmpty) {
-        final int index = _enabledPluginInstances.indexOf(instanceId);
-        colorHex = kNeonColors[index >= 0 ? (index % kNeonColors.length) : 0];
+        colorHex = _getDefaultColorForInstanceId(instanceId);
       }
       configs.add({
         'instance': instanceId,
@@ -1530,10 +1480,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 el.style.boxShadow = "0 0 120px 40px #FFFFFF, inset 0 0 45px #FFFFFF";
                 el.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
               } else {
-                el.style.outline = "12px solid " + c.color;
-                el.style.outlineOffset = "4px";
-                el.style.boxShadow = "0 0 80px 20px " + c.color + ", inset 0 0 35px " + c.color;
-                el.style.backgroundColor = hexToRgba(c.color, 0.4);
+                el.style.outline = "4px solid " + c.color;
+                el.style.outlineOffset = "2px";
+                el.style.boxShadow = "0 0 100px 2px " + c.color + ", inset 0 0 15px " + c.color;
+                el.style.backgroundColor = hexToRgba(c.color, 0.3);
               }
               flashCount++;
               if (flashCount > 9) {
@@ -1542,10 +1492,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 // Restore permanent glow state cleanly!
                 if (c.enabled) {
                   el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-                  el.style.outline = "6px solid " + c.color;
-                  el.style.outlineOffset = "4px";
-                  el.style.boxShadow = "0 0 100px 25px " + c.color + ", inset 0 0 30px " + c.color;
-                  el.style.backgroundColor = hexToRgba(c.color, 0.12);
+                  el.style.outline = "3px solid " + c.color;
+                  el.style.outlineOffset = "2px";
+                  el.style.boxShadow = "0 0 120px 2px " + c.color + ", inset 0 0 15px " + c.color;
+                  el.style.backgroundColor = hexToRgba(c.color, 0.08);
                 } else {
                   el.style.outline = "";
                   el.style.boxShadow = "";
@@ -1627,10 +1577,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               el.style.boxShadow = "0 0 120px 40px #FFFFFF, inset 0 0 45px #FFFFFF";
               el.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
             } else {
-              el.style.outline = "12px solid " + color;
-              el.style.outlineOffset = "4px";
-              el.style.boxShadow = "0 0 80px 20px " + color + ", inset 0 0 35px " + color;
-              el.style.backgroundColor = hexToRgba(color, 0.4);
+              el.style.outline = "4px solid " + color;
+              el.style.outlineOffset = "2px";
+              el.style.boxShadow = "0 0 100px 2px " + color + ", inset 0 0 15px " + color;
+              el.style.backgroundColor = hexToRgba(color, 0.3);
             }
             flashCount++;
             if (flashCount > 9) { // 5 complete blinking cycles (2 seconds)
@@ -1639,10 +1589,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               // Restore permanent glow state cleanly!
               if (isGlowEnabled) {
                 el.style.transition = "outline 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease";
-                el.style.outline = "6px solid " + color;
-                el.style.outlineOffset = "4px";
-                el.style.boxShadow = "0 0 100px 25px " + color + ", inset 0 0 30px " + color;
-                el.style.backgroundColor = hexToRgba(color, 0.12);
+                el.style.outline = "3px solid " + color;
+                el.style.outlineOffset = "2px";
+                el.style.boxShadow = "0 0 120px 2px " + color + ", inset 0 0 15px " + color;
+                el.style.backgroundColor = hexToRgba(color, 0.08);
               } else {
                 el.style.outline = "";
                 el.style.boxShadow = "";
@@ -1752,6 +1702,125 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
+  void _showColorPickerDialog(PluginInstance pedal) {
+    final String instId = pedal.instance;
+    final String currentColorHex = _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'CHOOSE GLOW COLOR',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              color: _isDarkMode ? Colors.white : Colors.black,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: kNeonColors.map((hex) {
+                final Color dotColor = _hexToColor(hex);
+                final bool isSelected = hex.toUpperCase() == currentColorHex.toUpperCase();
+                
+                int usageCount = 0;
+                for (var p in _webSocketService.allPlugins.value) {
+                  final String pId = p.instance;
+                  final String pColor = _pedalGlowColors[pId] ?? _getDefaultColorForPedal(p);
+                  if (pColor.toUpperCase() == hex.toUpperCase()) {
+                    usageCount++;
+                  }
+                }
+                // Check looper as well
+                if (_looperController.activeLooper != null) {
+                  final String looperId = _looperController.activeLooper!.instance;
+                  final String looperColor = _pedalGlowColors[looperId] ?? '';
+                  if (looperColor.isNotEmpty && looperColor.toUpperCase() == hex.toUpperCase()) {
+                    usageCount++;
+                  } else if (looperColor.isEmpty && hex.toUpperCase() == '#FF0055') {
+                    usageCount++;
+                  }
+                }
+
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _pedalGlowColors[instId] = hex;
+                    });
+                    _updateAllGlowsInWebView();
+                    _saveLayoutSettings();
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: dotColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected 
+                            ? (_isDarkMode ? Colors.white : Colors.black) 
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: dotColor.withOpacity(isSelected ? 0.6 : 0.2),
+                          blurRadius: isSelected ? 12 : 6,
+                          spreadRadius: isSelected ? 2 : 1,
+                        )
+                      ],
+                    ),
+                    child: usageCount > 0
+                        ? Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: dotColor.computeLuminance() > 0.5 
+                                    ? Colors.black.withOpacity(0.15) 
+                                    : Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '$usageCount',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: dotColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                ),
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   String? _getSwitchPortSymbol(PluginInstance pedal) {
     for (final symbol in pedal.parameters.keys) {
       final s = symbol.toLowerCase();
@@ -1792,44 +1861,41 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Read the custom glow configuration
     final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
-    final bool isGlowEnabled = _pedalGlowEnabled[pedal.instance] ?? true;
 
     // Design states based on active status and chosen neon color
     final Color accentColor = isBypassed 
         ? Colors.grey[600]! 
-        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        : glowColor;
         
     final Color powerIconColor = isBypassed 
         ? const Color(0xFFFF007F) 
-        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        : glowColor;
 
-    return Opacity(
-      opacity: isBypassed ? 0.70 : 1.0,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isGlowEnabled 
-                ? glowColor.withOpacity(isBypassed ? 0.25 : 0.6) 
-                : accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
-            width: isGlowEnabled ? 1.5 : 1,
+    return GestureDetector(
+      onLongPress: () => _showColorPickerDialog(pedal),
+      child: Opacity(
+        opacity: isBypassed ? 0.70 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: glowColor.withOpacity(isBypassed ? 0.25 : 0.6),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35)),
+                blurRadius: 80,
+                spreadRadius: 2,
+              )
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isGlowEnabled 
-                  ? glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.12 : 0.22)) 
-                  : accentColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.06 : 0.12)),
-              blurRadius: 10,
-              spreadRadius: 2,
-            )
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1872,14 +1938,33 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               ],
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              'Instance: ${pedal.instance}  |  Switch: ${switchPort ?? "None"}',
-                              style: TextStyle(
-                                  fontSize: 9,
-                                  color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
-                                  fontFamily: 'monospace',
-                                  overflow: TextOverflow.ellipsis,
-                              ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => _openPluginUri(pedal.uri),
+                                    child: Text(
+                                      pedal.uri,
+                                      style: TextStyle(
+                                        fontSize: 8.5,
+                                        color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                                        decoration: TextDecoration.underline,
+                                        fontFamily: 'monospace',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Switch: ${switchPort ?? "None"}',
+                                  style: TextStyle(
+                                    fontSize: 8.5,
+                                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1901,7 +1986,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ),
                 ],
               ),
-              _buildGlowSettingsRow(pedal),
               const Spacer(),
               
               // Custom A / B Switch Control
@@ -1980,6 +2064,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ),
         ),
       ),
+     ),
     );
   }
 
@@ -2035,43 +2120,40 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     // Read the custom glow configuration
     final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
-    final bool isGlowEnabled = _pedalGlowEnabled[pedal.instance] ?? true;
 
     // Design states based on active status and chosen neon color
     final Color accentColor = isBypassed 
         ? Colors.grey[600]! 
-        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        : glowColor;
         
     final Color powerIconColor = isBypassed 
         ? const Color(0xFFFF007F) 
-        : (isGlowEnabled ? glowColor : const Color(0xFF00FFCC));
+        : glowColor;
     
-    return Container(
-      decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isGlowEnabled 
-              ? glowColor.withOpacity(isBypassed ? 0.25 : 0.6) 
-              : accentColor.withOpacity(isBypassed ? 0.1 : 0.25),
-          width: isGlowEnabled ? 1.5 : 1,
+    return GestureDetector(
+      onLongPress: () => _showColorPickerDialog(pedal),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: glowColor.withOpacity(isBypassed ? 0.25 : 0.6),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35)),
+              blurRadius: 80,
+              spreadRadius: 2,
+            )
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: isGlowEnabled 
-                ? glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.12 : 0.22)) 
-                : accentColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.06 : 0.12)),
-            blurRadius: 10,
-            spreadRadius: 2,
-          )
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -2106,13 +2188,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             ],
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            'URI: ${pedal.uri}',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
-                              fontFamily: 'monospace',
-                              overflow: TextOverflow.ellipsis,
+                          GestureDetector(
+                            onTap: () => _openPluginUri(pedal.uri),
+                            child: Text(
+                              pedal.uri,
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                                decoration: TextDecoration.underline,
+                                fontFamily: 'monospace',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                         ],
@@ -2135,17 +2221,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
               ],
             ),
-            _buildGlowSettingsRow(pedal),
             const Divider(color: Colors.grey, height: 1),
             Row(
               children: [
-                Icon(Icons.info_outline, color: _isDarkMode ? Colors.grey[600] : Colors.grey[700], size: 16),
+                Icon(Icons.info_outline, color: _isDarkMode ? Colors.grey[600] : Colors.grey[750], size: 16),
                 const SizedBox(width: 8),
                 Text(
                   'Custom card layout coming soon.',
                   style: TextStyle(
                     fontSize: 11, 
-                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[700], 
+                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[750], 
                     fontStyle: FontStyle.italic
                   ),
                 ),
@@ -2154,6 +2239,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ],
         ),
       ),
+     ),
     );
   }
 
@@ -2269,9 +2355,217 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
             ),
           ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              _showPills ? Icons.grid_on : Icons.grid_off,
+              color: _showPills
+                  ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                  : Colors.grey,
+              size: 20,
+            ),
+            tooltip: 'Toggle Pills Bar',
+            onPressed: () {
+              setState(() {
+                _showPills = !_showPills;
+              });
+            },
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: Icon(
+              Icons.open_in_browser,
+              color: _isDarkMode ? const Color(0xFFFF7700) : const Color(0xFFFF5500),
+              size: 20,
+            ),
+            tooltip: 'Open in Chrome / Browser',
+            onPressed: _openWebInterface,
+          ),
         ],
       ),
     );
+  }
+
+  String _getPedalboardKey() {
+    final plugins = _webSocketService.allPlugins.value;
+    if (plugins.isEmpty) return 'default_pedalboard';
+    final List<String> instances = plugins.map((p) => p.instance).toList()..sort();
+    return 'pedalboard_${instances.join(',').hashCode}';
+  }
+
+  Future<void> _saveLayoutSettings() async {
+    final key = _getPedalboardKey();
+    if (key == 'default_pedalboard') return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('${key}_order', _orderedPluginInstances);
+      await prefs.setStringList('${key}_enabled', _enabledPluginInstances);
+      await prefs.setString('${key}_colors', jsonEncode(_pedalGlowColors));
+      debugPrint('Saved layout settings for $key');
+    } catch (e) {
+      debugPrint('Error saving layout settings: $e');
+    }
+  }
+
+  String _getDefaultColorForInstanceId(String instanceId) {
+    if (instanceId.toLowerCase().contains('alo')) {
+      return '#FF0055';
+    }
+    final plugins = _webSocketService.allPlugins.value;
+    for (final p in plugins) {
+      if (p.instance == instanceId) {
+        final uriLower = p.uri.toLowerCase();
+        final titleLower = p.title.toLowerCase();
+        if (uriLower.contains('alo') || titleLower.contains('alo')) {
+          return '#FF0055';
+        }
+        break;
+      }
+    }
+    final int hash = instanceId.hashCode.abs();
+    return kNeonColors[hash % kNeonColors.length];
+  }
+
+  String _getDefaultColorForPedal(PluginInstance pedal) {
+    return _getDefaultColorForInstanceId(pedal.instance);
+  }
+
+  Widget _buildPillsPanel() {
+    return ValueListenableBuilder<List<PluginInstance>>(
+      valueListenable: _webSocketService.allPlugins,
+      builder: (context, plugins, _) {
+        if (plugins.isEmpty || _orderedPluginInstances.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        
+        return Container(
+          height: 48,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              canvasColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+            ),
+            child: ReorderableListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _orderedPluginInstances.length,
+              onReorder: (oldIdx, newIdx) {
+                setState(() {
+                  if (oldIdx < newIdx) {
+                    newIdx -= 1;
+                  }
+                  final item = _orderedPluginInstances.removeAt(oldIdx);
+                  _orderedPluginInstances.insert(newIdx, item);
+                });
+                _saveLayoutSettings();
+              },
+              itemBuilder: (context, index) {
+                if (index >= _orderedPluginInstances.length) {
+                  return SizedBox(key: ValueKey('empty-$index'));
+                }
+                final String instanceId = _orderedPluginInstances[index];
+                PluginInstance? pedal;
+                for (var p in plugins) {
+                  if (p.instance == instanceId) {
+                    pedal = p;
+                    break;
+                  }
+                }
+                if (pedal == null) return SizedBox(key: ValueKey(instanceId));
+                
+                final bool isVisible = _enabledPluginInstances.contains(instanceId);
+                final String colorHex = _pedalGlowColors[instanceId] ?? _getDefaultColorForPedal(pedal);
+                final Color glowColor = _hexToColor(colorHex);
+                
+                return GestureDetector(
+                  key: ValueKey(instanceId),
+                  onTap: () {
+                    // Single tap: blink/identify pedal, scroll to card if visible
+                    _highlightPedalInWebView(pedal!);
+                    if (isVisible) {
+                      _scrollToCard(instanceId);
+                    }
+                  },
+                  onDoubleTap: () {
+                    // Double tap: toggle visibility of control card
+                    setState(() {
+                      if (isVisible) {
+                        _enabledPluginInstances.remove(instanceId);
+                      } else {
+                        _enabledPluginInstances.add(instanceId);
+                      }
+                    });
+                    _updateAllGlowsInWebView();
+                    _saveLayoutSettings();
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isVisible 
+                          ? glowColor.withOpacity(_isDarkMode ? 0.15 : 0.25) 
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isVisible ? glowColor : (_isDarkMode ? Colors.grey[700]! : Colors.grey[400]!),
+                        width: isVisible ? 1.5 : 1.0,
+                      ),
+                      boxShadow: isVisible ? [
+                        BoxShadow(
+                          color: glowColor.withOpacity(0.3),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        )
+                      ] : null,
+                    ),
+                    child: Center(
+                      child: Text(
+                        (_customTitles[instanceId] ?? pedal.title).toUpperCase(),
+                        style: TextStyle(
+                          color: isVisible 
+                              ? (glowColor == Colors.white ? (_isDarkMode ? Colors.black : Colors.white) : glowColor) 
+                              : (_isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10.5,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _scrollToCard(String instanceId) {
+    final int index = _enabledPluginInstances.indexOf(instanceId);
+    if (index == -1) return;
+    
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final bool isSplit = _showControls && _showWeb;
+    
+    double controlsWidth = screenWidth;
+    if (isSplit) {
+      controlsWidth = isLandscape ? (screenWidth * 5 / 11) : screenWidth;
+    }
+    
+    final int crossAxisCount = controlsWidth > 600 ? 2 : 1;
+    final int rowIndex = index ~/ crossAxisCount;
+    final double scrollOffset = rowIndex * (225.0 + 16.0);
+    
+    if (_cardsScrollController.hasClients) {
+      _cardsScrollController.animateTo(
+        scrollOffset.clamp(0.0, _cardsScrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    }
   }
 
   Widget _buildLeftDrawerHeader(String title) {
@@ -2486,6 +2780,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       : null,
                 ),
                 ListTile(
+                  leading: const Icon(
+                    Icons.open_in_browser,
+                    color: Color(0xFFFF5500),
+                    size: 20,
+                  ),
+                  title: Text(
+                    'Open Pedalboard in Browser',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _isDarkMode ? Colors.white : Colors.black,
+                    ),
+                  ),
+                  subtitle: const Text('launch Web interface in Chrome', style: TextStyle(fontSize: 10)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openWebInterface();
+                  },
+                ),
+                ListTile(
                   leading: Icon(
                     _isDarkMode ? Icons.light_mode : Icons.dark_mode,
                     color: _isDarkMode ? const Color(0xFFFF7700) : const Color(0xFF9D00FF),
@@ -2646,6 +2960,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         _enabledPluginInstances.insert(newIdx, item);
                       });
                       _updateAllGlowsInWebView();
+                      _saveLayoutSettings();
                     },
                     itemBuilder: (context, index) {
                       final pedal = active[index];
@@ -2661,6 +2976,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               _enabledPluginInstances.remove(pedal.instance);
                             });
                             _updateAllGlowsInWebView();
+                            _saveLayoutSettings();
                           },
                         ),
                         title: Text(
@@ -2742,6 +3058,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 _enabledPluginInstances.add(pedal.instance);
                               });
                               _updateAllGlowsInWebView();
+                              _saveLayoutSettings();
                             },
                           ),
                           title: Text(
@@ -3035,22 +3352,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _buildLooperControlPanel() {
+  Widget _buildLooperControlPanel(PluginInstance pedal) {
     return AnimatedBuilder(
       animation: _looperController,
       builder: (context, _) {
-        final loopers = _looperController.discoveredLoopers.value;
-        if (loopers.isEmpty || _looperController.activeLooper == null) {
-          return const SizedBox.shrink();
-        }
-
-        final looper = _looperController.activeLooper!;
-        final state = _looperController.state;
+        final state = _looperController.getState(1);
         
-        final String looperId = looper.instance;
-        final String colorHex = _pedalGlowColors[looperId] ?? '#FF0055';
+        final String looperId = pedal.instance;
+        final String colorHex = _pedalGlowColors[looperId] ?? _getDefaultColorForPedal(pedal);
         final Color glowColor = _hexToColor(colorHex);
-        final bool isGlowEnabled = _pedalGlowEnabled[looperId] ?? true;
 
         final primaryThemeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
         
@@ -3061,25 +3371,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
         switch (state) {
           case LooperState.empty:
-            stateColor = _isDarkMode ? Colors.grey[600]! : Colors.grey[600]!;
+            stateColor = Colors.grey[600]!;
             stateText = 'Empty Loop';
             stateIcon = Icons.music_note_outlined;
             break;
           case LooperState.countIn:
             stateColor = Colors.orange;
-            stateText = 'COUNT-IN (Recording in ${((16 - _looperController.currentBeatIndex) * _looperController.beatDurationMs / 1000).toStringAsFixed(1)}s)';
+            stateText = 'COUNT-IN (Recording in ${((16 - _looperController.getCurrentBeatIndex(1)) * _looperController.beatDurationMs / 1000).toStringAsFixed(1)}s)';
             stateIcon = Icons.hourglass_top;
             isPulsing = true;
             break;
           case LooperState.recording:
             stateColor = const Color(0xFFFF0055);
-            stateText = 'RECORDING (Beat ${_looperController.currentBeatIndex + 1}/16)';
+            stateText = 'RECORDING (Beat ${_looperController.getCurrentBeatIndex(1) + 1}/16)';
             stateIcon = Icons.fiber_manual_record;
             isPulsing = true;
             break;
           case LooperState.playing:
-            stateColor = isGlowEnabled ? glowColor : const Color(0xFF00FFCC);
-            stateText = 'PLAYING LOOP (Bar ${_looperController.currentBar}, Beat ${_looperController.currentBeatInBar})';
+            stateColor = glowColor;
+            stateText = 'PLAYING LOOP (Bar ${_looperController.getCurrentBar(1)}, Beat ${_looperController.getCurrentBeatInBar(1)})';
             stateIcon = Icons.play_arrow;
             break;
           case LooperState.paused:
@@ -3101,307 +3411,293 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               valueListenable: _webSocketService.transportSyncMode,
               builder: (context, syncMode, _) {
                 final bool isSynced = isRolling && syncMode == 0;
-                final Color looperAccentColor = isSynced 
-                    ? (isGlowEnabled ? glowColor : primaryThemeColor) 
-                    : Colors.grey;
+                final Color looperAccentColor = isSynced ? glowColor : Colors.grey;
 
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isSynced
-                          ? (isGlowEnabled
-                              ? glowColor.withOpacity(_isDarkMode ? 0.35 : 0.65)
-                              : stateColor.withOpacity(_isDarkMode ? 0.35 : 0.65))
-                          : Colors.grey.withOpacity(0.5),
-                      width: isSynced && isGlowEnabled ? 1.5 : 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
+                return GestureDetector(
+                  onLongPress: () => _showColorPickerDialog(pedal),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
                         color: isSynced
-                            ? (isGlowEnabled
-                                ? glowColor.withOpacity(_isDarkMode ? 0.08 : 0.18)
-                                : stateColor.withOpacity(_isDarkMode ? 0.08 : 0.18))
-                            : Colors.transparent,
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      )
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      Opacity(
-                        opacity: isSynced ? 1.0 : 0.3,
-                        child: IgnorePointer(
-                          ignoring: !isSynced,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.music_video, color: looperAccentColor, size: 20),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'ALO SYNC LOOPER',
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 1.0,
-                                            color: _isDarkMode ? Colors.white : Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        IconButton(
-                                          icon: Icon(Icons.help_outline, size: 14, color: primaryThemeColor.withOpacity(0.8)),
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () => _showModuleHelpSheet(context, 'looper'),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _isDarkMode ? Colors.black : Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: primaryThemeColor.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.query_builder, size: 12, color: primaryThemeColor),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${_bpm.toStringAsFixed(1)} BPM',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            fontFamily: 'monospace',
-                                            color: primaryThemeColor,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              
-                              if (loopers.length > 1) ...[
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Target Pedal: ',
-                                      style: TextStyle(
-                                        fontSize: 11, 
-                                        color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    DropdownButton<PluginInstance>(
-                                      value: looper,
-                                      dropdownColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
-                                      underline: const SizedBox(),
-                                      icon: const Icon(Icons.arrow_drop_down, size: 18),
-                                      style: TextStyle(
-                                        color: _isDarkMode ? Colors.white : Colors.black,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      onChanged: (val) {
-                                        if (val != null) {
-                                          _looperController.setActiveLooper(val);
-                                        }
-                                      },
-                                      items: loopers.map((p) {
-                                        final displayName = _customTitles[p.instance] ?? p.title;
-                                        return DropdownMenuItem<PluginInstance>(
-                                          value: p,
-                                          child: Text(displayName),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                              ],
-                              
-                              _buildGlowSettingsRow(looper),
-                              const SizedBox(height: 4),
-                              Divider(color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])?.withOpacity(0.5)),
-                              const SizedBox(height: 6),
-                              
-                              Row(
-                                children: [
-                                  stateIndicator,
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      stateText,
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: stateColor,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              
-                              _build4BarTimeline(stateColor),
-                              const SizedBox(height: 12),
-                              
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: (state == LooperState.countIn || state == LooperState.recording)
-                                            ? Colors.grey[800]
-                                            : const Color(0xFFFF0055),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                      icon: Icon(
-                                        (state == LooperState.countIn || state == LooperState.recording)
-                                            ? Icons.cancel
-                                            : Icons.fiber_manual_record,
-                                        size: 16,
-                                      ),
-                                      label: Text(
-                                        (state == LooperState.countIn || state == LooperState.recording)
-                                            ? 'CANCEL'
-                                            : 'RECORD 4-BAR',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-                                      ),
-                                      onPressed: () {
-                                        if (state == LooperState.countIn || state == LooperState.recording) {
-                                          _looperController.clearLoop();
-                                        } else {
-                                          _looperController.recordSequence();
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey[200],
-                                      foregroundColor: _isDarkMode ? Colors.white : Colors.black,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        side: BorderSide(
-                                          color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
-                                        ),
-                                      ),
-                                    ),
-                                    onPressed: (state == LooperState.playing)
-                                        ? () => _looperController.pauseLoop()
-                                        : (state == LooperState.paused)
-                                            ? () => _looperController.playLoop()
-                                            : null,
-                                    child: Icon(
-                                      (state == LooperState.paused) ? Icons.play_arrow : Icons.pause,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.amber.withOpacity(0.12),
-                                      foregroundColor: Colors.amber,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                        side: const BorderSide(color: Colors.amber),
-                                      ),
-                                    ),
-                                    onPressed: (state != LooperState.empty)
-                                        ? () => _looperController.clearLoop()
-                                        : null,
-                                    child: const Icon(Icons.delete_outline, size: 18),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                            ? glowColor.withOpacity(_isDarkMode ? 0.35 : 0.65)
+                            : Colors.grey.withOpacity(0.5),
+                        width: isSynced ? 1.5 : 1,
                       ),
-                      if (!isSynced)
-                        Positioned.fill(
-                          child: Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.9),
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.3),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isSynced
+                              ? glowColor.withOpacity(_isDarkMode ? 0.20 : 0.35)
+                              : Colors.transparent,
+                          blurRadius: 80,
+                          spreadRadius: 2,
+                        )
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      child: Stack(
+                        children: [
+                          Opacity(
+                            opacity: isSynced ? 1.0 : 0.3,
+                            child: IgnorePointer(
+                              ignoring: !isSynced,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => _highlightPedalInWebView(pedal),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.music_video, color: looperAccentColor, size: 18),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w900,
+                                                        letterSpacing: 1.0,
+                                                        color: _isDarkMode ? Colors.white : Colors.black,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  IconButton(
+                                                    icon: Icon(Icons.edit, size: 11, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(),
+                                                    onPressed: () => _showRenameDialog(pedal),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  IconButton(
+                                                    icon: Icon(Icons.help_outline, size: 12, color: primaryThemeColor.withOpacity(0.8)),
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(),
+                                                    onPressed: () => _showModuleHelpSheet(context, 'looper'),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 2),
+                                              GestureDetector(
+                                                onTap: () => _openPluginUri(pedal.uri),
+                                                child: Text(
+                                                  pedal.uri,
+                                                  style: TextStyle(
+                                                    fontSize: 8.5,
+                                                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                                                    decoration: TextDecoration.underline,
+                                                    fontFamily: 'monospace',
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _isDarkMode ? Colors.black : Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: primaryThemeColor.withOpacity(0.3),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.query_builder, size: 11, color: primaryThemeColor),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${_bpm.toStringAsFixed(1)} BPM',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                fontFamily: 'monospace',
+                                                color: primaryThemeColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  child: const Text(
-                                    'BPM NOT SYNCED',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      letterSpacing: 1.2,
-                                    ),
+                                  const SizedBox(height: 8),
+                                  
+                                  Divider(color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])?.withOpacity(0.5)),
+                                  const SizedBox(height: 4),
+                                  
+                                  Row(
+                                    children: [
+                                      stateIndicator,
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          stateText,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: stateColor,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    elevation: 4,
+                                  const SizedBox(height: 8),
+                                  
+                                  _build4BarTimeline(stateColor),
+                                  const SizedBox(height: 8),
+                                  
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: (state == LooperState.countIn || state == LooperState.recording)
+                                                ? Colors.grey[800]
+                                                : const Color(0xFFFF0055),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(vertical: 10),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: Icon(
+                                            (state == LooperState.countIn || state == LooperState.recording)
+                                                ? Icons.cancel
+                                                : Icons.fiber_manual_record,
+                                            size: 14,
+                                          ),
+                                          label: Text(
+                                            (state == LooperState.countIn || state == LooperState.recording)
+                                                ? 'CANCEL'
+                                                : 'RECORD 4-BAR',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                          ),
+                                          onPressed: () {
+                                            if (state == LooperState.countIn || state == LooperState.recording) {
+                                              _looperController.clearLoop();
+                                            } else {
+                                              _looperController.recordSequence();
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: _isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey[200],
+                                          foregroundColor: _isDarkMode ? Colors.white : Colors.black,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            side: BorderSide(
+                                              color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                                            ),
+                                          ),
+                                        ),
+                                        onPressed: (state == LooperState.playing)
+                                            ? () => _looperController.pauseLoop()
+                                            : (state == LooperState.paused)
+                                                ? () => _looperController.playLoop()
+                                                : null,
+                                        child: Icon(
+                                          (state == LooperState.paused) ? Icons.play_arrow : Icons.pause,
+                                          size: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.amber.withOpacity(0.12),
+                                          foregroundColor: Colors.amber,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                            side: const BorderSide(color: Colors.amber),
+                                          ),
+                                        ),
+                                        onPressed: (state != LooperState.empty)
+                                            ? () => _looperController.clearLoop()
+                                            : null,
+                                        child: const Icon(Icons.delete_outline, size: 16),
+                                      ),
+                                    ],
                                   ),
-                                  onPressed: () {
-                                    // Set Internal Sync Mode and Transport Rolling
-                                    _webSocketService.sendRawMessage('transport-sync-mode 0');
-                                    _webSocketService.sendRawMessage('transport-rolling 1');
-                                  },
-                                  child: const Text(
-                                    'SYNC NOW',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                          if (!isSynced)
+                            Positioned.fill(
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withOpacity(0.9),
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.3),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Text(
+                                        'BPM NOT SYNCED',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        elevation: 4,
+                                      ),
+                                      onPressed: () => _syncNow(),
+                                      child: const Text(
+                                        'SYNC NOW',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               },

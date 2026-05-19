@@ -205,11 +205,21 @@ class ModWebSocketService extends ChangeNotifier {
         final val = int.tryParse(data) == 1;
         isTransportRolling.value = val;
         isRolling.value = val;
-        debugPrint('TRANSPORT ROLLING UPDATED: \$val');
-      } else if (cmd == 'transport_sync_mode' || cmd == 'transport-sync-mode') {
-        final val = int.tryParse(data) ?? 0;
+        debugPrint('TRANSPORT ROLLING UPDATED: $val');
+      } else if (cmd == 'transport_sync_mode' || cmd == 'transport-sync-mode' || cmd == 'sync' || cmd == 'sync_mode' || cmd == 'sync-mode') {
+        final lowerData = data.trim().toLowerCase();
+        int val = 0;
+        if (lowerData == 'none' || lowerData == 'internal' || lowerData == '0') {
+          val = 0;
+        } else if (lowerData == 'midi' || lowerData == '1') {
+          val = 1;
+        } else if (lowerData == 'link' || lowerData == '2') {
+          val = 2;
+        } else {
+          val = int.tryParse(lowerData) ?? 0;
+        }
         transportSyncMode.value = val;
-        debugPrint('TRANSPORT SYNC MODE UPDATED: \$val');
+        debugPrint('TRANSPORT SYNC MODE UPDATED: $val (raw: $data)');
       } else if (cmd == 'loading_end') {
         debugPrint('PEDALBOARD LOADING ENDED');
         
@@ -269,8 +279,10 @@ class ModWebSocketService extends ChangeNotifier {
       } else if (cmd == 'rolling') {
         final double? val = double.tryParse(data);
         if (val != null) {
-          isRolling.value = val == 1.0;
-          debugPrint('RECEIVED ROLLING STATE FROM HOST: ${isRolling.value}');
+          final isRoll = val == 1.0;
+          isRolling.value = isRoll;
+          isTransportRolling.value = isRoll;
+          debugPrint('RECEIVED ROLLING STATE FROM HOST: $isRoll');
         }
       }
     } catch (e, stack) {
