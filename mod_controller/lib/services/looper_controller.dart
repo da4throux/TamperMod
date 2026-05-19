@@ -14,18 +14,26 @@ enum LooperState {
 class LooperController extends ChangeNotifier {
   final ModWebSocketService webSocketService;
 
-  LooperState _state = LooperState.empty;
+  LooperState _state1 = LooperState.empty;
+  LooperState _state2 = LooperState.empty;
   PluginInstance? _activeLooper;
   
   // Stopwatch & Timers for ultra-smooth 60fps timeline sweeps
-  final Stopwatch _stopwatch = Stopwatch();
+  final Stopwatch _stopwatch1 = Stopwatch();
+  final Stopwatch _stopwatch2 = Stopwatch();
   Timer? _sweepTimer;
   
-  // Animation fractions and counts
-  double _sweepProgress = 0.0; // 0.0 to 1.0 sweeping timeline
-  int _currentBeatIndex = 0;   // 0 to 15 (16 beats total)
-  int _currentBar = 1;         // 1 to 4
-  int _currentBeatInBar = 1;   // 1 to 4
+  // Animation fractions and counts for loop 1
+  double _sweepProgress1 = 0.0;
+  int _currentBeatIndex1 = 0;
+  int _currentBar1 = 1;
+  int _currentBeatInBar1 = 1;
+
+  // Animation fractions and counts for loop 2
+  double _sweepProgress2 = 0.0;
+  int _currentBeatIndex2 = 0;
+  int _currentBar2 = 1;
+  int _currentBeatInBar2 = 1;
   
   // Dynamic list of discovered loopers
   final ValueNotifier<List<PluginInstance>> discoveredLoopers =
@@ -36,12 +44,20 @@ class LooperController extends ChangeNotifier {
     webSocketService.allPlugins.addListener(_updateDiscoveredLoopers);
   }
 
-  LooperState get state => _state;
+  // Getters for loop-specific states
+  LooperState getState(int loopNum) => loopNum == 1 ? _state1 : _state2;
+  double getSweepProgress(int loopNum) => loopNum == 1 ? _sweepProgress1 : _sweepProgress2;
+  int getCurrentBeatIndex(int loopNum) => loopNum == 1 ? _currentBeatIndex1 : _currentBeatIndex2;
+  int getCurrentBar(int loopNum) => loopNum == 1 ? _currentBar1 : _currentBar2;
+  int getCurrentBeatInBar(int loopNum) => loopNum == 1 ? _currentBeatInBar1 : _currentBeatInBar2;
+
+  // Backward compatibility getters (mapping to loop 1)
+  LooperState get state => _state1;
   PluginInstance? get activeLooper => _activeLooper;
-  double get sweepProgress => _sweepProgress;
-  int get currentBeatIndex => _currentBeatIndex;
-  int get currentBar => _currentBar;
-  int get currentBeatInBar => _currentBeatInBar;
+  double get sweepProgress => _sweepProgress1;
+  int get currentBeatIndex => _currentBeatIndex1;
+  int get currentBar => _currentBar1;
+  int get currentBeatInBar => _currentBeatInBar1;
   
   double get bpm => webSocketService.bpm.value;
   double get beatDurationMs => (60.0 / bpm) * 1000.0;
@@ -74,145 +90,235 @@ class LooperController extends ChangeNotifier {
 
   // Visual & Logical sweep loop running at 60fps (every 16ms)
   void _startSweepTimer() {
-    _sweepTimer?.cancel();
+    if (_sweepTimer != null) return;
     _sweepTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-      if (_state == LooperState.empty || _activeLooper == null) {
+      if (_state1 == LooperState.empty && _state2 == LooperState.empty || _activeLooper == null) {
         timer.cancel();
+        _sweepTimer = null;
         return;
       }
 
-      final double elapsed = _stopwatch.elapsedMilliseconds.toDouble();
       final double total = totalDurationMs;
 
-      if (_state == LooperState.countIn) {
-        if (elapsed >= total) {
-          // Transition: End of Count-In -> Click to start recording!
-          _triggerSwitch();
-          _stopwatch.reset();
-          _state = LooperState.recording;
-        } else {
-          _sweepProgress = elapsed / total;
-          _calculateBeatMetrics(elapsed);
+      // Update Loop 1
+      if (_state1 != LooperState.empty) {
+        final double elapsed1 = _stopwatch1.elapsedMilliseconds.toDouble();
+        if (_state1 == LooperState.countIn) {
+          if (elapsed1 >= total) {
+            _triggerSwitch(1);
+            _stopwatch1.reset();
+            _state1 = LooperState.recording;
+          } else {
+            _sweepProgress1 = elapsed1 / total;
+            _currentBeatIndex1 = (elapsed1 / beatDurationMs).floor().clamp(0, 15);
+            _currentBar1 = (_currentBeatIndex1 / 4).floor() + 1;
+            _currentBeatInBar1 = (_currentBeatIndex1 % 4) + 1;
+          }
+        } else if (_state1 == LooperState.recording) {
+          if (elapsed1 >= total) {
+            _triggerSwitch(1);
+            _stopwatch1.reset();
+            _state1 = LooperState.playing;
+          } else {
+            _sweepProgress1 = elapsed1 / total;
+            _currentBeatIndex1 = (elapsed1 / beatDurationMs).floor().clamp(0, 15);
+            _currentBar1 = (_currentBeatIndex1 / 4).floor() + 1;
+            _currentBeatInBar1 = (_currentBeatIndex1 % 4) + 1;
+          }
+        } else if (_state1 == LooperState.playing) {
+          final double loopElapsed1 = elapsed1 % total;
+          _sweepProgress1 = loopElapsed1 / total;
+          _currentBeatIndex1 = (loopElapsed1 / beatDurationMs).floor().clamp(0, 15);
+          _currentBar1 = (_currentBeatIndex1 / 4).floor() + 1;
+          _currentBeatInBar1 = (_currentBeatIndex1 % 4) + 1;
         }
-      } else if (_state == LooperState.recording) {
-        if (elapsed >= total) {
-          // Transition: End of Recording -> Click to stop and play!
-          _triggerSwitch();
-          _stopwatch.reset();
-          _state = LooperState.playing;
-        } else {
-          _sweepProgress = elapsed / total;
-          _calculateBeatMetrics(elapsed);
+      }
+
+      // Update Loop 2
+      if (_state2 != LooperState.empty) {
+        final double elapsed2 = _stopwatch2.elapsedMilliseconds.toDouble();
+        if (_state2 == LooperState.countIn) {
+          if (elapsed2 >= total) {
+            _triggerSwitch(2);
+            _stopwatch2.reset();
+            _state2 = LooperState.recording;
+          } else {
+            _sweepProgress2 = elapsed2 / total;
+            _currentBeatIndex2 = (elapsed2 / beatDurationMs).floor().clamp(0, 15);
+            _currentBar2 = (_currentBeatIndex2 / 4).floor() + 1;
+            _currentBeatInBar2 = (_currentBeatIndex2 % 4) + 1;
+          }
+        } else if (_state2 == LooperState.recording) {
+          if (elapsed2 >= total) {
+            _triggerSwitch(2);
+            _stopwatch2.reset();
+            _state2 = LooperState.playing;
+          } else {
+            _sweepProgress2 = elapsed2 / total;
+            _currentBeatIndex2 = (elapsed2 / beatDurationMs).floor().clamp(0, 15);
+            _currentBar2 = (_currentBeatIndex2 / 4).floor() + 1;
+            _currentBeatInBar2 = (_currentBeatIndex2 % 4) + 1;
+          }
+        } else if (_state2 == LooperState.playing) {
+          final double loopElapsed2 = elapsed2 % total;
+          _sweepProgress2 = loopElapsed2 / total;
+          _currentBeatIndex2 = (loopElapsed2 / beatDurationMs).floor().clamp(0, 15);
+          _currentBar2 = (_currentBeatIndex2 / 4).floor() + 1;
+          _currentBeatInBar2 = (_currentBeatIndex2 % 4) + 1;
         }
-      } else if (_state == LooperState.playing) {
-        // Continuous looping sweep progress
-        final double loopElapsed = elapsed % total;
-        _sweepProgress = loopElapsed / total;
-        _calculateBeatMetrics(loopElapsed);
       }
 
       notifyListeners();
     });
   }
 
-  void _calculateBeatMetrics(double elapsedMs) {
-    final double beatSize = beatDurationMs;
-    _currentBeatIndex = (elapsedMs / beatSize).floor().clamp(0, 15);
-    _currentBar = (_currentBeatIndex / 4).floor() + 1;
-    _currentBeatInBar = (_currentBeatIndex % 4) + 1;
-  }
-
-  // Sends simulated single click/tap on ALO's loop1
-  Future<void> _triggerSwitch() async {
+  // Sends simulated single click/tap on ALO's loop1 or loop2
+  Future<void> _triggerSwitch(int loopNum) async {
     if (_activeLooper == null) return;
+    final port = loopNum == 1 ? 'loop1' : 'loop2';
     
-    // Tap Down
+    // Tap - Press
     webSocketService.setParamValue(
       instance: _activeLooper!.instance,
-      port: 'loop1',
+      port: port,
       value: 1.0,
     );
     
-    await Future.delayed(const Duration(milliseconds: 50));
-    
-    // Tap Up
+    // Release after 100ms
+    await Future.delayed(const Duration(milliseconds: 100));
     webSocketService.setParamValue(
       instance: _activeLooper!.instance,
-      port: 'loop1',
+      port: port,
       value: 0.0,
     );
   }
 
   // Emulates Foot-Switch Double-Tap to Clear Loop Memory
-  Future<void> _triggerDoubleSwitch() async {
+  Future<void> _triggerDoubleSwitch(int loopNum) async {
     if (_activeLooper == null) return;
 
     // First Tap
-    await _triggerSwitch();
+    await _triggerSwitch(loopNum);
     
     // Wait for physical gap
     await Future.delayed(const Duration(milliseconds: 150));
     
     // Second Tap
-    await _triggerSwitch();
+    await _triggerSwitch(loopNum);
   }
 
-  // Start 4-Bar Count-In + 4-Bar Record sequence
-  void recordSequence() {
+  // Start 4-Bar Count-In + 4-Bar Record sequence for loop 1 or 2
+  void recordSequence([int loopNum = 1]) {
     if (_activeLooper == null) return;
     
-    _resetState();
-    _state = LooperState.countIn;
-    _stopwatch.start();
+    _resetStateFor(loopNum);
+    if (loopNum == 1) {
+      _state1 = LooperState.countIn;
+      _stopwatch1.start();
+    } else {
+      _state2 = LooperState.countIn;
+      _stopwatch2.start();
+    }
     _startSweepTimer();
     notifyListeners();
   }
 
+  // Cancel/clear record/countIn/play
+  void cancelRecord([int loopNum = 1]) {
+    _resetStateFor(loopNum);
+    notifyListeners();
+  }
+
   // Pause the Looper playback
-  void pauseLoop() {
-    if (_activeLooper == null || _state != LooperState.playing) return;
+  void pauseLoop([int loopNum = 1]) {
+    if (_activeLooper == null) return;
+    final currentState = loopNum == 1 ? _state1 : _state2;
+    if (currentState != LooperState.playing) return;
     
-    _triggerSwitch();
-    _stopwatch.stop();
-    _state = LooperState.paused;
+    _triggerSwitch(loopNum);
+    if (loopNum == 1) {
+      _stopwatch1.stop();
+      _state1 = LooperState.paused;
+    } else {
+      _stopwatch2.stop();
+      _state2 = LooperState.paused;
+    }
     notifyListeners();
   }
 
   // Resume Looper playback
-  void playLoop() {
-    if (_activeLooper == null || _state != LooperState.paused) return;
+  void playLoop([int loopNum = 1]) {
+    if (_activeLooper == null) return;
+    final currentState = loopNum == 1 ? _state1 : _state2;
+    if (currentState != LooperState.paused) return;
     
-    _triggerSwitch();
-    _stopwatch.start();
-    _state = LooperState.playing;
+    _triggerSwitch(loopNum);
+    if (loopNum == 1) {
+      _stopwatch1.start();
+      _state1 = LooperState.playing;
+    } else {
+      _stopwatch2.start();
+      _state2 = LooperState.playing;
+    }
     _startSweepTimer();
     notifyListeners();
   }
 
   // Clear current loop memory
-  void clearLoop() {
+  void clearLoop([int loopNum = 1]) {
     if (_activeLooper == null) return;
     
-    _triggerDoubleSwitch();
-    _resetState();
+    _triggerDoubleSwitch(loopNum);
+    _resetStateFor(loopNum);
     notifyListeners();
   }
 
-  // Manual Trigger Bypass Switch (Period Key Trigger)
-  void manualTrigger() {
-    _triggerSwitch();
+  // Manual Trigger Bypass Switch
+  void manualTrigger([int loopNum = 1]) {
+    _triggerSwitch(loopNum);
   }
 
   void _resetState() {
-    _stopwatch.stop();
-    _stopwatch.reset();
+    _stopwatch1.stop();
+    _stopwatch1.reset();
+    _stopwatch2.stop();
+    _stopwatch2.reset();
     _sweepTimer?.cancel();
     _sweepTimer = null;
-    _state = LooperState.empty;
-    _sweepProgress = 0.0;
-    _currentBeatIndex = 0;
-    _currentBar = 1;
-    _currentBeatInBar = 1;
+    _state1 = LooperState.empty;
+    _state2 = LooperState.empty;
+    _sweepProgress1 = 0.0;
+    _currentBeatIndex1 = 0;
+    _currentBar1 = 1;
+    _currentBeatInBar1 = 1;
+    _sweepProgress2 = 0.0;
+    _currentBeatIndex2 = 0;
+    _currentBar2 = 1;
+    _currentBeatInBar2 = 1;
+  }
+
+  void _resetStateFor(int loopNum) {
+    if (loopNum == 1) {
+      _stopwatch1.stop();
+      _stopwatch1.reset();
+      _state1 = LooperState.empty;
+      _sweepProgress1 = 0.0;
+      _currentBeatIndex1 = 0;
+      _currentBar1 = 1;
+      _currentBeatInBar1 = 1;
+    } else {
+      _stopwatch2.stop();
+      _stopwatch2.reset();
+      _state2 = LooperState.empty;
+      _sweepProgress2 = 0.0;
+      _currentBeatIndex2 = 0;
+      _currentBar2 = 1;
+      _currentBeatInBar2 = 1;
+    }
+    if (_state1 == LooperState.empty && _state2 == LooperState.empty) {
+      _sweepTimer?.cancel();
+      _sweepTimer = null;
+    }
   }
 
   @override

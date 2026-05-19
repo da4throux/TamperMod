@@ -271,6 +271,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   ...kNeonColors.map((hex) {
                     final Color dotColor = _hexToColor(hex);
                     final bool isSelected = hex == colorHex;
+                    
+                    int usageCount = 0;
+                    for (var p in _webSocketService.allPlugins.value) {
+                      final String pId = p.instance;
+                      final String pColor = _pedalGlowColors[pId] ?? _getDefaultColorForPedal(p);
+                      final bool pGlow = _pedalGlowEnabled[pId] ?? true;
+                      if (pGlow && pColor.toUpperCase() == hex.toUpperCase()) {
+                        usageCount++;
+                      }
+                    }
+
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -281,8 +292,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       },
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: 14,
-                        height: 14,
+                        width: 18,
+                        height: 18,
                         decoration: BoxDecoration(
                           color: dotColor,
                           shape: BoxShape.circle,
@@ -298,6 +309,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             )
                           ] : null,
                         ),
+                        child: usageCount > 0
+                            ? Center(
+                                child: Text(
+                                  '$usageCount',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: dotColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                  ),
+                                ),
+                              )
+                            : null,
                       ),
                     );
                   }).toList(),
@@ -3030,7 +3053,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         final bool isGlowEnabled = _pedalGlowEnabled[looperId] ?? true;
 
         final primaryThemeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
-        final Color looperAccentColor = isGlowEnabled ? glowColor : primaryThemeColor;
         
         Color stateColor;
         String stateText = '';
@@ -3072,233 +3094,319 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           stateIndicator = _PulsingIndicator(icon: stateIcon, color: stateColor);
         }
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isGlowEnabled
-                  ? glowColor.withOpacity(_isDarkMode ? 0.35 : 0.65)
-                  : stateColor.withOpacity(_isDarkMode ? 0.35 : 0.65),
-              width: isGlowEnabled ? 1.5 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isGlowEnabled
-                    ? glowColor.withOpacity(_isDarkMode ? 0.08 : 0.18)
-                    : stateColor.withOpacity(_isDarkMode ? 0.08 : 0.18),
-                blurRadius: 10,
-                spreadRadius: 2,
-              )
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(Icons.music_video, color: looperAccentColor, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'ALO SYNC LOOPER',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.0,
-                            color: _isDarkMode ? Colors.white : Colors.black,
+        return ValueListenableBuilder<bool>(
+          valueListenable: _webSocketService.isTransportRolling,
+          builder: (context, isRolling, _) {
+            return ValueListenableBuilder<int>(
+              valueListenable: _webSocketService.transportSyncMode,
+              builder: (context, syncMode, _) {
+                final bool isSynced = isRolling && syncMode == 0;
+                final Color looperAccentColor = isSynced 
+                    ? (isGlowEnabled ? glowColor : primaryThemeColor) 
+                    : Colors.grey;
+
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSynced
+                          ? (isGlowEnabled
+                              ? glowColor.withOpacity(_isDarkMode ? 0.35 : 0.65)
+                              : stateColor.withOpacity(_isDarkMode ? 0.35 : 0.65))
+                          : Colors.grey.withOpacity(0.5),
+                      width: isSynced && isGlowEnabled ? 1.5 : 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isSynced
+                            ? (isGlowEnabled
+                                ? glowColor.withOpacity(_isDarkMode ? 0.08 : 0.18)
+                                : stateColor.withOpacity(_isDarkMode ? 0.08 : 0.18))
+                            : Colors.transparent,
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      )
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      Opacity(
+                        opacity: isSynced ? 1.0 : 0.3,
+                        child: IgnorePointer(
+                          ignoring: !isSynced,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.music_video, color: looperAccentColor, size: 20),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'ALO SYNC LOOPER',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.0,
+                                            color: _isDarkMode ? Colors.white : Colors.black,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        IconButton(
+                                          icon: Icon(Icons.help_outline, size: 14, color: primaryThemeColor.withOpacity(0.8)),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () => _showModuleHelpSheet(context, 'looper'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _isDarkMode ? Colors.black : Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: primaryThemeColor.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.query_builder, size: 12, color: primaryThemeColor),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${_bpm.toStringAsFixed(1)} BPM',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            fontFamily: 'monospace',
+                                            color: primaryThemeColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              
+                              if (loopers.length > 1) ...[
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Target Pedal: ',
+                                      style: TextStyle(
+                                        fontSize: 11, 
+                                        color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    DropdownButton<PluginInstance>(
+                                      value: looper,
+                                      dropdownColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+                                      underline: const SizedBox(),
+                                      icon: const Icon(Icons.arrow_drop_down, size: 18),
+                                      style: TextStyle(
+                                        color: _isDarkMode ? Colors.white : Colors.black,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          _looperController.setActiveLooper(val);
+                                        }
+                                      },
+                                      items: loopers.map((p) {
+                                        final displayName = _customTitles[p.instance] ?? p.title;
+                                        return DropdownMenuItem<PluginInstance>(
+                                          value: p,
+                                          child: Text(displayName),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                              
+                              _buildGlowSettingsRow(looper),
+                              const SizedBox(height: 4),
+                              Divider(color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])?.withOpacity(0.5)),
+                              const SizedBox(height: 6),
+                              
+                              Row(
+                                children: [
+                                  stateIndicator,
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      stateText,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: stateColor,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              
+                              _build4BarTimeline(stateColor),
+                              const SizedBox(height: 12),
+                              
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: (state == LooperState.countIn || state == LooperState.recording)
+                                            ? Colors.grey[800]
+                                            : const Color(0xFFFF0055),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      icon: Icon(
+                                        (state == LooperState.countIn || state == LooperState.recording)
+                                            ? Icons.cancel
+                                            : Icons.fiber_manual_record,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        (state == LooperState.countIn || state == LooperState.recording)
+                                            ? 'CANCEL'
+                                            : 'RECORD 4-BAR',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                                      ),
+                                      onPressed: () {
+                                        if (state == LooperState.countIn || state == LooperState.recording) {
+                                          _looperController.clearLoop();
+                                        } else {
+                                          _looperController.recordSequence();
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey[200],
+                                      foregroundColor: _isDarkMode ? Colors.white : Colors.black,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: BorderSide(
+                                          color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                                        ),
+                                      ),
+                                    ),
+                                    onPressed: (state == LooperState.playing)
+                                        ? () => _looperController.pauseLoop()
+                                        : (state == LooperState.paused)
+                                            ? () => _looperController.playLoop()
+                                            : null,
+                                    child: Icon(
+                                      (state == LooperState.paused) ? Icons.play_arrow : Icons.pause,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber.withOpacity(0.12),
+                                      foregroundColor: Colors.amber,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: const BorderSide(color: Colors.amber),
+                                      ),
+                                    ),
+                                    onPressed: (state != LooperState.empty)
+                                        ? () => _looperController.clearLoop()
+                                        : null,
+                                    child: const Icon(Icons.delete_outline, size: 18),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        IconButton(
-                          icon: Icon(Icons.help_outline, size: 14, color: primaryThemeColor.withOpacity(0.8)),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => _showModuleHelpSheet(context, 'looper'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _isDarkMode ? Colors.black : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: primaryThemeColor.withOpacity(0.3),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.query_builder, size: 12, color: primaryThemeColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${_bpm.toStringAsFixed(1)} BPM',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'monospace',
-                            color: primaryThemeColor,
+                      if (!isSynced)
+                        Positioned.fill(
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.9),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Text(
+                                    'BPM NOT SYNCED',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    elevation: 4,
+                                  ),
+                                  onPressed: () {
+                                    // Set Internal Sync Mode and Transport Rolling
+                                    _webSocketService.sendRawMessage('transport-sync-mode 0');
+                                    _webSocketService.sendRawMessage('transport-rolling 1');
+                                  },
+                                  child: const Text(
+                                    'SYNC NOW',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              
-              if (loopers.length > 1) ...[
-                Row(
-                  children: [
-                    Text(
-                      'Target Pedal: ',
-                      style: TextStyle(
-                        fontSize: 11, 
-                        color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    DropdownButton<PluginInstance>(
-                      value: looper,
-                      dropdownColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
-                      underline: const SizedBox(),
-                      icon: const Icon(Icons.arrow_drop_down, size: 18),
-                      style: TextStyle(
-                        color: _isDarkMode ? Colors.white : Colors.black,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      onChanged: (val) {
-                        if (val != null) {
-                          _looperController.setActiveLooper(val);
-                        }
-                      },
-                      items: loopers.map((p) {
-                        final displayName = _customTitles[p.instance] ?? p.title;
-                        return DropdownMenuItem<PluginInstance>(
-                          value: p,
-                          child: Text(displayName),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-              
-              _buildGlowSettingsRow(looper),
-              const SizedBox(height: 4),
-              Divider(color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])?.withOpacity(0.5)),
-              const SizedBox(height: 6),
-              
-              Row(
-                children: [
-                  stateIndicator,
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      stateText,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: stateColor,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              
-              _build4BarTimeline(stateColor),
-              const SizedBox(height: 12),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: (state == LooperState.countIn || state == LooperState.recording)
-                            ? Colors.grey[800]
-                            : const Color(0xFFFF0055),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: Icon(
-                        (state == LooperState.countIn || state == LooperState.recording)
-                            ? Icons.cancel
-                            : Icons.fiber_manual_record,
-                        size: 16,
-                      ),
-                      label: Text(
-                        (state == LooperState.countIn || state == LooperState.recording)
-                            ? 'CANCEL'
-                            : 'RECORD 4-BAR',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-                      ),
-                      onPressed: () {
-                        if (state == LooperState.countIn || state == LooperState.recording) {
-                          _looperController.clearLoop();
-                        } else {
-                          _looperController.recordSequence();
-                        }
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey[200],
-                      foregroundColor: _isDarkMode ? Colors.white : Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(
-                          color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
-                        ),
-                      ),
-                    ),
-                    onPressed: (state == LooperState.playing)
-                        ? () => _looperController.pauseLoop()
-                        : (state == LooperState.paused)
-                            ? () => _looperController.playLoop()
-                            : null,
-                    child: Icon(
-                      (state == LooperState.paused) ? Icons.play_arrow : Icons.pause,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber.withOpacity(0.12),
-                      foregroundColor: Colors.amber,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: Colors.amber),
-                      ),
-                    ),
-                    onPressed: (state != LooperState.empty)
-                        ? () => _looperController.clearLoop()
-                        : null,
-                    child: const Icon(Icons.delete_outline, size: 18),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                );
+              },
+            );
+          },
         );
       },
     );

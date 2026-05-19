@@ -19,11 +19,16 @@ class ModWebSocketService extends ChangeNotifier {
       StreamController<String>.broadcast();
 
   // Expose parsed Gain plugins
-  final ValueNotifier<List<PluginInstance>> gainPedals = ValueNotifier<List<PluginInstance>>([]);
-  // Expose all parsed plugins (useful for debugging/discovery)
-  final ValueNotifier<List<PluginInstance>> allPlugins = ValueNotifier<List<PluginInstance>>([]);
+  final ValueNotifier<ConnectionStatus> connectionStatus = ValueNotifier(ConnectionStatus.disconnected);
+  final ValueNotifier<List<PluginInstance>> allPlugins = ValueNotifier([]);
+  final ValueNotifier<List<PluginInstance>> gainPedals = ValueNotifier([]);
+  
+  // Transport State
+  final ValueNotifier<bool> isTransportRolling = ValueNotifier(false);
+  final ValueNotifier<int> transportSyncMode = ValueNotifier(0); // 0 = Internal, 1 = MIDI, 2 = Link
   // Expose parsed BPM (tempo)
   final ValueNotifier<double> bpm = ValueNotifier<double>(120.0);
+  final ValueNotifier<bool> isRolling = ValueNotifier<bool>(false);
 
   ConnectionStatus get status => _status;
   Stream<String> get messages => _rawMessageStreamController.stream;
@@ -103,6 +108,9 @@ class ModWebSocketService extends ChangeNotifier {
     }
   }
 
+  bool _isRefreshing = false;
+  List<PluginInstance> _tempPlugins = [];
+
   // Processes incoming raw space-separated commands from Tornado server
   void _handleIncomingMessage(dynamic rawMessage) {
     final String msg = rawMessage.toString().trim();
@@ -117,9 +125,9 @@ class ModWebSocketService extends ChangeNotifier {
 
     try {
       if (cmd == 'loading_start') {
-        debugPrint('PEDALBOARD LOADING STARTED');
-        allPlugins.value = [];
-        gainPedals.value = [];
+        debugPrint('PEDALBOARD LOADING STARTED (DOUBLE-BUFFERED)');
+        _isRefreshing = true;
+        _tempPlugins = [];
       } else if (cmd == 'add') {
         // Format: add <instance> <uri> <x> <y> <bypassed> ...
         final List<String> parts = data.split(' ');
@@ -138,11 +146,17 @@ class ModWebSocketService extends ChangeNotifier {
             isBypassed: bypassed,
           );
           
-          final List<PluginInstance> current = List.from(allPlugins.value);
-          if (!current.any((p) => p.instance == instance)) {
-            current.add(plugin);
-            allPlugins.value = current;
-            debugPrint('DISCOVERED PLUGIN: $plugin');
+          if (_isRefreshing) {
+            if (!_tempPlugins.any((p) => p.instance == instance)) {
+              _tempPlugins.add(plugin);
+            }
+          } else {
+            final List<PluginInstance> current = List.from(allPlugins.value);
+            if (!current.any((p) => p.instance == instance)) {
+              current.add(plugin);
+              allPlugins.value = current;
+              debugPrint('DISCOVERED PLUGIN: $plugin');
+            }
           }
         }
       } else if (cmd == 'param_set') {
@@ -154,10 +168,10 @@ class ModWebSocketService extends ChangeNotifier {
           final double? value = double.tryParse(parts[2]);
           
           if (value != null) {
-            final List<PluginInstance> current = List.from(allPlugins.value);
-            final int index = current.indexWhere((p) => p.instance == instance);
+            final List<PluginInstance> targetList = _isRefreshing ? _tempPlugins : allPlugins.value;
+            final int index = targetList.indexWhere((p) => p.instance == instance);
             if (index != -1) {
-              final plugin = current[index];
+              final plugin = targetList[index];
               plugin.parameters[portsymbol] = value;
               
               // Handle bypass status parameter
@@ -177,16 +191,32 @@ class ModWebSocketService extends ChangeNotifier {
                 }
               }
               
-              allPlugins.value = current;
-              
-              // Notify listeners that parameter state changed
-              gainPedals.value = List.from(gainPedals.value);
-              allPlugins.value = List.from(allPlugins.value);
+              if (_isRefreshing) {
+                // Keep parsing, do not update ValueNotifier yet to avoid UI flicker
+              } else {
+                allPlugins.value = List.from(allPlugins.value);
+                gainPedals.value = List.from(gainPedals.value);
+                notifyListeners();
+              }
             }
           }
         }
+      } else if (cmd == 'transport_rolling' || cmd == 'transport-rolling') {
+        final val = int.tryParse(data) == 1;
+        isTransportRolling.value = val;
+        isRolling.value = val;
+        debugPrint('TRANSPORT ROLLING UPDATED: \$val');
+      } else if (cmd == 'transport_sync_mode' || cmd == 'transport-sync-mode') {
+        final val = int.tryParse(data) ?? 0;
+        transportSyncMode.value = val;
+        debugPrint('TRANSPORT SYNC MODE UPDATED: \$val');
       } else if (cmd == 'loading_end') {
         debugPrint('PEDALBOARD LOADING ENDED');
+        
+        if (_isRefreshing) {
+          allPlugins.value = _tempPlugins;
+          _isRefreshing = false;
+        }
         
         final List<PluginInstance> current = List.from(allPlugins.value);
         final List<PluginInstance> gains = current.where((plugin) {
@@ -229,11 +259,18 @@ class ModWebSocketService extends ChangeNotifier {
 
         gainPedals.value = gains;
         debugPrint('SUCCESSFULLY DISCOVERED ${gains.length} GAIN PEDALS: $gains');
+        notifyListeners();
       } else if (cmd == 'bpm') {
         final double? val = double.tryParse(data);
         if (val != null) {
           bpm.value = val;
           debugPrint('RECEIVED BPM FROM HOST: $val');
+        }
+      } else if (cmd == 'rolling') {
+        final double? val = double.tryParse(data);
+        if (val != null) {
+          isRolling.value = val == 1.0;
+          debugPrint('RECEIVED ROLLING STATE FROM HOST: ${isRolling.value}');
         }
       }
     } catch (e, stack) {
@@ -252,6 +289,20 @@ class ModWebSocketService extends ChangeNotifier {
     debugPrint('SENDING COMMAND: $rawPayload');
     _channel!.sink.add(rawPayload);
     bpm.value = value; // Optimistic update
+  }
+
+  // Sends a raw transport rolling command (play/stop)
+  void setRolling(bool value) {
+    if (_channel == null || _status != ConnectionStatus.connected) {
+      debugPrint('Cannot set rolling state: Not connected to MOD Dwarf');
+      return;
+    }
+
+    final int intVal = value ? 1 : 0;
+    final String rawPayload = 'transport-rolling $intVal';
+    debugPrint('SENDING COMMAND: $rawPayload');
+    _channel!.sink.add(rawPayload);
+    isRolling.value = value; // Optimistic update
   }
 
   // Sends a raw parameter set command
@@ -304,6 +355,16 @@ class ModWebSocketService extends ChangeNotifier {
     final String rawPayload = 'param_set $instance/:bypass $val';
     debugPrint('SENDING COMMAND: $rawPayload');
     _channel!.sink.add(rawPayload);
+  }
+
+  // Sends a raw string payload to the MOD websocket
+  void sendRawMessage(String message) {
+    if (_channel == null || _status != ConnectionStatus.connected) {
+      debugPrint('Cannot send raw message: Not connected');
+      return;
+    }
+    debugPrint('SENDING RAW: $message');
+    _channel!.sink.add(message);
   }
 
   @override
