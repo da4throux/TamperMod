@@ -12,7 +12,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.1.9';
+const String kAppVersion = '1.1.10';
 
 enum ViewMode { split, controls, web }
 
@@ -110,6 +110,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _updateAllGlowsInWebView() {
+    // Safety check: ensure we're mounted and looper controller is initialized
+    if (!mounted) return;
+
     final List<Map<String, dynamic>> configs = [];
     for (final instanceId in _enabledPluginInstances) {
       final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
@@ -125,18 +128,23 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     // Also include active ALO Looper if discovered and selected
-    if (_looperController.activeLooper != null) {
-      final String looperId = _looperController.activeLooper!.instance;
-      final bool isEnabled = _pedalGlowEnabled[looperId] ?? true;
-      String colorHex = _pedalGlowColors[looperId] ?? '';
-      if (colorHex.isEmpty) {
-        colorHex = '#FF0055'; // Vibrant, iconic looper red by default
+    // Add null safety check for looper controller
+    try {
+      if (_looperController != null && _looperController.activeLooper != null) {
+        final String looperId = _looperController.activeLooper!.instance;
+        final bool isEnabled = _pedalGlowEnabled[looperId] ?? true;
+        String colorHex = _pedalGlowColors[looperId] ?? '';
+        if (colorHex.isEmpty) {
+          colorHex = '#FF0055'; // Vibrant, iconic looper red by default
+        }
+        configs.add({
+          'instance': looperId,
+          'enabled': isEnabled,
+          'color': colorHex,
+        });
       }
-      configs.add({
-        'instance': looperId,
-        'enabled': isEnabled,
-        'color': colorHex,
-      });
+    } catch (e) {
+      debugPrint('Error accessing looper controller: $e');
     }
 
     final String jsCode =
@@ -195,7 +203,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       _webViewController.runJavaScript(jsCode);
     } catch (e) {
-      debugPrint('Error updating all glows: \$e');
+      debugPrint('Error updating all glows: $e');
     }
   }
 
