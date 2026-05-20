@@ -1,0 +1,20 @@
+# Agent Operational Rules & Protocols
+
+## 1. Git Commit Protocol (Strict)
+You are an autonomous agent with terminal and file system access. You must manage git versioning strictly using this three-tier system:
+* **Micro-Saves (vX.Y.Z):** Every time you successfully implement a working feature, fix a bug, or get a component to compile/run smoothly, you MUST automatically run a git commit. 
+* Increment the `Z` index (e.g., v0.0.1 -> v0.0.2).
+* Command format: `git commit -m "agent(v0.0.Z): [brief description of work done]"`
+* **Milestones (vX.Y.0):** You are forbidden from upgrading the `X` or `Y` version indexes on your own. When a major logical feature block from `SPECIFICATION.md` is fully operational, stop and ask the user to authorize a milestone commit.
+
+## 2. Source of Truth & Execution Protocol
+* Your absolute source of truth for features, architecture, UI, and data models is `SPECIFICATION.md`.
+* You must read `SPECIFICATION.md` at the start of every task to maintain architectural alignment.
+* **Progress Tracking:** You must work sequentially down the task lists. When you successfully finish a feature and make its micro-commit, you are authorized to modify `SPECIFICATION.md` to turn an empty checkbox `[ ]` into a completed checkbox `[x]`. 
+* Do not jump ahead to other features until current checkboxes are completed.
+
+## 3. Versioning & Deployment Synchronization (Strict)
+* **UI & Configuration Alignment:** Every time you publish, deploy, or prepare a stable version (e.g., deploying to Firebase, updating configuration files, building for local devices), you MUST verify that the version string reflected in the Flutter Application UI dynamically matches the target release version.
+* **Update pubspec.yaml:** Ensure the `version:` field in `pubspec.yaml` is accurately incremented before the build/deployment command is run.
+* **Mandatory Chat Confirmation:** In your final response to the user after a successful deployment/build, you MUST include a dedicated line that reads exactly: 
+`🚀 Deployment Complete: Version X.Y.Z is now live and updated in the application UI.`
