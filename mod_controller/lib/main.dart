@@ -12,7 +12,8 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.0';
+const String kAppVersion = '1.2.1';
+
 
 
 
@@ -910,12 +911,11 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             child: Column(
               children: [
+                // Bottom toolbar (UI bar) sits above connection bar
+                _buildBottomToolbar(),
+
                 // Inline Connection / IP bar
                 _buildConnectionPanel(),
-
-                // Bottom toolbar sits between connection bar and content
-                // (avoids conflict with Android system gesture bar)
-                _buildBottomToolbar(),
 
                 // BPM inline widget on tiny screens to avoid AppBar overcrowding
                 if (screenWidth <= 580)
@@ -3656,73 +3656,26 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       color: _isDarkMode ? const Color(0xFF0F141C) : Colors.grey[200],
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'WORKSPACE SETTINGS',
-                    style: TextStyle(
-                      color: _isDarkMode
-                          ? const Color(0xFF00FFCC)
-                          : const Color(0xFF00B3FF),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'VERSION $kAppVersion',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.close,
-                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
+          Text(
+            'WORKSPACE SETTINGS',
+            style: TextStyle(
+              color: _isDarkMode
+                  ? const Color(0xFF00FFCC)
+                  : const Color(0xFF00B3FF),
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
           ),
-          const SizedBox(height: 12),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isDarkMode
-                  ? const Color(0xFF1F2937)
-                  : Colors.grey[300],
-              foregroundColor: _isDarkMode ? Colors.white : Colors.black,
-              minimumSize: const Size(double.infinity, 38),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 2,
+          IconButton(
+            icon: Icon(
+              Icons.close,
+              color: _isDarkMode ? Colors.grey : Colors.grey[600],
             ),
-            icon: const Icon(Icons.open_in_browser, size: 16),
-            label: const Text(
-              'OPEN PEDALBOARD IN BROWSER',
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              _openWebInterface();
-            },
+            onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
@@ -4001,28 +3954,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
 
-                // Bottom version banner
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  color: _isDarkMode
-                      ? Colors.black.withOpacity(0.4)
-                      : Colors.grey[100],
-                  child: Center(
-                    child: Text(
-                      'TAMPERMOD LIVE v$kAppVersion',
-                      style: TextStyle(
-                        color: _isDarkMode
-                            ? const Color(0xFFFF007F)
-                            : const Color(0xFFFF0055),
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
+
               ],
             );
           },

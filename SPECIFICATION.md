@@ -60,7 +60,7 @@ Please read and apply .agenrules
   * **Long Press:** Initiates Drag-and-Drop to rearrange cards or change active/inactive status.
 
 ### 3.3 Bottom Toolbar
-* Positioned **inside the body Column**, between the IP connection bar and the main content area — not as a `Scaffold.bottomNavigationBar` — to avoid conflict with the Android system gesture navigation bar.
+* Positioned **inside the body Column**, above the IP connection bar (connection panel) at the top of the body Column.
 * Functionalities:
   * Layout view selectors (Controls, Web, Split).
   * Radar locate trigger button (pulses all active pedal glows in the Web GUI).
@@ -85,11 +85,12 @@ Please read and apply .agenrules
 * [x] Map `pedals_families` object parameters to volume controls.
 * [x] Implement dual-track ALO Looper UI with volume/mix/threshold sliders.
 * [x] Create "Puzzle Organizer" right drawer with tap, double-tap (color picker), long-press drag-and-drop, and visibility via drag between Active Canvas and Available Pool zones.
-* [x] Design bottom toolbar (inside body, between connection bar and content) with view selectors, radar, refresh, theme toggle, and version display.
+* [x] Design bottom toolbar (repositioned above connection bar) with view selectors, radar, refresh, theme toggle, and version display.
 * [x] Integrate dual-layered box-shadow neon glows in WebView.
 * [x] Implement dark/light theme switching and SharedPreferences persistence.
 * [x] Fix control card overflow — Regular card height set to 240px to fully accommodate the fade row.
 * [x] Fix drawer tile layout so two Regular tiles share a row, mirroring the main canvas proportions.
+* [x] Simplify settings drawer by removing open in browser and version banner, and reposition bottom toolbar (UI bar) above connection bar.
 
 ### Todo Tasks
 * [ ] Fix fadeout issues when running under `fade` mode in the Tampermonkey script.

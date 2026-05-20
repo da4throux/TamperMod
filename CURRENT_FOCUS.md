@@ -1,14 +1,14 @@
 # TamperMod — Current Focus
 
-## ✅ Last Completed (v1.1.10)
-- Fixed app crash on tablet startup: Added null safety checks in `_updateAllGlowsInWebView()` method
-- Added `if (!mounted) return;` guard to prevent WebView operations when widget is unmounted
-- Wrapped looper controller access in try-catch block to handle initialization timing issues
-- Fixed potential null pointer exception when accessing `_looperController.activeLooper` during app initialization
-- Updated version to 1.1.10 in both `main.dart` and `pubspec.yaml` per atomic versioning rule
+## ✅ Last Completed (v1.2.1)
+- Repositioned the bottom toolbar (UI bar) above the connection panel.
+- Simplified settings drawer: removed "Open Pedalboard in Browser" button and all duplicate version text references.
+- Aligned workspace active card sorting with settings drawer order.
+- Added drag-and-drop to empty space in settings drawer to move tiles to the end.
+- Updated version to 1.2.1 in both `main.dart` and `pubspec.yaml` per atomic versioning rule.
 
 ## 🔧 Currently In Progress
-Nothing mid-flight. All changes committed and deployed to Pixel Tablet.
+Nothing mid-flight. All changes committed and verified.
 
 ## ➡️ Recommended Next Step
 First unchecked item in `SPECIFICATION.md` §4 Todo:
@@ -18,6 +18,7 @@ First unchecked item in `SPECIFICATION.md` §4 Todo:
 ## 📋 Quick Context
 - **App:** Flutter (`mod_controller/`) — Pixel Tablet controller for MOD Dwarf pedalboard.
 - **Transport:** WebSocket `ws://192.168.51.1/websocket` (MOD Dwarf proprietary protocol, space-separated commands).
-- **Current version:** `1.1.10` (matches `kAppVersion` in `main.dart` and `pubspec.yaml`).
+- **Current version:** `1.2.1` (matches `kAppVersion` in `main.dart` and `pubspec.yaml`).
 - **Key files:** `mod_controller/lib/main.dart`, `mod_controller/lib/services/websocket_service.dart`, `TamperMod.user.js`, `SPECIFICATION.md`.
 - **Connected device:** Pixel Tablet (`3417105H801S8D`) via ADB — run `flutter run -d 3417105H801S8D` to deploy.
+
