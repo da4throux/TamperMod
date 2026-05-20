@@ -13,9 +13,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.5';
-
-
+const String kAppVersion = '1.2.6';
 
 // ─── Custom S-Curve for fade interpolation ────────────────────────────────
 /// A [Curve] defined by a midpoint (cx, cy) and a blend factor [slope].
@@ -44,10 +42,10 @@ class _CustomSCurve extends Curve {
 class _FadeCurvePainter extends CustomPainter {
   final Color accentColor;
   final Curve curve;
-  final double progress;       // 0.0–1.0, where the moving dot is
+  final double progress; // 0.0–1.0, where the moving dot is
   final int bars;
-  final double rangeStart;     // 0.0–1.0 fractional
-  final double rangeEnd;       // 0.0–1.0 fractional
+  final double rangeStart; // 0.0–1.0 fractional
+  final double rangeEnd; // 0.0–1.0 fractional
 
   _FadeCurvePainter({
     required this.accentColor,
@@ -92,9 +90,14 @@ class _FadeCurvePainter extends CustomPainter {
       ..color = accentColor.withOpacity(0.35)
       ..strokeWidth = 1.0;
     final double yStart = padT + (1.0 - rangeStart) * h;
-    final double yEnd   = padT + (1.0 - rangeEnd) * h;
-    _drawDashed(canvas, Offset(padL, yStart), Offset(padL + w, yStart), rangePaint);
-    _drawDashed(canvas, Offset(padL, yEnd),   Offset(padL + w, yEnd),   rangePaint);
+    final double yEnd = padT + (1.0 - rangeEnd) * h;
+    _drawDashed(
+      canvas,
+      Offset(padL, yStart),
+      Offset(padL + w, yStart),
+      rangePaint,
+    );
+    _drawDashed(canvas, Offset(padL, yEnd), Offset(padL + w, yEnd), rangePaint);
 
     // Curve line
     final curvePaint = Paint()
@@ -130,18 +133,11 @@ class _FadeCurvePainter extends CustomPainter {
         Paint()..color = accentColor.withOpacity(0.3),
       );
       // Core dot
-      canvas.drawCircle(
-        Offset(dotX, dotY),
-        5,
-        Paint()..color = accentColor,
-      );
+      canvas.drawCircle(Offset(dotX, dotY), 5, Paint()..color = accentColor);
     }
 
     // Axis labels
-    final labelStyle = TextStyle(
-      color: Colors.grey[600],
-      fontSize: 9,
-    );
+    final labelStyle = TextStyle(color: Colors.grey[600], fontSize: 9);
     // Bar ticks on X
     for (int i = 0; i <= bars; i++) {
       final double x = padL + (i / bars) * w;
@@ -196,7 +192,7 @@ class _FadeCurvePainter extends CustomPainter {
 class _MiniRangePainter extends CustomPainter {
   final Color accentColor;
   final double rangeStart; // 0.0–1.0
-  final double rangeEnd;   // 0.0–1.0
+  final double rangeEnd; // 0.0–1.0
 
   _MiniRangePainter({
     required this.accentColor,
@@ -228,7 +224,7 @@ class _MiniRangePainter extends CustomPainter {
     // Note: rangeStart=0 = bottom (muted), rangeEnd=1 = top (full volume)
     // Draw from bottom (muted) upwards
     final double yStart = padY + (1.0 - rangeEnd) * trackH;
-    final double yEnd   = padY + (1.0 - rangeStart) * trackH;
+    final double yEnd = padY + (1.0 - rangeStart) * trackH;
     canvas.drawLine(Offset(cx, yStart), Offset(cx, yEnd), activePaint);
 
     // Triangle handles
@@ -279,7 +275,7 @@ class _RangeOverlayPainter extends CustomPainter {
     if (trackW <= 0) return;
     final double cy = size.height / 2;
     final double x1 = thumbPadding + rangeStart * trackW;
-    final double x2 = thumbPadding + rangeEnd   * trackW;
+    final double x2 = thumbPadding + rangeEnd * trackW;
 
     // Highlighted zone between cursors
     canvas.drawRect(
@@ -295,9 +291,9 @@ class _RangeOverlayPainter extends CustomPainter {
       final double w = h * 0.75;
       canvas.drawPath(
         Path()
-          ..moveTo(x,     cy)      // tip
-          ..lineTo(x - w, cy - h)  // upper-left
-          ..lineTo(x + w, cy - h)  // upper-right
+          ..moveTo(x, cy) // tip
+          ..lineTo(x - w, cy - h) // upper-left
+          ..lineTo(x + w, cy - h) // upper-right
           ..close(),
         Paint()..color = accentColor,
       );
@@ -317,9 +313,9 @@ class _RangeOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RangeOverlayPainter old) =>
-      old.rangeStart   != rangeStart   ||
-      old.rangeEnd     != rangeEnd     ||
-      old.accentColor  != accentColor  ||
+      old.rangeStart != rangeStart ||
+      old.rangeEnd != rangeEnd ||
+      old.accentColor != accentColor ||
       old.thumbPadding != thumbPadding;
 }
 
@@ -396,7 +392,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Fade range cursors: fractional [0.0–1.0] position within min..max gain range
   final Map<String, double> _fadeRangeStart = {};
-  final Map<String, double> _fadeRangeEnd   = {};
+  final Map<String, double> _fadeRangeEnd = {};
 
   // Per-pedal fade shape: 'linear' | 'easeInOut' | 'easeIn' | 'easeOut' | 'custom'
   final Map<String, String> _fadeShapes = {};
@@ -547,16 +543,22 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, String> _customTitles = {};
 
   bool _isMuted(PluginInstance pedal) {
-    final double currentValue = _localVolumes[pedal.instance] ??
-        (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null) ??
+    final double currentValue =
+        _localVolumes[pedal.instance] ??
+        (pedal.gainPortSymbol != null
+            ? pedal.parameters[pedal.gainPortSymbol]
+            : null) ??
         0.0;
     return currentValue == pedal.minGain;
   }
 
   void _toggleMute(PluginInstance pedal) {
     final String instanceId = pedal.instance;
-    final double currentValue = _localVolumes[instanceId] ??
-        (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null) ??
+    final double currentValue =
+        _localVolumes[instanceId] ??
+        (pedal.gainPortSymbol != null
+            ? pedal.parameters[pedal.gainPortSymbol]
+            : null) ??
         0.0;
     final double minRange = pedal.minGain;
 
@@ -680,17 +682,23 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       } else {
         // Default order: non-loopers first, then loopers
-        final nonLoopers = plugins.where((p) {
-          final uriLower = p.uri.toLowerCase();
-          final titleLower = p.title.toLowerCase();
-          return !(uriLower.contains('alo') || titleLower.contains('alo'));
-        }).map((p) => p.instance).toList();
+        final nonLoopers = plugins
+            .where((p) {
+              final uriLower = p.uri.toLowerCase();
+              final titleLower = p.title.toLowerCase();
+              return !(uriLower.contains('alo') || titleLower.contains('alo'));
+            })
+            .map((p) => p.instance)
+            .toList();
 
-        final loopers = plugins.where((p) {
-          final uriLower = p.uri.toLowerCase();
-          final titleLower = p.title.toLowerCase();
-          return uriLower.contains('alo') || titleLower.contains('alo');
-        }).map((p) => p.instance).toList();
+        final loopers = plugins
+            .where((p) {
+              final uriLower = p.uri.toLowerCase();
+              final titleLower = p.title.toLowerCase();
+              return uriLower.contains('alo') || titleLower.contains('alo');
+            })
+            .map((p) => p.instance)
+            .toList();
 
         newOrder.addAll(nonLoopers);
         newOrder.addAll(loopers);
@@ -724,8 +732,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       // Sort newEnabled according to newOrder to keep ordering synchronized
-      newEnabled.sort((a, b) => newOrder.indexOf(a).compareTo(newOrder.indexOf(b)));
-
+      newEnabled.sort(
+        (a, b) => newOrder.indexOf(a).compareTo(newOrder.indexOf(b)),
+      );
 
       // 3. Colors
       if (savedColorsJson != null) {
@@ -764,10 +773,12 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       // 5. Fade range cursors
-      final String? savedFadeStart  = prefs.getString('${key}_fadeRangeStart');
-      final String? savedFadeEnd    = prefs.getString('${key}_fadeRangeEnd');
+      final String? savedFadeStart = prefs.getString('${key}_fadeRangeStart');
+      final String? savedFadeEnd = prefs.getString('${key}_fadeRangeEnd');
       final String? savedFadeShapes = prefs.getString('${key}_fadeShapes');
-      final String? savedFadeCustom = prefs.getString('${key}_fadeCustomParams');
+      final String? savedFadeCustom = prefs.getString(
+        '${key}_fadeCustomParams',
+      );
       if (savedFadeStart != null) {
         final Map<String, dynamic> dec = jsonDecode(savedFadeStart);
         dec.forEach((k, v) => _fadeRangeStart[k] = (v as num).toDouble());
@@ -978,11 +989,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     // Read fade range cursors (fractional 0.0–1.0)
     final double rangeStartFrac = _fadeRangeStart[pedal.instance] ?? 0.0;
-    final double rangeEndFrac   = _fadeRangeEnd[pedal.instance]   ?? 1.0;
+    final double rangeEndFrac = _fadeRangeEnd[pedal.instance] ?? 1.0;
 
     // Convert fractional range to actual dB values
     final double fadeMin = minRange + rangeStartFrac * (maxRange - minRange);
-    final double fadeMax = minRange + rangeEndFrac   * (maxRange - minRange);
+    final double fadeMax = minRange + rangeEndFrac * (maxRange - minRange);
 
     final double startVal = currentValue.clamp(minRange, maxRange);
 
@@ -1036,7 +1047,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     setState(() {
       _fadeDirections[pedal.instance] = fadeIn;
-      _fadeProgress[pedal.instance]   = 0.0;
+      _fadeProgress[pedal.instance] = 0.0;
     });
 
     _fadeTimers[pedal.instance] = Timer.periodic(
@@ -1051,7 +1062,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (currentStep >= totalSteps) {
           setState(() {
             _localVolumes[pedal.instance] = targetEndValue;
-            _fadeTimers[pedal.instance]   = null;
+            _fadeTimers[pedal.instance] = null;
             _fadeProgress[pedal.instance] = 0.0;
           });
           _webSocketService.setParamValue(
@@ -1798,12 +1809,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     final double cardOpacity = isBypassed ? 0.70 : 1.0;
 
     final bool isFading = _fadeTimers[pedal.instance] != null;
-    final bool isFadingIn  = isFading && (_fadeDirections[pedal.instance] == true);
-    final bool isFadingOut = isFading && (_fadeDirections[pedal.instance] == false);
+    final bool isFadingIn =
+        isFading && (_fadeDirections[pedal.instance] == true);
+    final bool isFadingOut =
+        isFading && (_fadeDirections[pedal.instance] == false);
 
     // Range cursor fractions
     final double rangeStart = _fadeRangeStart[pedal.instance] ?? 0.0;
-    final double rangeEnd   = _fadeRangeEnd[pedal.instance]   ?? 1.0;
+    final double rangeEnd = _fadeRangeEnd[pedal.instance] ?? 1.0;
 
     // ── Volume slider (bare) ───────────────────────────────────────────
     Widget buildVolumeSlider({bool compact = false}) {
@@ -1833,7 +1846,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               _mutedVolumes.remove(pedal.instance);
             }
             setState(() {
-              _fadeTimers[pedal.instance]  = null;
+              _fadeTimers[pedal.instance] = null;
               _fadeProgress[pedal.instance] = 0.0;
               _localVolumes[pedal.instance] = newValue;
             });
@@ -1921,9 +1934,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           final String next = current == 'compact'
               ? 'regular'
               : current == 'regular'
-                  ? 'expanded'
-                  : 'compact';
-          setState(() { _pedalSizes[pedal.instance] = next; });
+              ? 'expanded'
+              : 'compact';
+          setState(() {
+            _pedalSizes[pedal.instance] = next;
+          });
           _saveLayoutSettings();
         },
         child: Padding(
@@ -1984,7 +1999,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                               onTap: () => _highlightPedalInWebView(pedal),
                               onLongPress: () => _showRenameDialog(pedal),
                               child: Text(
-                                (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                (_customTitles[pedal.instance] ?? pedal.title)
+                                    .toUpperCase(),
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w900,
@@ -2013,11 +2029,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       // Row 2: Slider WITH range triangles
                       Row(
                         children: [
-                          Icon(Icons.volume_mute,
-                              color: _isDarkMode
-                                  ? Colors.grey[isBypassed ? 700 : 600]
-                                  : Colors.grey[isBypassed ? 600 : 700],
-                              size: 18),
+                          Icon(
+                            Icons.volume_mute,
+                            color: _isDarkMode
+                                ? Colors.grey[isBypassed ? 700 : 600]
+                                : Colors.grey[isBypassed ? 600 : 700],
+                            size: 18,
+                          ),
                           Expanded(child: buildSliderWithRangeOverlay()),
                           Icon(Icons.volume_up, color: accentColor, size: 18),
                         ],
@@ -2026,8 +2044,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('${minRange.toStringAsFixed(1)} dB',
-                              style: TextStyle(fontSize: 9, color: Colors.grey[600])),
+                          Text(
+                            '${minRange.toStringAsFixed(1)} dB',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.grey[600],
+                            ),
+                          ),
                           Text(
                             '${(rangeStart * 100).round()}–${(rangeEnd * 100).round()}%',
                             style: TextStyle(
@@ -2036,8 +2059,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                               fontFamily: 'monospace',
                             ),
                           ),
-                          Text('${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
-                              style: TextStyle(fontSize: 9, color: Colors.grey[600])),
+                          Text(
+                            '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Colors.grey[600],
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -2068,162 +2096,169 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ],
                   )
-
                 // ════════════════════════════════════════════
                 //  REGULAR VIEW
                 // ════════════════════════════════════════════
                 : size == 'regular'
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Row 1 header
+                      Row(
                         children: [
-                          // Row 1 header
-                          Row(
-                            children: [
-                              // Title: tap = highlight, long press = rename
-                              Expanded(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => _highlightPedalInWebView(pedal),
-                                  onLongPress: () => _showRenameDialog(pedal),
-                                  child: Text(
-                                    (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w900,
-                                      color: accentColor,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
+                          // Title: tap = highlight, long press = rename
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _highlightPedalInWebView(pedal),
+                              onLongPress: () => _showRenameDialog(pedal),
+                              child: Text(
+                                (_customTitles[pedal.instance] ?? pedal.title)
+                                    .toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: accentColor,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              // Help icon
-                              GestureDetector(
-                                onTap: () => _showModuleHelpSheet(context, 'gain'),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.7)),
-                                ),
-                              ),
-                              // Size toggle
-                              buildSizeToggle(),
-                              const SizedBox(width: 4),
-                              // Fixed-width dB box
-                              buildDbBox(),
-                              const SizedBox(width: 4),
-                              // Speaker mute icon
-                              buildMuteIcon(),
-                            ],
-                          ),
-                          const Spacer(),
-                          // URI subtitle
-                          GestureDetector(
-                            onTap: () => _openPluginUri(pedal.uri),
-                            child: Text(
-                              pedal.uri,
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                color: _isDarkMode
-                                    ? const Color(0xFF00FFCC)
-                                    : const Color(0xFF00B3FF),
-                                decoration: TextDecoration.underline,
-                                fontFamily: 'monospace',
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          // Volume slider row WITH range triangles overlay
-                          Row(
-                            children: [
-                              Icon(Icons.volume_mute,
-                                  color: _isDarkMode
-                                      ? Colors.grey[isBypassed ? 700 : 600]
-                                      : Colors.grey[isBypassed ? 600 : 700],
-                                  size: 20),
-                              Expanded(child: buildSliderWithRangeOverlay()),
-                              Icon(Icons.volume_up, color: accentColor, size: 20),
-                            ],
+                          // Help icon
+                          GestureDetector(
+                            onTap: () => _showModuleHelpSheet(context, 'gain'),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: Icon(
+                                Icons.help_outline,
+                                size: 14,
+                                color: accentColor.withOpacity(0.7),
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 2),
-                          // Min / cursor range % / max labels
-                          Row(
-                            children: [
-                              Text(
-                                '${minRange.toStringAsFixed(1)} dB',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: _isDarkMode
-                                      ? Colors.grey[isBypassed ? 750 : 650]
-                                      : Colors.grey[isBypassed ? 600 : 700],
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  '${(rangeStart * 100).round()}–${(rangeEnd * 100).round()}%',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: accentColor.withOpacity(0.7),
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: _isDarkMode
-                                      ? Colors.grey[isBypassed ? 750 : 650]
-                                      : Colors.grey[isBypassed ? 600 : 700],
-                                ),
-                              ),
-                            ],
+                          // Size toggle
+                          buildSizeToggle(),
+                          const SizedBox(width: 4),
+                          // Fixed-width dB box
+                          buildDbBox(),
+                          const SizedBox(width: 4),
+                          // Speaker mute icon
+                          buildMuteIcon(),
+                        ],
+                      ),
+                      const Spacer(),
+                      // URI subtitle
+                      GestureDetector(
+                        onTap: () => _openPluginUri(pedal.uri),
+                        child: Text(
+                          pedal.uri,
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            color: _isDarkMode
+                                ? const Color(0xFF00FFCC)
+                                : const Color(0xFF00B3FF),
+                            decoration: TextDecoration.underline,
+                            fontFamily: 'monospace',
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 8),
-                          // Fade buttons row
-                          Row(
-                            children: [
-                              _buildFadeButton(
-                                label: 'FADE IN',
-                                icon: Icons.trending_up,
-                                isBypassed: isBypassed,
-                                onTap: () => _triggerFade(pedal, fadeIn: true),
-                                accentColor: accentColor,
-                                isFading: isFadingIn,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Volume slider row WITH range triangles overlay
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.volume_mute,
+                            color: _isDarkMode
+                                ? Colors.grey[isBypassed ? 700 : 600]
+                                : Colors.grey[isBypassed ? 600 : 700],
+                            size: 20,
+                          ),
+                          Expanded(child: buildSliderWithRangeOverlay()),
+                          Icon(Icons.volume_up, color: accentColor, size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      // Min / cursor range % / max labels
+                      Row(
+                        children: [
+                          Text(
+                            '${minRange.toStringAsFixed(1)} dB',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _isDarkMode
+                                  ? Colors.grey[isBypassed ? 750 : 650]
+                                  : Colors.grey[isBypassed ? 600 : 700],
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '${(rangeStart * 100).round()}–${(rangeEnd * 100).round()}%',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: accentColor.withOpacity(0.7),
+                                fontFamily: 'monospace',
                               ),
-                              _buildFadeButton(
-                                label: 'FADE OUT',
-                                icon: Icons.trending_down,
-                                isBypassed: isBypassed,
-                                onTap: () => _triggerFade(pedal, fadeIn: false),
-                                accentColor: accentColor,
-                                isFading: isFadingOut,
-                              ),
-                            ],
+                            ),
+                          ),
+                          Text(
+                            '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _isDarkMode
+                                  ? Colors.grey[isBypassed ? 750 : 650]
+                                  : Colors.grey[isBypassed ? 600 : 700],
+                            ),
                           ),
                         ],
-                      )
-
-                    // ════════════════════════════════════════════
-                    //  EXPANDED VIEW
-                    // ════════════════════════════════════════════
-                    : _buildExpandedGainCard(
-                        pedal: pedal,
-                        minRange: minRange,
-                        maxRange: maxRange,
-                        clampedValue: clampedValue,
-                        isBypassed: isBypassed,
-                        accentColor: accentColor,
-                        isMuted: isMuted,
-                        isFadingIn: isFadingIn,
-                        isFadingOut: isFadingOut,
-                        rangeStart: rangeStart,
-                        rangeEnd: rangeEnd,
-                        buildVolumeSlider: buildVolumeSlider,
-                        buildMuteIcon: buildMuteIcon,
-                        buildDbBox: buildDbBox,
-                        buildSizeToggle: buildSizeToggle,
                       ),
+                      const SizedBox(height: 8),
+                      // Fade buttons row
+                      Row(
+                        children: [
+                          _buildFadeButton(
+                            label: 'FADE IN',
+                            icon: Icons.trending_up,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: true),
+                            accentColor: accentColor,
+                            isFading: isFadingIn,
+                          ),
+                          _buildFadeButton(
+                            label: 'FADE OUT',
+                            icon: Icons.trending_down,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: false),
+                            accentColor: accentColor,
+                            isFading: isFadingOut,
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                // ════════════════════════════════════════════
+                //  EXPANDED VIEW
+                // ════════════════════════════════════════════
+                : _buildExpandedGainCard(
+                    pedal: pedal,
+                    minRange: minRange,
+                    maxRange: maxRange,
+                    clampedValue: clampedValue,
+                    isBypassed: isBypassed,
+                    accentColor: accentColor,
+                    isMuted: isMuted,
+                    isFadingIn: isFadingIn,
+                    isFadingOut: isFadingOut,
+                    rangeStart: rangeStart,
+                    rangeEnd: rangeEnd,
+                    buildVolumeSlider: buildVolumeSlider,
+                    buildMuteIcon: buildMuteIcon,
+                    buildDbBox: buildDbBox,
+                    buildSizeToggle: buildSizeToggle,
+                  ),
           ),
         ),
       ),
@@ -2252,9 +2287,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     final String shapeName = _fadeShapes[pedal.instance] ?? 'easeInOut';
     final Curve displayCurve;
     switch (shapeName) {
-      case 'linear':   displayCurve = Curves.linear;  break;
-      case 'easeIn':   displayCurve = Curves.easeIn;  break;
-      case 'easeOut':  displayCurve = Curves.easeOut; break;
+      case 'linear':
+        displayCurve = Curves.linear;
+        break;
+      case 'easeIn':
+        displayCurve = Curves.easeIn;
+        break;
+      case 'easeOut':
+        displayCurve = Curves.easeOut;
+        break;
       case 'custom':
         final p = _fadeCustomParams[pedal.instance] ?? {};
         displayCurve = _CustomSCurve(
@@ -2263,318 +2304,379 @@ class _DashboardScreenState extends State<DashboardScreen>
           slope: p['slope'] ?? 1.0,
         );
         break;
-      default:         displayCurve = Curves.easeInOut;
+      default:
+        displayCurve = Curves.easeInOut;
     }
 
     final double fadeProgress = _fadeProgress[pedal.instance] ?? 0.0;
 
     // Custom params (with defaults)
     final Map<String, double> customP =
-        _fadeCustomParams[pedal.instance] ?? {'cx': 0.5, 'cy': 0.5, 'slope': 1.0};
+        _fadeCustomParams[pedal.instance] ??
+        {'cx': 0.5, 'cy': 0.5, 'slope': 1.0};
 
     const List<Map<String, String>> shapeOptions = [
-      {'key': 'linear',    'label': 'LINEAR'},
+      {'key': 'linear', 'label': 'LINEAR'},
       {'key': 'easeInOut', 'label': 'S1'},
-      {'key': 'easeIn',    'label': 'S2'},
-      {'key': 'easeOut',   'label': 'S3'},
-      {'key': 'custom',    'label': 'CUSTOM'},
+      {'key': 'easeIn', 'label': 'S2'},
+      {'key': 'easeOut', 'label': 'S3'},
+      {'key': 'custom', 'label': 'CUSTOM'},
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-          // ── Header ──────────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _highlightPedalInWebView(pedal),
-                  onLongPress: () => _showRenameDialog(pedal),
-                  child: Text(
-                    (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: accentColor,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _showModuleHelpSheet(context, 'gain'),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.7)),
-                ),
-              ),
-              buildSizeToggle(),
-              const SizedBox(width: 4),
-              buildDbBox(),
-              const SizedBox(width: 4),
-              buildMuteIcon(),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // URI
-          GestureDetector(
-            onTap: () => _openPluginUri(pedal.uri),
-            child: Text(
-              pedal.uri,
-              style: TextStyle(
-                fontSize: 8.5,
-                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
-                decoration: TextDecoration.underline,
-                fontFamily: 'monospace',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // ── Volume slider ───────────────────────────────────────────
-          Row(
-            children: [
-              Icon(Icons.volume_mute,
-                  color: _isDarkMode
-                      ? Colors.grey[isBypassed ? 700 : 600]
-                      : Colors.grey[isBypassed ? 600 : 700],
-                  size: 20),
-              Expanded(child: buildVolumeSlider()),
-              Icon(Icons.volume_up, color: accentColor, size: 20),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('${minRange.toStringAsFixed(1)} dB',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-              Text('${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
-                  style: TextStyle(fontSize: 10, color: Colors.grey[600])),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // ── Fade Range Selector ─────────────────────────────────────
-          Text('FADE RANGE',
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
-                  color: accentColor.withOpacity(0.7), letterSpacing: 1.2)),
-          const SizedBox(height: 2),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: accentColor.withOpacity(0.6),
-              inactiveTrackColor: accentColor.withOpacity(0.15),
-              thumbColor: accentColor,
-              overlayColor: accentColor.withOpacity(0.15),
-              rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 10),
-              trackHeight: 5,
-            ),
-            child: RangeSlider(
-              values: RangeValues(rangeStart, rangeEnd),
-              min: 0.0,
-              max: 1.0,
-              divisions: 20,
-              labels: RangeLabels(
-                '${(rangeStart * 100).round()}%',
-                '${(rangeEnd * 100).round()}%',
-              ),
-              onChanged: (RangeValues vals) {
-                if (vals.end - vals.start < 0.05) return;
-                setState(() {
-                  _fadeRangeStart[pedal.instance] = vals.start;
-                  _fadeRangeEnd[pedal.instance]   = vals.end;
-                });
-                _saveLayoutSettings();
-              },
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Start: ${(minRange + rangeStart * (maxRange - minRange)).toStringAsFixed(1)} dB',
-                style: TextStyle(fontSize: 9, color: accentColor.withOpacity(0.8), fontFamily: 'monospace'),
-              ),
-              Text(
-                'End: ${(minRange + rangeEnd * (maxRange - minRange)).toStringAsFixed(1)} dB',
-                style: TextStyle(fontSize: 9, color: accentColor.withOpacity(0.8), fontFamily: 'monospace'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // ── Fade Shape Selector ─────────────────────────────────────
-          Text('FADE SHAPE',
-              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
-                  color: accentColor.withOpacity(0.7), letterSpacing: 1.2)),
-          const SizedBox(height: 4),
-          Row(
-            children: shapeOptions.map((opt) {
-              final bool isSelected = shapeName == opt['key'];
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() { _fadeShapes[pedal.instance] = opt['key']!; });
-                    _saveLayoutSettings();
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? accentColor.withOpacity(0.2)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isSelected ? accentColor : Colors.grey[700]!,
-                        width: isSelected ? 1.5 : 1.0,
-                      ),
-                    ),
-                    child: Text(
-                      opt['label']!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: isSelected ? accentColor : Colors.grey[500],
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-
-          // ── Custom S-Curve sliders ──────────────────────────────────
-          if (shapeName == 'custom') ...[
-            const SizedBox(height: 8),
-            Text('CUSTOM CURVE',
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
-                    color: accentColor.withOpacity(0.7), letterSpacing: 1.2)),
-            const SizedBox(height: 4),
-            ...['cx', 'cy', 'slope'].map((param) {
-              final double val = customP[param] ?? 0.5;
-              final Map<String, String> labels = {
-                'cx': 'CENTER X', 'cy': 'CENTER Y', 'slope': 'BLEND',
-              };
-              return Row(
-                children: [
-                  SizedBox(
-                    width: 60,
-                    child: Text(labels[param]!,
-                        style: TextStyle(fontSize: 8, color: Colors.grey[500])),
-                  ),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: accentColor.withOpacity(0.7),
-                        inactiveTrackColor: accentColor.withOpacity(0.15),
-                        thumbColor: accentColor,
-                        trackHeight: 3,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                      ),
-                      child: Slider(
-                        value: val,
-                        min: 0.0,
-                        max: 1.0,
-                        onChanged: (v) {
-                          setState(() {
-                            _fadeCustomParams[pedal.instance] = {
-                              ...customP,
-                              param: v,
-                            };
-                          });
-                          _saveLayoutSettings();
-                        },
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 32,
-                    child: Text(val.toStringAsFixed(2),
-                        style: TextStyle(fontSize: 9, fontFamily: 'monospace',
-                            color: accentColor.withOpacity(0.8))),
-                  ),
-                ],
-              );
-            }),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
+        // ── Header ──────────────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
               child: GestureDetector(
-                onTap: () {
-                  final String json = jsonEncode({
-                    'shape': 'custom',
-                    ...customP,
-                  });
-                  Clipboard.setData(ClipboardData(text: json));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Custom curve copied to clipboard'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: accentColor.withOpacity(0.5)),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'EXPORT',
-                    style: TextStyle(fontSize: 9, color: accentColor, letterSpacing: 1),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _highlightPedalInWebView(pedal),
+                onLongPress: () => _showRenameDialog(pedal),
+                child: Text(
+                  (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: accentColor,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () => _showModuleHelpSheet(context, 'gain'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  Icons.help_outline,
+                  size: 14,
+                  color: accentColor.withOpacity(0.7),
+                ),
+              ),
+            ),
+            buildSizeToggle(),
+            const SizedBox(width: 4),
+            buildDbBox(),
+            const SizedBox(width: 4),
+            buildMuteIcon(),
+          ],
+        ),
+        const SizedBox(height: 4),
+        // URI
+        GestureDetector(
+          onTap: () => _openPluginUri(pedal.uri),
+          child: Text(
+            pedal.uri,
+            style: TextStyle(
+              fontSize: 8.5,
+              color: _isDarkMode
+                  ? const Color(0xFF00FFCC)
+                  : const Color(0xFF00B3FF),
+              decoration: TextDecoration.underline,
+              fontFamily: 'monospace',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // ── Volume slider ───────────────────────────────────────────
+        Row(
+          children: [
+            Icon(
+              Icons.volume_mute,
+              color: _isDarkMode
+                  ? Colors.grey[isBypassed ? 700 : 600]
+                  : Colors.grey[isBypassed ? 600 : 700],
+              size: 20,
+            ),
+            Expanded(child: buildVolumeSlider()),
+            Icon(Icons.volume_up, color: accentColor, size: 20),
+          ],
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '${minRange.toStringAsFixed(1)} dB',
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+            Text(
+              '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // ── Fade Range Selector ─────────────────────────────────────
+        Text(
+          'FADE RANGE',
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: accentColor.withOpacity(0.7),
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: accentColor.withOpacity(0.6),
+            inactiveTrackColor: accentColor.withOpacity(0.15),
+            thumbColor: accentColor,
+            overlayColor: accentColor.withOpacity(0.15),
+            rangeThumbShape: const RoundRangeSliderThumbShape(
+              enabledThumbRadius: 10,
+            ),
+            trackHeight: 5,
+          ),
+          child: RangeSlider(
+            values: RangeValues(rangeStart, rangeEnd),
+            min: 0.0,
+            max: 1.0,
+            divisions: 20,
+            labels: RangeLabels(
+              '${(rangeStart * 100).round()}%',
+              '${(rangeEnd * 100).round()}%',
+            ),
+            onChanged: (RangeValues vals) {
+              if (vals.end - vals.start < 0.05) return;
+              setState(() {
+                _fadeRangeStart[pedal.instance] = vals.start;
+                _fadeRangeEnd[pedal.instance] = vals.end;
+              });
+              _saveLayoutSettings();
+            },
+          ),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Start: ${(minRange + rangeStart * (maxRange - minRange)).toStringAsFixed(1)} dB',
+              style: TextStyle(
+                fontSize: 9,
+                color: accentColor.withOpacity(0.8),
+                fontFamily: 'monospace',
+              ),
+            ),
+            Text(
+              'End: ${(minRange + rangeEnd * (maxRange - minRange)).toStringAsFixed(1)} dB',
+              style: TextStyle(
+                fontSize: 9,
+                color: accentColor.withOpacity(0.8),
+                fontFamily: 'monospace',
               ),
             ),
           ],
-          const SizedBox(height: 8),
+        ),
+        const SizedBox(height: 10),
 
-          // ── Live Fade Curve Visualizer ──────────────────────────────
-          SizedBox(
-            height: 120,
-            child: CustomPaint(
-              painter: _FadeCurvePainter(
-                accentColor: accentColor,
-                curve: displayCurve,
-                progress: fadeProgress,
-                bars: _fadeBars,
-                rangeStart: rangeStart,
-                rangeEnd: rangeEnd,
+        // ── Fade Shape Selector ─────────────────────────────────────
+        Text(
+          'FADE SHAPE',
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: accentColor.withOpacity(0.7),
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: shapeOptions.map((opt) {
+            final bool isSelected = shapeName == opt['key'];
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _fadeShapes[pedal.instance] = opt['key']!;
+                  });
+                  _saveLayoutSettings();
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? accentColor.withOpacity(0.2)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSelected ? accentColor : Colors.grey[700]!,
+                      width: isSelected ? 1.5 : 1.0,
+                    ),
+                  ),
+                  child: Text(
+                    opt['label']!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? accentColor : Colors.grey[500],
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
               ),
-              child: const SizedBox.expand(),
+            );
+          }).toList(),
+        ),
+
+        // ── Custom S-Curve sliders ──────────────────────────────────
+        if (shapeName == 'custom') ...[
+          const SizedBox(height: 8),
+          Text(
+            'CUSTOM CURVE',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: accentColor.withOpacity(0.7),
+              letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 8),
-
-          // ── Fade buttons ────────────────────────────────────────────
-          Row(
-            children: [
-              _buildFadeButton(
-                label: 'FADE IN',
-                icon: Icons.trending_up,
-                isBypassed: isBypassed,
-                onTap: () => _triggerFade(pedal, fadeIn: true),
-                accentColor: accentColor,
-                isFading: isFadingIn,
+          const SizedBox(height: 4),
+          ...['cx', 'cy', 'slope'].map((param) {
+            final double val = customP[param] ?? 0.5;
+            final Map<String, String> labels = {
+              'cx': 'CENTER X',
+              'cy': 'CENTER Y',
+              'slope': 'BLEND',
+            };
+            return Row(
+              children: [
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    labels[param]!,
+                    style: TextStyle(fontSize: 8, color: Colors.grey[500]),
+                  ),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: accentColor.withOpacity(0.7),
+                      inactiveTrackColor: accentColor.withOpacity(0.15),
+                      thumbColor: accentColor,
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 7,
+                      ),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 14,
+                      ),
+                    ),
+                    child: Slider(
+                      value: val,
+                      min: 0.0,
+                      max: 1.0,
+                      onChanged: (v) {
+                        setState(() {
+                          _fadeCustomParams[pedal.instance] = {
+                            ...customP,
+                            param: v,
+                          };
+                        });
+                        _saveLayoutSettings();
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    val.toStringAsFixed(2),
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontFamily: 'monospace',
+                      color: accentColor.withOpacity(0.8),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: () {
+                final String json = jsonEncode({'shape': 'custom', ...customP});
+                Clipboard.setData(ClipboardData(text: json));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Custom curve copied to clipboard'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: accentColor.withOpacity(0.5)),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'EXPORT',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: accentColor,
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
-              _buildFadeButton(
-                label: 'FADE OUT',
-                icon: Icons.trending_down,
-                isBypassed: isBypassed,
-                onTap: () => _triggerFade(pedal, fadeIn: false),
-                accentColor: accentColor,
-                isFading: isFadingOut,
-              ),
-            ],
+            ),
           ),
         ],
-      );
+        const SizedBox(height: 8),
+
+        // ── Live Fade Curve Visualizer ──────────────────────────────
+        SizedBox(
+          height: 120,
+          child: CustomPaint(
+            painter: _FadeCurvePainter(
+              accentColor: accentColor,
+              curve: displayCurve,
+              progress: fadeProgress,
+              bars: _fadeBars,
+              rangeStart: rangeStart,
+              rangeEnd: rangeEnd,
+            ),
+            child: const SizedBox.expand(),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // ── Fade buttons ────────────────────────────────────────────
+        Row(
+          children: [
+            _buildFadeButton(
+              label: 'FADE IN',
+              icon: Icons.trending_up,
+              isBypassed: isBypassed,
+              onTap: () => _triggerFade(pedal, fadeIn: true),
+              accentColor: accentColor,
+              isFading: isFadingIn,
+            ),
+            _buildFadeButton(
+              label: 'FADE OUT',
+              icon: Icons.trending_down,
+              isBypassed: isBypassed,
+              onTap: () => _triggerFade(pedal, fadeIn: false),
+              accentColor: accentColor,
+              isFading: isFadingOut,
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   void _highlightAllPedalsInWebView() {
@@ -4021,14 +4123,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setString('${key}_colors', jsonEncode(_pedalGlowColors));
       await prefs.setString('${key}_sizes', jsonEncode(_pedalSizes));
       // Fade settings
-      await prefs.setString('${key}_fadeRangeStart', jsonEncode(_fadeRangeStart));
-      await prefs.setString('${key}_fadeRangeEnd',   jsonEncode(_fadeRangeEnd));
-      await prefs.setString('${key}_fadeShapes',     jsonEncode(_fadeShapes));
+      await prefs.setString(
+        '${key}_fadeRangeStart',
+        jsonEncode(_fadeRangeStart),
+      );
+      await prefs.setString('${key}_fadeRangeEnd', jsonEncode(_fadeRangeEnd));
+      await prefs.setString('${key}_fadeShapes', jsonEncode(_fadeShapes));
       // Encode nested map: Map<String, Map<String, double>>
       final customEncoded = _fadeCustomParams.map(
         (k, v) => MapEntry(k, jsonEncode(v)),
       );
-      await prefs.setString('${key}_fadeCustomParams', jsonEncode(customEncoded));
+      await prefs.setString(
+        '${key}_fadeCustomParams',
+        jsonEncode(customEncoded),
+      );
       debugPrint('Saved layout settings for $key');
     } catch (e) {
       debugPrint('Error saving layout settings: $e');
@@ -4556,15 +4664,24 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                         // Move to end of active list in _orderedPluginInstances
                         final List<String> actives = _orderedPluginInstances
-                            .where((id) => _enabledPluginInstances.contains(id) && id != draggedId)
+                            .where(
+                              (id) =>
+                                  _enabledPluginInstances.contains(id) &&
+                                  id != draggedId,
+                            )
                             .toList();
 
                         _orderedPluginInstances.remove(draggedId);
                         if (actives.isNotEmpty) {
                           final lastActiveId = actives.last;
-                          final targetIdx = _orderedPluginInstances.indexOf(lastActiveId);
+                          final targetIdx = _orderedPluginInstances.indexOf(
+                            lastActiveId,
+                          );
                           if (targetIdx != -1) {
-                            _orderedPluginInstances.insert(targetIdx + 1, draggedId);
+                            _orderedPluginInstances.insert(
+                              targetIdx + 1,
+                              draggedId,
+                            );
                           } else {
                             _orderedPluginInstances.add(draggedId);
                           }
@@ -4729,8 +4846,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                     },
                   ),
                 ),
-
-
               ],
             );
           },
@@ -4751,7 +4866,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final uriLower = pedal.uri.toLowerCase();
     final titleLower = pedal.title.toLowerCase();
-    final isLooper = uriLower.contains('alo') || titleLower.contains('alo') || instanceId.toLowerCase().contains('alo');
+    final isLooper =
+        uriLower.contains('alo') ||
+        titleLower.contains('alo') ||
+        instanceId.toLowerCase().contains('alo');
     final isSwitch =
         uriLower.contains('switch') || titleLower.contains('switch');
 
@@ -5514,7 +5632,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: _isDarkMode ? Colors.grey[300] : Colors.grey[750],
+                                        color: _isDarkMode
+                                            ? Colors.grey[300]
+                                            : Colors.grey[750],
                                       ),
                                     ),
                                   ),
@@ -5526,9 +5646,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                                             ? Colors.grey[850]
                                             : Colors.grey[300],
                                         trackHeight: 4.0,
-                                        thumbColor: _isDarkMode ? Colors.white : Colors.grey[100],
-                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                                        thumbColor: _isDarkMode
+                                            ? Colors.white
+                                            : Colors.grey[100],
+                                        thumbShape: const RoundSliderThumbShape(
+                                          enabledThumbRadius: 6.0,
+                                        ),
+                                        overlayShape:
+                                            const RoundSliderOverlayShape(
+                                              overlayRadius: 12.0,
+                                            ),
                                       ),
                                       child: Slider(
                                         value: (clickValue).clamp(0, 10),
@@ -5538,12 +5665,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         onChanged: (val) {
                                           final targetVal = val;
                                           setState(() {
-                                            pedal.parameters[clickPort] = targetVal;
+                                            pedal.parameters[clickPort] =
+                                                targetVal;
                                           });
                                           _webSocketService.setParamValue(
                                             instance: pedal.instance,
                                             port: clickPort,
-                                            value: double.parse(targetVal.toStringAsFixed(2)),
+                                            value: double.parse(
+                                              targetVal.toStringAsFixed(2),
+                                            ),
                                           );
                                         },
                                       ),
