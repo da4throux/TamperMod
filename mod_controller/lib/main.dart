@@ -3696,27 +3696,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ],
 
           
-          // Active state toggle Checkbox/Icon
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                if (isActive) {
-                  _enabledPluginInstances.remove(instanceId);
-                } else {
-                  _enabledPluginInstances.add(instanceId);
-                }
-              });
-              _updateAllGlowsInWebView();
-              _saveLayoutSettings();
-            },
-            child: Icon(
-              isActive ? Icons.visibility : Icons.visibility_off,
-              size: 13,
-              color: isActive 
-                  ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)) 
-                  : Colors.grey,
-            ),
-          ),
+
         ],
       ),
     );
@@ -3792,17 +3772,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 _scrollToCard(instanceId);
               }
             },
-            onDoubleTap: () {
-              setState(() {
-                if (isActive) {
-                  _enabledPluginInstances.remove(instanceId);
-                } else {
-                  _enabledPluginInstances.add(instanceId);
-                }
-              });
-              _updateAllGlowsInWebView();
-              _saveLayoutSettings();
-            },
+            onDoubleTap: () => _showColorPickerDialog(pedal),
             child: tileContent,
           ),
         );

@@ -53,8 +53,8 @@
 * Supports **Drag-and-Drop** to rearrange cards.
 * Interactive gestures:
   * **Single Tap:** Scrolls main view to and pulses the target card.
-  * **Double Tap:** Toggles card visibility status (Active / Inactive pools).
-  * **Long Press:** Initiates Drag-and-Drop to rearrange cards (color picking happens at the main workspace card level via long-press).
+  * **Double Tap:** Opens a color picker to adjust the neon glow color of the card.
+  * **Long Press:** Initiates Drag-and-Drop to rearrange cards (active/inactive status is changed by dragging cards between the Active canvas and the Inactive pool).
 
 ### 3.3 Bottom Navigation Bar
 * Following functionalities:
