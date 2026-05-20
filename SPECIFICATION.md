@@ -43,26 +43,28 @@
 ### 3.1 Workspace Dashboard Layout
 * **Dynamic Grid:** Built using a scrollable `Wrap` widget containing custom card instances.
 * **Card Sizing System:**
-  * **Compact (C):** Compact card (height: 90) representing minimal parameters.
-  * **Regular (R):** Standard card (height: 220) with common sliders and switches.
-  * **Expanded (E):** Fully expanded card (height: 320) with inline title edits and detailed sliders.
-  * *ALO Loopers default to Expanded.*
+  * **Compact (C):** Compact card (height: 110) representing minimal parameters.
+  * **Regular (R):** Standard card (height: 240) with common sliders and switches. Two Regular cards share a row on wide screens.
+  * **Expanded (E):** Fully expanded card (height: 240, full row width) with inline title edits and detailed sliders.
+  * *ALO Loopers always use full row width at height 450.*
 
 ### 3.2 Puzzle Organizer Settings Drawer
-* scale-down grid layout representing workspace cards.
-* Supports **Drag-and-Drop** to rearrange cards.
+* Scale-down grid layout mirroring the workspace card arrangement (two Regular tiles per row, same proportions as the main canvas).
+* **Card Visibility:** Controlled exclusively by dragging tiles between the **Active Canvas** (upper zone) and the **Available Pool** (lower inactive zone). No toggle buttons.
+* **Drag-and-Drop:** Long Press on a tile initiates drag to reorder within the canvas or move between zones.
 * Interactive gestures:
   * **Single Tap:** Scrolls main view to and pulses the target card.
   * **Double Tap:** Opens a color picker to adjust the neon glow color of the card.
-  * **Long Press:** Initiates Drag-and-Drop to rearrange cards (active/inactive status is changed by dragging cards between the Active canvas and the Inactive pool).
+  * **Long Press:** Initiates Drag-and-Drop to rearrange cards or change active/inactive status.
 
-### 3.3 Bottom Navigation Bar
-* Following functionalities:
-  * Layout view selectors (Split, Controls, Web).
-  * Radar locate trigger button.
+### 3.3 Bottom Toolbar
+* Positioned **inside the body Column**, between the IP connection bar and the main content area — not as a `Scaffold.bottomNavigationBar` — to avoid conflict with the Android system gesture navigation bar.
+* Functionalities:
+  * Layout view selectors (Controls, Web, Split).
+  * Radar locate trigger button (pulses all active pedal glows in the Web GUI).
   * Refresh/Reload pedalboard trigger.
   * Light/Dark Theme toggle with SharedPreferences persistence.
-  * Current version info display (`v1.1.2+12`).
+  * Current version info display.
 
 ### 3.4 Dual-Layered Glow Effects
 * Highlights on the WebView canvas feature dual box-shadow configurations:
@@ -80,10 +82,12 @@
 * [x] Implement dynamic BPM value reflection in the Flutter UI.
 * [x] Map `pedals_families` object parameters to volume controls.
 * [x] Implement dual-track ALO Looper UI with volume/mix/threshold sliders.
-* [x] Create "Puzzle Organizer" right drawer layout with tap, double-tap, long-press, and drag-and-drop.
-* [x] Design sticky bottom navigation bar and simplify connection panel next to IP.
+* [x] Create "Puzzle Organizer" right drawer with tap, double-tap (color picker), long-press drag-and-drop, and visibility via drag between Active Canvas and Available Pool zones.
+* [x] Design bottom toolbar (inside body, between connection bar and content) with view selectors, radar, refresh, theme toggle, and version display.
 * [x] Integrate dual-layered box-shadow neon glows in WebView.
 * [x] Implement dark/light theme switching and SharedPreferences persistence.
+* [x] Fix control card overflow — Regular card height set to 240px to fully accommodate the fade row.
+* [x] Fix drawer tile layout so two Regular tiles share a row, mirroring the main canvas proportions.
 
 ### Todo Tasks
 * [ ] Fix fadeout issues when running under `fade` mode in the Tampermonkey script.
