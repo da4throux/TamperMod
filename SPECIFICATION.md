@@ -2,6 +2,7 @@
 
 ## 1. Architecture Overview
 * **Frontend Controller:** Flutter application (`mod_controller`) managing state, websocket communication, and tablet UI.
+* **Target Device:** Specifically optimized for the Pixel Tablet in both portrait and landscape orientations.
 * **Browser Injection:** Tampermonkey user script (`TamperMod.user.js`) intercepting web page events and automating pedal board controls on `moddwarf.local`.
 * **Communication Protocol:** 
   * WebSocket connection (`ws://<ip>/websocket`) from the Flutter controller to the MOD Dwarf host to listen for and transmit parameter changes (`param_set`), BPM updates, and transport rolling status.
@@ -53,10 +54,10 @@
 * Interactive gestures:
   * **Single Tap:** Scrolls main view to and pulses the target card.
   * **Double Tap:** Toggles card visibility status (Active / Inactive pools).
-  * **Long Press:** Opens a color picker to adjust the neon glow color of the card.
+  * **Long Press:** Initiates Drag-and-Drop to rearrange cards (color picking happens at the main workspace card level via long-press).
 
-### 3.3 Relocated Bottom Navigation Bar
-* Relocated controls to a sticky bottom toolbar to maximize screen space:
+### 3.3 Bottom Navigation Bar
+* Following functionalities:
   * Layout view selectors (Split, Controls, Web).
   * Radar locate trigger button.
   * Refresh/Reload pedalboard trigger.
