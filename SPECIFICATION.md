@@ -108,7 +108,15 @@ Please read and apply .agenrules
 * [x] Ensure card size toggle button position remains stable during card size changes.
 
 ### Todo Tasks
-* [ ] Fix fadeout issues when running under `fade` mode in the Tampermonkey script.
+* [ ] The Play Transport is not well fetched (shown as play when is stop in the pedalboard interface)
+* [ ] For Gain controler, the fade triangles should have an outline (different color than the glow)
+* [ ] For Gain Controler, in extended mode, the fade range should be defined with triangles, no need for a separate interface
+* [ ] The Fade-in and Fade-out curves should be reversed (starting at 100% for a Fade Out)
+* [ ] In Alo Looper, when pausing, the beat should continue, and stay in sync. Change Pausing icon to something closer to muting.
+* [ ] In ALO looper, the buttons should have more balanced size
+* [ ] tapping on a controler from the right drawer does not always bring the effect in view by scrolling accurately.
+* [ ] Editting a controler s name by long pressing its name should also allow to change its glow. Then in the right drawer, double tapping a small type toggle its size (available: compact, regular, extended)
+* [ ] changing the icon to open the drawer to a puzzle (better than setting), remove "workspace settings, from the top. Re-taping the new puzzle icon close the drawer.
 * [ ] Resolve target value landing issues when switching automation effects.
 * [ ] Address fade transition errors where fade does not land exactly on 0 starting from -40dB.
 * [ ] Store setInterval IDs in an external array for clean automation cancellation.
