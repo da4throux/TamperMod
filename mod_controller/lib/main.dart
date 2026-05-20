@@ -12,7 +12,9 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.1.10';
+const String kAppVersion = '1.2.0';
+
+
 
 enum ViewMode { split, controls, web }
 
@@ -311,6 +313,22 @@ class _DashboardScreenState extends State<DashboardScreen>
             newOrder.add(id);
           }
         }
+      } else {
+        // Default order: non-loopers first, then loopers
+        final nonLoopers = plugins.where((p) {
+          final uriLower = p.uri.toLowerCase();
+          final titleLower = p.title.toLowerCase();
+          return !(uriLower.contains('alo') || titleLower.contains('alo'));
+        }).map((p) => p.instance).toList();
+
+        final loopers = plugins.where((p) {
+          final uriLower = p.uri.toLowerCase();
+          final titleLower = p.title.toLowerCase();
+          return uriLower.contains('alo') || titleLower.contains('alo');
+        }).map((p) => p.instance).toList();
+
+        newOrder.addAll(nonLoopers);
+        newOrder.addAll(loopers);
       }
       for (final id in currentIds) {
         if (!newOrder.contains(id)) {
@@ -339,6 +357,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           newEnabled.add(p.instance);
         }
       }
+
+      // Sort newEnabled according to newOrder to keep ordering synchronized
+      newEnabled.sort((a, b) => newOrder.indexOf(a).compareTo(newOrder.indexOf(b)));
+
 
       // 3. Colors
       if (savedColorsJson != null) {
@@ -1189,18 +1211,20 @@ class _DashboardScreenState extends State<DashboardScreen>
           }
         }
 
-        // Hydrate selected active controls list safely without type-cast null safety exceptions
+        // Hydrate selected active controls list safely using master order
         final List<PluginInstance> enabledPlugins = [];
-        for (final instanceId in _enabledPluginInstances) {
-          PluginInstance? found;
-          for (final p in plugins) {
-            if (p.instance == instanceId) {
-              found = p;
-              break;
+        for (final instanceId in _orderedPluginInstances) {
+          if (_enabledPluginInstances.contains(instanceId)) {
+            PluginInstance? found;
+            for (final p in plugins) {
+              if (p.instance == instanceId) {
+                found = p;
+                break;
+              }
             }
-          }
-          if (found != null) {
-            enabledPlugins.add(found);
+            if (found != null) {
+              enabledPlugins.add(found);
+            }
           }
         }
 
@@ -3795,14 +3819,36 @@ class _DashboardScreenState extends State<DashboardScreen>
                   flex: 3,
                   child: DragTarget<String>(
                     onAccept: (draggedId) {
-                      // Drag from Inactive or general drop to activate
-                      if (!_enabledPluginInstances.contains(draggedId)) {
-                        setState(() {
+                      // Drag from Inactive or general drop to activate/reorder to the end
+                      setState(() {
+                        if (!_enabledPluginInstances.contains(draggedId)) {
                           _enabledPluginInstances.add(draggedId);
-                        });
-                        _updateAllGlowsInWebView();
-                        _saveLayoutSettings();
-                      }
+                        }
+
+                        // Move to end of active list in _orderedPluginInstances
+                        final List<String> actives = _orderedPluginInstances
+                            .where((id) => _enabledPluginInstances.contains(id) && id != draggedId)
+                            .toList();
+
+                        _orderedPluginInstances.remove(draggedId);
+                        if (actives.isNotEmpty) {
+                          final lastActiveId = actives.last;
+                          final targetIdx = _orderedPluginInstances.indexOf(lastActiveId);
+                          if (targetIdx != -1) {
+                            _orderedPluginInstances.insert(targetIdx + 1, draggedId);
+                          } else {
+                            _orderedPluginInstances.add(draggedId);
+                          }
+                        } else {
+                          _orderedPluginInstances.insert(0, draggedId);
+                        }
+
+                        // Also sync _enabledPluginInstances order
+                        _enabledPluginInstances.remove(draggedId);
+                        _enabledPluginInstances.add(draggedId);
+                      });
+                      _updateAllGlowsInWebView();
+                      _saveLayoutSettings();
                     },
                     builder: (context, _, __) {
                       return Container(
@@ -3995,10 +4041,19 @@ class _DashboardScreenState extends State<DashboardScreen>
     final String instanceId = pedal.instance;
     final size = _pedalSizes[instanceId] ?? 'regular';
 
+    final uriLower = pedal.uri.toLowerCase();
+    final titleLower = pedal.title.toLowerCase();
+    final isLooper = uriLower.contains('alo') || titleLower.contains('alo') || instanceId.toLowerCase().contains('alo');
+    final isSwitch =
+        uriLower.contains('switch') || titleLower.contains('switch');
+
     double width = rWidth;
     double height = 46.0;
     if (isActive) {
-      if (size == 'compact') {
+      if (isLooper) {
+        width = eWidth;
+        height = 56.0;
+      } else if (size == 'compact') {
         width = cWidth;
         height = 40.0;
       } else if (size == 'regular') {
@@ -4017,13 +4072,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     final String colorHex =
         _pedalGlowColors[instanceId] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
-
-    final uriLower = pedal.uri.toLowerCase();
-    final titleLower = pedal.title.toLowerCase();
-
-    final isLooper = uriLower.contains('alo') || titleLower.contains('alo');
-    final isSwitch =
-        uriLower.contains('switch') || titleLower.contains('switch');
 
     IconData typeIcon = Icons.help_outline;
     if (isLooper) {
