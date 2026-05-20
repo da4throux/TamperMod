@@ -45,9 +45,9 @@ Please read and apply .agenrules
 ### 3.1 Workspace Dashboard Layout
 * **Dynamic Grid:** Built using a scrollable `Wrap` widget containing custom card instances.
 * **Card Sizing System:**
-  * **Compact (C):** Compact card (height: 110) representing minimal parameters (name/size toggle, volume/mute button, and fade in/out buttons).
-  * **Regular (R):** Standard card (height: 240) with common sliders and switches. The power button acts as a software mute toggle. Two Regular cards share a row on wide screens.
-  * **Expanded (E):** Fully expanded card (height: 240, full row width) with inline title edits and detailed sliders.
+  * **Compact (C):** Compact card (height: 110) representing minimal parameters. Name/size-toggle, gain dB, volume slider, speaker mute icon. Fade IN and OUT buttons stacked vertically side-by-side with a mini range indicator bar.
+  * **Regular (R):** Standard card (height: 240). Long-press on title = rename. Speaker icon (rightmost) = mute toggle. Size-toggle icon cycles compact→regular→expanded→compact. Fixed-width 72px dB box. Mini range indicator in the min/max row. No power button.
+  * **Expanded (E):** Full-width card (height: 520). Includes all Regular features plus: RangeSlider for fade start/end cursors, fade shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders with clipboard EXPORT, and a live CustomPainter fade curve visualiser with moving dot.
   * *ALO Loopers always use full row width at height 450.*
 
 ### 3.2 Puzzle Organizer Settings Drawer
@@ -97,6 +97,10 @@ Please read and apply .agenrules
 * [x] Update ALO looper record logic to send flat 1.0 at start of recording and nothing more.
 * [x] Update ALO looper play/pause logic to send flat 1.0 (play) / 0.0 (pause).
 * [x] Fix compilation error by restoring missing _tapTimes state field.
+* [x] Compact Gain card: Fade IN/OUT buttons stacked vertically (same 110px height), mini range indicator bar beside them.
+* [x] Regular Gain card: remove power button, add speaker mute icon, long-press title = rename, fixed 72px dB box, range mini-indicator in min/max row, size-toggle cycles compact→regular→expanded.
+* [x] Expanded Gain card: RangeSlider for fade start/end cursors, shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders + clipboard EXPORT, live CustomPainter fade visualizer with moving dot (height 520px).
+* [x] Fade engine: uses per-pedal range cursors and selected curve shape (linear/easeInOut/easeIn/easeOut/custom); tracks _fadeProgress for visualizer.
 
 ### Todo Tasks
 * [ ] Fix fadeout issues when running under `fade` mode in the Tampermonkey script.

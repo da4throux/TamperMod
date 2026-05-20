@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -12,10 +13,251 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.4';
+const String kAppVersion = '1.2.5';
 
 
 
+// ─── Custom S-Curve for fade interpolation ────────────────────────────────
+/// A [Curve] defined by a midpoint (cx, cy) and a blend factor [slope].
+/// slope=0 → pure linear, slope=1 → pure easeInOut-like.
+class _CustomSCurve extends Curve {
+  final double cx;
+  final double cy;
+  final double slope;
+
+  const _CustomSCurve({this.cx = 0.5, this.cy = 0.5, this.slope = 1.0});
+
+  @override
+  double transformInternal(double t) {
+    // Piecewise linear mid-point shifted by cx/cy
+    final double linear = t < cx
+        ? (cx > 0 ? (cy / cx) * t : 0.0)
+        : (cx < 1 ? cy + ((1.0 - cy) / (1.0 - cx)) * (t - cx) : 1.0);
+    // Blend with easeInOut using slope as the weight
+    final double eased = Curves.easeInOut.transform(t);
+    final double s = slope.clamp(0.0, 1.0);
+    return (linear * (1 - s) + eased * s).clamp(0.0, 1.0);
+  }
+}
+
+// ─── Live fade curve visualizer painter ───────────────────────────────────
+class _FadeCurvePainter extends CustomPainter {
+  final Color accentColor;
+  final Curve curve;
+  final double progress;       // 0.0–1.0, where the moving dot is
+  final int bars;
+  final double rangeStart;     // 0.0–1.0 fractional
+  final double rangeEnd;       // 0.0–1.0 fractional
+
+  _FadeCurvePainter({
+    required this.accentColor,
+    required this.curve,
+    required this.progress,
+    required this.bars,
+    required this.rangeStart,
+    required this.rangeEnd,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double padL = 28, padR = 12, padT = 8, padB = 24;
+    final double w = size.width - padL - padR;
+    final double h = size.height - padT - padB;
+
+    // Background
+    final bgPaint = Paint()..color = const Color(0xFF0A0D12);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        const Radius.circular(10),
+      ),
+      bgPaint,
+    );
+
+    // Grid lines
+    final gridPaint = Paint()
+      ..color = Colors.white.withOpacity(0.06)
+      ..strokeWidth = 0.5;
+    for (int i = 0; i <= bars; i++) {
+      final double x = padL + (i / bars) * w;
+      canvas.drawLine(Offset(x, padT), Offset(x, padT + h), gridPaint);
+    }
+    for (int i = 0; i <= 4; i++) {
+      final double y = padT + (i / 4) * h;
+      canvas.drawLine(Offset(padL, y), Offset(padL + w, y), gridPaint);
+    }
+
+    // Range dashed lines
+    final rangePaint = Paint()
+      ..color = accentColor.withOpacity(0.35)
+      ..strokeWidth = 1.0;
+    final double yStart = padT + (1.0 - rangeStart) * h;
+    final double yEnd   = padT + (1.0 - rangeEnd) * h;
+    _drawDashed(canvas, Offset(padL, yStart), Offset(padL + w, yStart), rangePaint);
+    _drawDashed(canvas, Offset(padL, yEnd),   Offset(padL + w, yEnd),   rangePaint);
+
+    // Curve line
+    final curvePaint = Paint()
+      ..color = accentColor
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final path = Path();
+    const int steps = 120;
+    for (int i = 0; i <= steps; i++) {
+      final double t = i / steps;
+      final double ct = curve.transform(t);
+      // ct=0 → bottom (muted), ct=1 → top (full)
+      final double px = padL + t * w;
+      final double py = padT + (1.0 - ct) * h;
+      if (i == 0) {
+        path.moveTo(px, py);
+      } else {
+        path.lineTo(px, py);
+      }
+    }
+    canvas.drawPath(path, curvePaint);
+
+    // Moving dot
+    if (progress > 0.0 && progress < 1.0) {
+      final double ct = curve.transform(progress);
+      final double dotX = padL + progress * w;
+      final double dotY = padT + (1.0 - ct) * h;
+      // Glow
+      canvas.drawCircle(
+        Offset(dotX, dotY),
+        9,
+        Paint()..color = accentColor.withOpacity(0.3),
+      );
+      // Core dot
+      canvas.drawCircle(
+        Offset(dotX, dotY),
+        5,
+        Paint()..color = accentColor,
+      );
+    }
+
+    // Axis labels
+    final labelStyle = TextStyle(
+      color: Colors.grey[600],
+      fontSize: 9,
+    );
+    // Bar ticks on X
+    for (int i = 0; i <= bars; i++) {
+      final double x = padL + (i / bars) * w;
+      _drawText(canvas, '$i', Offset(x - 4, padT + h + 4), labelStyle);
+    }
+    // Y labels
+    _drawText(canvas, '100%', Offset(0, padT - 2), labelStyle);
+    _drawText(canvas, '0%', Offset(4, padT + h - 6), labelStyle);
+  }
+
+  void _drawDashed(Canvas canvas, Offset start, Offset end, Paint paint) {
+    const double dashLen = 4, gapLen = 4;
+    final double dx = end.dx - start.dx;
+    final double dy = end.dy - start.dy;
+    final double len = (end - start).distance;
+    final double stepX = dx / len * (dashLen + gapLen);
+    final double stepY = dy / len * (dashLen + gapLen);
+    double drawn = 0;
+    double ox = start.dx, oy = start.dy;
+    while (drawn < len) {
+      final double dashEnd = (drawn + dashLen).clamp(0, len);
+      final double ratio = dashEnd / len;
+      canvas.drawLine(
+        Offset(ox, oy),
+        Offset(start.dx + dx * ratio, start.dy + dy * ratio),
+        paint,
+      );
+      drawn += dashLen + gapLen;
+      ox += stepX;
+      oy += stepY;
+    }
+  }
+
+  void _drawText(Canvas canvas, String text, Offset offset, TextStyle style) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, offset);
+  }
+
+  @override
+  bool shouldRepaint(_FadeCurvePainter old) =>
+      old.progress != progress ||
+      old.rangeStart != rangeStart ||
+      old.rangeEnd != rangeEnd ||
+      old.curve != curve ||
+      old.accentColor != accentColor;
+}
+
+// ─── Mini range indicator painter (compact/regular cards) ─────────────────
+class _MiniRangePainter extends CustomPainter {
+  final Color accentColor;
+  final double rangeStart; // 0.0–1.0
+  final double rangeEnd;   // 0.0–1.0
+
+  _MiniRangePainter({
+    required this.accentColor,
+    required this.rangeStart,
+    required this.rangeEnd,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double trackW = 4.0;
+    final double cx = size.width / 2;
+    const double padY = 4.0;
+    final double trackH = size.height - padY * 2;
+
+    // Background track
+    final bgPaint = Paint()
+      ..color = accentColor.withOpacity(0.12)
+      ..strokeWidth = trackW
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(cx, padY), Offset(cx, padY + trackH), bgPaint);
+
+    // Active range highlight
+    final activePaint = Paint()
+      ..color = accentColor.withOpacity(0.5)
+      ..strokeWidth = trackW
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    // Note: rangeStart=0 = bottom (muted), rangeEnd=1 = top (full volume)
+    // Draw from bottom (muted) upwards
+    final double yStart = padY + (1.0 - rangeEnd) * trackH;
+    final double yEnd   = padY + (1.0 - rangeStart) * trackH;
+    canvas.drawLine(Offset(cx, yStart), Offset(cx, yEnd), activePaint);
+
+    // Triangle handles
+    final triPaint = Paint()..color = accentColor;
+    // Start triangle (pointing right, at rangeStart)
+    final double ys = padY + (1.0 - rangeStart) * trackH;
+    final path1 = Path();
+    path1.moveTo(cx, ys);
+    path1.lineTo(cx + 6, ys - 4);
+    path1.lineTo(cx + 6, ys + 4);
+    path1.close();
+    canvas.drawPath(path1, triPaint);
+
+    // End triangle (pointing right, at rangeEnd)
+    final double ye = padY + (1.0 - rangeEnd) * trackH;
+    final path2 = Path();
+    path2.moveTo(cx, ye);
+    path2.lineTo(cx + 6, ye - 4);
+    path2.lineTo(cx + 6, ye + 4);
+    path2.close();
+    canvas.drawPath(path2, triPaint);
+  }
+
+  @override
+  bool shouldRepaint(_MiniRangePainter old) =>
+      old.rangeStart != rangeStart ||
+      old.rangeEnd != rangeEnd ||
+      old.accentColor != accentColor;
+}
 
 enum ViewMode { split, controls, web }
 
@@ -87,6 +329,19 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Track volume slider values locally to make the slider extremely responsive
   final Map<String, double> _localVolumes = {};
   final Map<String, double> _mutedVolumes = {};
+
+  // Fade range cursors: fractional [0.0–1.0] position within min..max gain range
+  final Map<String, double> _fadeRangeStart = {};
+  final Map<String, double> _fadeRangeEnd   = {};
+
+  // Per-pedal fade shape: 'linear' | 'easeInOut' | 'easeIn' | 'easeOut' | 'custom'
+  final Map<String, String> _fadeShapes = {};
+
+  // Per-pedal custom S-curve params: cx, cy, slope
+  final Map<String, Map<String, double>> _fadeCustomParams = {};
+
+  // Live fade progress [0.0–1.0] — transient, not persisted
+  final Map<String, double> _fadeProgress = {};
 
   // Custom User Ordering and Visibility List
   List<String> _enabledPluginInstances = [];
@@ -443,6 +698,33 @@ class _DashboardScreenState extends State<DashboardScreen>
         });
         _updateAllGlowsInWebView();
       }
+
+      // 5. Fade range cursors
+      final String? savedFadeStart  = prefs.getString('${key}_fadeRangeStart');
+      final String? savedFadeEnd    = prefs.getString('${key}_fadeRangeEnd');
+      final String? savedFadeShapes = prefs.getString('${key}_fadeShapes');
+      final String? savedFadeCustom = prefs.getString('${key}_fadeCustomParams');
+      if (savedFadeStart != null) {
+        final Map<String, dynamic> dec = jsonDecode(savedFadeStart);
+        dec.forEach((k, v) => _fadeRangeStart[k] = (v as num).toDouble());
+      }
+      if (savedFadeEnd != null) {
+        final Map<String, dynamic> dec = jsonDecode(savedFadeEnd);
+        dec.forEach((k, v) => _fadeRangeEnd[k] = (v as num).toDouble());
+      }
+      if (savedFadeShapes != null) {
+        final Map<String, dynamic> dec = jsonDecode(savedFadeShapes);
+        dec.forEach((k, v) => _fadeShapes[k] = v.toString());
+      }
+      if (savedFadeCustom != null) {
+        final Map<String, dynamic> outer = jsonDecode(savedFadeCustom);
+        outer.forEach((k, v) {
+          final Map<String, dynamic> inner = jsonDecode(v.toString());
+          _fadeCustomParams[k] = inner.map(
+            (ik, iv) => MapEntry(ik, (iv as num).toDouble()),
+          );
+        });
+      }
     } catch (e) {
       debugPrint('Error loading layout settings: $e');
     }
@@ -630,18 +912,51 @@ class _DashboardScreenState extends State<DashboardScreen>
     final double minRange = pedal.minGain;
     final double maxRange = pedal.maxGain;
 
+    // Read fade range cursors (fractional 0.0–1.0)
+    final double rangeStartFrac = _fadeRangeStart[pedal.instance] ?? 0.0;
+    final double rangeEndFrac   = _fadeRangeEnd[pedal.instance]   ?? 1.0;
+
+    // Convert fractional range to actual dB values
+    final double fadeMin = minRange + rangeStartFrac * (maxRange - minRange);
+    final double fadeMax = minRange + rangeEndFrac   * (maxRange - minRange);
+
     final double startVal = currentValue.clamp(minRange, maxRange);
 
     double targetEndValue;
     if (fadeIn) {
-      targetEndValue = _preFadeVolumes[pedal.instance] ?? 0.0;
-      targetEndValue = targetEndValue.clamp(minRange, maxRange);
+      targetEndValue = _preFadeVolumes[pedal.instance] ?? fadeMax;
+      targetEndValue = targetEndValue.clamp(fadeMin, fadeMax);
     } else {
-      // Save current pre-fade volume if it's substantial
-      if (startVal > minRange + 5.0) {
+      // Save current pre-fade volume if it's above floor
+      if (startVal > fadeMin + 1.0) {
         _preFadeVolumes[pedal.instance] = startVal;
       }
-      targetEndValue = minRange;
+      targetEndValue = fadeMin;
+    }
+
+    // Resolve the curve to use
+    final String shapeName = _fadeShapes[pedal.instance] ?? 'easeInOut';
+    final Curve selectedCurve;
+    switch (shapeName) {
+      case 'linear':
+        selectedCurve = Curves.linear;
+        break;
+      case 'easeIn':
+        selectedCurve = Curves.easeIn;
+        break;
+      case 'easeOut':
+        selectedCurve = Curves.easeOut;
+        break;
+      case 'custom':
+        final params = _fadeCustomParams[pedal.instance] ?? {};
+        selectedCurve = _CustomSCurve(
+          cx: params['cx'] ?? 0.5,
+          cy: params['cy'] ?? 0.5,
+          slope: params['slope'] ?? 1.0,
+        );
+        break;
+      default:
+        selectedCurve = Curves.easeInOut;
     }
 
     // Duration in seconds: (60 / BPM) * 4 beats per bar * bars count
@@ -657,6 +972,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     setState(() {
       _fadeDirections[pedal.instance] = fadeIn;
+      _fadeProgress[pedal.instance]   = 0.0;
     });
 
     _fadeTimers[pedal.instance] = Timer.periodic(
@@ -671,7 +987,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (currentStep >= totalSteps) {
           setState(() {
             _localVolumes[pedal.instance] = targetEndValue;
-            _fadeTimers[pedal.instance] = null;
+            _fadeTimers[pedal.instance]   = null;
+            _fadeProgress[pedal.instance] = 0.0;
           });
           _webSocketService.setParamValue(
             instance: pedal.instance,
@@ -680,14 +997,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
           timer.cancel();
         } else {
-          // Compute S-curve interpolation using Curves.easeInOut
           final double progress = currentStep / totalSteps;
-          final double curvedProgress = Curves.easeInOut.transform(progress);
+          final double curvedProgress = selectedCurve.transform(progress);
           final double intermediateVal =
               startVal + (targetEndValue - startVal) * curvedProgress;
 
           setState(() {
             _localVolumes[pedal.instance] = intermediateVal;
+            _fadeProgress[pedal.instance] = progress;
           });
           _webSocketService.setParamValue(
             instance: pedal.instance,
@@ -1355,8 +1672,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       cardWidth = regularWidth;
                       cardHeight = 240.0;
                     } else {
+                      // Expanded gain card — taller to accommodate range selector + visualizer
                       cardWidth = expandedWidth;
-                      cardHeight = 240.0;
+                      cardHeight = 520.0;
                     }
                   }
 
@@ -1405,32 +1723,161 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final double minRange = pedal.minGain;
     final double maxRange = pedal.maxGain;
-
     final double clampedValue = currentValue.clamp(minRange, maxRange);
     final bool isBypassed = pedal.isBypassed;
 
-    // Read the custom glow configuration
     final String colorHex =
         _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
-
-    // Design states based on active status and chosen neon color
     final Color accentColor = isBypassed ? Colors.grey[600]! : glowColor;
-
     final bool isMuted = _isMuted(pedal);
-    final Color powerIconColor = isMuted
-        ? const Color(0xFFFF007F)
-        : glowColor;
-
     final double cardOpacity = isBypassed ? 0.70 : 1.0;
 
-    // Check if dynamic fading is active
     final bool isFading = _fadeTimers[pedal.instance] != null;
-    final bool isFadingIn =
-        isFading && (_fadeDirections[pedal.instance] == true);
-    final bool isFadingOut =
-        isFading && (_fadeDirections[pedal.instance] == false);
+    final bool isFadingIn  = isFading && (_fadeDirections[pedal.instance] == true);
+    final bool isFadingOut = isFading && (_fadeDirections[pedal.instance] == false);
 
+    // Range cursor fractions
+    final double rangeStart = _fadeRangeStart[pedal.instance] ?? 0.0;
+    final double rangeEnd   = _fadeRangeEnd[pedal.instance]   ?? 1.0;
+
+    // ── Shared slider builder ────────────────────────────────────────
+    Widget buildVolumeSlider({bool compact = false}) {
+      return SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          activeTrackColor: accentColor,
+          inactiveTrackColor: _isDarkMode ? Colors.grey[850] : Colors.grey[300],
+          trackHeight: compact ? 4.0 : 12.0,
+          thumbColor: isBypassed
+              ? Colors.grey[400]
+              : (_isDarkMode ? Colors.white : Colors.grey[100]),
+          thumbShape: RoundSliderThumbShape(
+            enabledThumbRadius: compact ? 6.0 : 15.0,
+          ),
+          overlayColor: accentColor.withOpacity(0.2),
+          overlayShape: RoundSliderOverlayShape(
+            overlayRadius: compact ? 12.0 : 28.0,
+          ),
+        ),
+        child: Slider(
+          value: clampedValue,
+          min: minRange,
+          max: maxRange,
+          onChanged: (newValue) {
+            _fadeTimers[pedal.instance]?.cancel();
+            if (_mutedVolumes.containsKey(pedal.instance)) {
+              _mutedVolumes.remove(pedal.instance);
+            }
+            setState(() {
+              _fadeTimers[pedal.instance]  = null;
+              _fadeProgress[pedal.instance] = 0.0;
+              _localVolumes[pedal.instance] = newValue;
+            });
+            if (pedal.gainPortSymbol != null) {
+              _webSocketService.setParamValue(
+                instance: pedal.instance,
+                port: pedal.gainPortSymbol!,
+                value: double.parse(newValue.toStringAsFixed(2)),
+              );
+            }
+          },
+        ),
+      );
+    }
+
+    // ── Mini range indicator (compact / regular) ─────────────────────
+    Widget buildMiniRangeIndicator() {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 32,
+            child: CustomPaint(
+              painter: _MiniRangePainter(
+                accentColor: accentColor,
+                rangeStart: rangeStart,
+                rangeEnd: rangeEnd,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Text(
+            '${(rangeStart * 100).round()}–${(rangeEnd * 100).round()}%',
+            style: TextStyle(
+              fontSize: 8,
+              color: accentColor.withOpacity(0.7),
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      );
+    }
+
+    // ── Mute speaker icon ────────────────────────────────────────────
+    Widget buildMuteIcon({double size = 22}) {
+      return GestureDetector(
+        onTap: () => _toggleMute(pedal),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Icon(
+            isMuted ? Icons.volume_off : Icons.volume_up,
+            color: isMuted ? const Color(0xFFFF007F) : accentColor,
+            size: size,
+          ),
+        ),
+      );
+    }
+
+    // ── Fixed-width dB value box ─────────────────────────────────────
+    Widget buildDbBox({double fontSize = 14}) {
+      return SizedBox(
+        width: 72,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? Colors.black : Colors.grey[900],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: accentColor.withOpacity(0.5)),
+          ),
+          child: Text(
+            '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w900,
+              color: accentColor,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ── Size-toggle icon ─────────────────────────────────────────────
+    Widget buildSizeToggle() {
+      return GestureDetector(
+        onTap: () {
+          final String current = _pedalSizes[pedal.instance] ?? 'regular';
+          final String next = current == 'compact'
+              ? 'regular'
+              : current == 'regular'
+                  ? 'expanded'
+                  : 'compact';
+          setState(() { _pedalSizes[pedal.instance] = next; });
+          _saveLayoutSettings();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(
+            Icons.aspect_ratio,
+            size: 14,
+            color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
+          ),
+        ),
+      );
+    }
+
+    // ── Card shell ───────────────────────────────────────────────────
     return GestureDetector(
       onLongPress: () => _showColorPickerDialog(pedal),
       child: Opacity(
@@ -1444,13 +1891,11 @@ class _DashboardScreenState extends State<DashboardScreen>
               width: 1.5,
             ),
             boxShadow: [
-              // 1. Very bright glow just around the device (small spread/blur)
               BoxShadow(
                 color: glowColor.withOpacity(isBypassed ? 0.0 : 0.85),
                 blurRadius: 8,
                 spreadRadius: 2,
               ),
-              // 2. Softer glow that goes further away
               BoxShadow(
                 color: glowColor.withOpacity(
                   isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35),
@@ -1462,11 +1907,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           child: Padding(
             padding: EdgeInsets.all(size == 'compact' ? 10.0 : 16.0),
+
+            // ════════════════════════════════════════════
+            //  COMPACT VIEW
+            // ════════════════════════════════════════════
             child: size == 'compact'
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Row 1: Name, size toggle, and current gain
+                      // Row 1: Name | size-toggle | dB
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1474,12 +1923,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => _highlightPedalInWebView(pedal),
+                              onLongPress: () => _showRenameDialog(pedal),
                               child: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      (_customTitles[pedal.instance] ?? pedal.title)
-                                          .toUpperCase(),
+                                      (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
                                       style: TextStyle(
                                         fontSize: 11.5,
                                         fontWeight: FontWeight.w900,
@@ -1488,33 +1937,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ),
                                     ),
                                   ),
-                                  GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _pedalSizes[pedal.instance] = 'regular';
-                                      });
-                                      _saveLayoutSettings();
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                      child: Icon(
-                                        Icons.aspect_ratio,
-                                        size: 12,
-                                        color: _isDarkMode
-                                            ? Colors.grey[500]
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
+                                  buildSizeToggle(),
                                 ],
                               ),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${clampedValue.toStringAsFixed(1)} dB',
+                            '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
                             style: TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 10,
                               fontWeight: FontWeight.w900,
                               color: accentColor,
                               fontFamily: 'monospace',
@@ -1523,368 +1955,555 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ],
                       ),
                       const Spacer(),
-                      // Row 2: Volume Slider and Mute Toggle
+                      // Row 2: Slider | Mute icon
                       Row(
                         children: [
-                          Expanded(
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: accentColor,
-                                inactiveTrackColor: _isDarkMode
-                                    ? Colors.grey[850]
-                                    : Colors.grey[300],
-                                trackHeight: 4.0,
-                                thumbColor: isBypassed
-                                    ? Colors.grey[400]
-                                    : (_isDarkMode
-                                          ? Colors.white
-                                          : Colors.grey[100]),
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 6.0,
-                                ),
-                                overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 12.0,
-                                ),
-                              ),
-                              child: Slider(
-                                value: clampedValue,
-                                min: minRange,
-                                max: maxRange,
-                                onChanged: (newValue) {
-                                  _fadeTimers[pedal.instance]?.cancel();
-                                  if (_mutedVolumes.containsKey(pedal.instance)) {
-                                    _mutedVolumes.remove(pedal.instance);
-                                  }
-                                  setState(() {
-                                    _fadeTimers[pedal.instance] = null;
-                                    _localVolumes[pedal.instance] = newValue;
-                                  });
-                                  if (pedal.gainPortSymbol != null) {
-                                    _webSocketService.setParamValue(
-                                      instance: pedal.instance,
-                                      port: pedal.gainPortSymbol!,
-                                      value: double.parse(
-                                        newValue.toStringAsFixed(2),
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
+                          Expanded(child: buildVolumeSlider(compact: true)),
                           const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () => _toggleMute(pedal),
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 4, right: 2),
-                              child: Icon(
-                                _isMuted(pedal) ? Icons.volume_off : Icons.volume_up,
-                                color: _isMuted(pedal)
-                                    ? const Color(0xFFFF007F)
-                                    : accentColor,
-                                size: 18,
-                              ),
-                            ),
-                          ),
+                          buildMuteIcon(size: 18),
                         ],
                       ),
-                      const Spacer(),
-                      // Row 3: Fade In and Fade Out buttons
+                      const SizedBox(height: 4),
+                      // Row 3: [IN/OUT stacked] | mini range indicator
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          _buildFadeButton(
-                            label: 'IN',
-                            icon: Icons.trending_up,
-                            isBypassed: isBypassed,
-                            onTap: () => _triggerFade(pedal, fadeIn: true),
-                            accentColor: accentColor,
-                            isFading: isFadingIn,
-                            isCompact: true,
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              children: [
+                                _buildFadeButton(
+                                  label: 'IN',
+                                  icon: Icons.trending_up,
+                                  isBypassed: isBypassed,
+                                  onTap: () => _triggerFade(pedal, fadeIn: true),
+                                  accentColor: accentColor,
+                                  isFading: isFadingIn,
+                                  isCompact: true,
+                                ),
+                                const SizedBox(height: 2),
+                                _buildFadeButton(
+                                  label: 'OUT',
+                                  icon: Icons.trending_down,
+                                  isBypassed: isBypassed,
+                                  onTap: () => _triggerFade(pedal, fadeIn: false),
+                                  accentColor: accentColor,
+                                  isFading: isFadingOut,
+                                  isCompact: true,
+                                ),
+                              ],
+                            ),
                           ),
-                          _buildFadeButton(
-                            label: 'OUT',
-                            icon: Icons.trending_down,
-                            isBypassed: isBypassed,
-                            onTap: () => _triggerFade(pedal, fadeIn: false),
-                            accentColor: accentColor,
-                            isFading: isFadingOut,
-                            isCompact: true,
+                          const SizedBox(width: 6),
+                          Expanded(
+                            flex: 1,
+                            child: buildMiniRangeIndicator(),
                           ),
                         ],
                       ),
                     ],
                   )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header parameters
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                // ════════════════════════════════════════════
+                //  REGULAR VIEW
+                // ════════════════════════════════════════════
+                : size == 'regular'
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => _highlightPedalInWebView(pedal),
-                              child: Tooltip(
-                                message: 'Tap to locate in Web interface',
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            (_customTitles[pedal.instance] ??
-                                                    pedal.title)
-                                                .toUpperCase(),
-                                            style: TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w900,
-                                              color: accentColor,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.edit,
-                                            size: 14,
-                                            color: _isDarkMode
-                                                ? Colors.grey[500]
-                                                : Colors.grey[600],
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () =>
-                                              _showRenameDialog(pedal),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.help_outline,
-                                            size: 14,
-                                            color: accentColor.withOpacity(0.8),
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () => _showModuleHelpSheet(
-                                            context,
-                                            'gain',
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.aspect_ratio,
-                                            size: 14,
-                                            color: _isDarkMode
-                                                ? Colors.grey[500]
-                                                : Colors.grey[600],
-                                          ),
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () {
-                                            setState(() {
-                                              _pedalSizes[pedal.instance] = 'compact';
-                                            });
-                                            _saveLayoutSettings();
-                                          },
-                                        ),
-                                      ],
+                          // Row 1 header
+                          Row(
+                            children: [
+                              // Title: tap = highlight, long press = rename
+                              Expanded(
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => _highlightPedalInWebView(pedal),
+                                  onLongPress: () => _showRenameDialog(pedal),
+                                  child: Text(
+                                    (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w900,
+                                      color: accentColor,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () =>
-                                                _openPluginUri(pedal.uri),
-                                            child: Text(
-                                              pedal.uri,
-                                              style: TextStyle(
-                                                fontSize: 8.5,
-                                                color: _isDarkMode
-                                                    ? const Color(0xFF00FFCC)
-                                                    : const Color(0xFF00B3FF),
-                                                decoration:
-                                                    TextDecoration.underline,
-                                                fontFamily: 'monospace',
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Port: ${pedal.gainPortSymbol ?? "Gain"}',
-                                          style: TextStyle(
-                                            fontSize: 8.5,
-                                            color: _isDarkMode
-                                                ? Colors.grey[500]
-                                                : Colors.grey[750],
-                                            fontFamily: 'monospace',
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-
-                          // Power Switch acting as mute toggle
-                          IconButton(
-                            icon: Icon(
-                              Icons.power_settings_new,
-                              color: powerIconColor,
-                              size: 26,
-                            ),
-                            tooltip: _isMuted(pedal) ? 'Unmute' : 'Mute',
-                            onPressed: () => _toggleMute(pedal),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Decibel Value Box
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _isDarkMode
-                                  ? Colors.black
-                                  : Colors.grey[900],
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: accentColor.withOpacity(0.5),
+                              // Help icon
+                              GestureDetector(
+                                onTap: () => _showModuleHelpSheet(context, 'gain'),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.7)),
+                                ),
                               ),
-                            ),
+                              // Size toggle
+                              buildSizeToggle(),
+                              const SizedBox(width: 4),
+                              // Fixed-width dB box
+                              buildDbBox(),
+                              const SizedBox(width: 4),
+                              // Speaker mute icon
+                              buildMuteIcon(),
+                            ],
+                          ),
+                          const Spacer(),
+                          // URI subtitle
+                          GestureDetector(
+                            onTap: () => _openPluginUri(pedal.uri),
                             child: Text(
-                              '${clampedValue.toStringAsFixed(1)} dB',
+                              pedal.uri,
                               style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: accentColor,
+                                fontSize: 8.5,
+                                color: _isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF),
+                                decoration: TextDecoration.underline,
                                 fontFamily: 'monospace',
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                      const Spacer(),
-
-                      // Custom styled Volume Slider
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.volume_mute,
-                            color: _isDarkMode
-                                ? Colors.grey[isBypassed ? 700 : 600]
-                                : Colors.grey[isBypassed ? 600 : 700],
-                            size: 20,
+                          const SizedBox(height: 6),
+                          // Volume slider row
+                          Row(
+                            children: [
+                              Icon(Icons.volume_mute,
+                                  color: _isDarkMode
+                                      ? Colors.grey[isBypassed ? 700 : 600]
+                                      : Colors.grey[isBypassed ? 600 : 700],
+                                  size: 20),
+                              Expanded(child: buildVolumeSlider()),
+                              Icon(Icons.volume_up, color: accentColor, size: 20),
+                            ],
                           ),
-                          Expanded(
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: accentColor,
-                                inactiveTrackColor: _isDarkMode
-                                    ? Colors.grey[850]
-                                    : Colors.grey[300],
-                                trackHeight: 12.0,
-                                thumbColor: isBypassed
-                                    ? Colors.grey[400]
-                                    : (_isDarkMode
-                                          ? Colors.white
-                                          : Colors.grey[100]),
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 15.0,
-                                ),
-                                overlayColor: accentColor.withOpacity(0.2),
-                                overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 28.0,
+                          const SizedBox(height: 2),
+                          // Min / range bar / max row
+                          Row(
+                            children: [
+                              Text(
+                                '${minRange.toStringAsFixed(1)} dB',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: _isDarkMode
+                                      ? Colors.grey[isBypassed ? 750 : 650]
+                                      : Colors.grey[isBypassed ? 600 : 700],
                                 ),
                               ),
-                              child: Slider(
-                                value: clampedValue,
-                                min: minRange,
-                                max: maxRange,
-                                onChanged: (newValue) {
-                                  // Interrupt and cancel any active fade immediately if user moves thumb
-                                  _fadeTimers[pedal.instance]?.cancel();
-                                  setState(() {
-                                    _fadeTimers[pedal.instance] = null;
-                                    _localVolumes[pedal.instance] = newValue;
-                                  });
-
-                                  if (pedal.gainPortSymbol != null) {
-                                    _webSocketService.setParamValue(
-                                      instance: pedal.instance,
-                                      port: pedal.gainPortSymbol!,
-                                      value: double.parse(
-                                        newValue.toStringAsFixed(2),
-                                      ),
-                                    );
-                                  }
-                                },
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: buildMiniRangeIndicator(),
+                                ),
                               ),
-                            ),
+                              Text(
+                                '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: _isDarkMode
+                                      ? Colors.grey[isBypassed ? 750 : 650]
+                                      : Colors.grey[isBypassed ? 600 : 700],
+                                ),
+                              ),
+                            ],
                           ),
-                          Icon(Icons.volume_up, color: accentColor, size: 20),
+                          const SizedBox(height: 8),
+                          // Fade buttons row
+                          Row(
+                            children: [
+                              _buildFadeButton(
+                                label: 'FADE IN',
+                                icon: Icons.trending_up,
+                                isBypassed: isBypassed,
+                                onTap: () => _triggerFade(pedal, fadeIn: true),
+                                accentColor: accentColor,
+                                isFading: isFadingIn,
+                              ),
+                              _buildFadeButton(
+                                label: 'FADE OUT',
+                                icon: Icons.trending_down,
+                                isBypassed: isBypassed,
+                                onTap: () => _triggerFade(pedal, fadeIn: false),
+                                accentColor: accentColor,
+                                isFading: isFadingOut,
+                              ),
+                            ],
+                          ),
                         ],
-                      ),
+                      )
 
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '${minRange.toStringAsFixed(1)} dB',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: _isDarkMode
-                                  ? Colors.grey[isBypassed ? 750 : 650]
-                                  : Colors.grey[isBypassed ? 600 : 700],
-                            ),
-                          ),
-                          Text(
-                            '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB (Max)',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: _isDarkMode
-                                  ? Colors.grey[isBypassed ? 750 : 650]
-                                  : Colors.grey[isBypassed ? 600 : 700],
-                            ),
-                          ),
-                        ],
+                    // ════════════════════════════════════════════
+                    //  EXPANDED VIEW
+                    // ════════════════════════════════════════════
+                    : _buildExpandedGainCard(
+                        pedal: pedal,
+                        minRange: minRange,
+                        maxRange: maxRange,
+                        clampedValue: clampedValue,
+                        isBypassed: isBypassed,
+                        accentColor: accentColor,
+                        isMuted: isMuted,
+                        isFadingIn: isFadingIn,
+                        isFadingOut: isFadingOut,
+                        rangeStart: rangeStart,
+                        rangeEnd: rangeEnd,
+                        buildVolumeSlider: buildVolumeSlider,
+                        buildMuteIcon: buildMuteIcon,
+                        buildDbBox: buildDbBox,
+                        buildSizeToggle: buildSizeToggle,
                       ),
-                      const SizedBox(height: 8),
-
-                      // Fade Action Row
-                      Row(
-                        children: [
-                          _buildFadeButton(
-                            label: 'FADE IN',
-                            icon: Icons.trending_up,
-                            isBypassed: isBypassed,
-                            onTap: () => _triggerFade(pedal, fadeIn: true),
-                            accentColor: accentColor,
-                            isFading: isFadingIn,
-                          ),
-                          _buildFadeButton(
-                            label: 'FADE OUT',
-                            icon: Icons.trending_down,
-                            isBypassed: isBypassed,
-                            onTap: () => _triggerFade(pedal, fadeIn: false),
-                            accentColor: accentColor,
-                            isFading: isFadingOut,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Expanded gain card body (extracted for readability).
+  Widget _buildExpandedGainCard({
+    required PluginInstance pedal,
+    required double minRange,
+    required double maxRange,
+    required double clampedValue,
+    required bool isBypassed,
+    required Color accentColor,
+    required bool isMuted,
+    required bool isFadingIn,
+    required bool isFadingOut,
+    required double rangeStart,
+    required double rangeEnd,
+    required Widget Function({bool compact}) buildVolumeSlider,
+    required Widget Function({double size}) buildMuteIcon,
+    required Widget Function({double fontSize}) buildDbBox,
+    required Widget Function() buildSizeToggle,
+  }) {
+    // Resolve the selected curve for display
+    final String shapeName = _fadeShapes[pedal.instance] ?? 'easeInOut';
+    final Curve displayCurve;
+    switch (shapeName) {
+      case 'linear':   displayCurve = Curves.linear;  break;
+      case 'easeIn':   displayCurve = Curves.easeIn;  break;
+      case 'easeOut':  displayCurve = Curves.easeOut; break;
+      case 'custom':
+        final p = _fadeCustomParams[pedal.instance] ?? {};
+        displayCurve = _CustomSCurve(
+          cx: p['cx'] ?? 0.5,
+          cy: p['cy'] ?? 0.5,
+          slope: p['slope'] ?? 1.0,
+        );
+        break;
+      default:         displayCurve = Curves.easeInOut;
+    }
+
+    final double fadeProgress = _fadeProgress[pedal.instance] ?? 0.0;
+
+    // Custom params (with defaults)
+    final Map<String, double> customP =
+        _fadeCustomParams[pedal.instance] ?? {'cx': 0.5, 'cy': 0.5, 'slope': 1.0};
+
+    const List<Map<String, String>> shapeOptions = [
+      {'key': 'linear',    'label': 'LINEAR'},
+      {'key': 'easeInOut', 'label': 'S1'},
+      {'key': 'easeIn',    'label': 'S2'},
+      {'key': 'easeOut',   'label': 'S3'},
+      {'key': 'custom',    'label': 'CUSTOM'},
+    ];
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──────────────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _highlightPedalInWebView(pedal),
+                  onLongPress: () => _showRenameDialog(pedal),
+                  child: Text(
+                    (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: accentColor,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _showModuleHelpSheet(context, 'gain'),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.7)),
+                ),
+              ),
+              buildSizeToggle(),
+              const SizedBox(width: 4),
+              buildDbBox(),
+              const SizedBox(width: 4),
+              buildMuteIcon(),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // URI
+          GestureDetector(
+            onTap: () => _openPluginUri(pedal.uri),
+            child: Text(
+              pedal.uri,
+              style: TextStyle(
+                fontSize: 8.5,
+                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                decoration: TextDecoration.underline,
+                fontFamily: 'monospace',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ── Volume slider ───────────────────────────────────────────
+          Row(
+            children: [
+              Icon(Icons.volume_mute,
+                  color: _isDarkMode
+                      ? Colors.grey[isBypassed ? 700 : 600]
+                      : Colors.grey[isBypassed ? 600 : 700],
+                  size: 20),
+              Expanded(child: buildVolumeSlider()),
+              Icon(Icons.volume_up, color: accentColor, size: 20),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('${minRange.toStringAsFixed(1)} dB',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+              Text('${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+                  style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // ── Fade Range Selector ─────────────────────────────────────
+          Text('FADE RANGE',
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                  color: accentColor.withOpacity(0.7), letterSpacing: 1.2)),
+          const SizedBox(height: 2),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: accentColor.withOpacity(0.6),
+              inactiveTrackColor: accentColor.withOpacity(0.15),
+              thumbColor: accentColor,
+              overlayColor: accentColor.withOpacity(0.15),
+              rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 10),
+              trackHeight: 5,
+            ),
+            child: RangeSlider(
+              values: RangeValues(rangeStart, rangeEnd),
+              min: 0.0,
+              max: 1.0,
+              divisions: 20,
+              labels: RangeLabels(
+                '${(rangeStart * 100).round()}%',
+                '${(rangeEnd * 100).round()}%',
+              ),
+              onChanged: (RangeValues vals) {
+                if (vals.end - vals.start < 0.05) return;
+                setState(() {
+                  _fadeRangeStart[pedal.instance] = vals.start;
+                  _fadeRangeEnd[pedal.instance]   = vals.end;
+                });
+                _saveLayoutSettings();
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Start: ${(minRange + rangeStart * (maxRange - minRange)).toStringAsFixed(1)} dB',
+                style: TextStyle(fontSize: 9, color: accentColor.withOpacity(0.8), fontFamily: 'monospace'),
+              ),
+              Text(
+                'End: ${(minRange + rangeEnd * (maxRange - minRange)).toStringAsFixed(1)} dB',
+                style: TextStyle(fontSize: 9, color: accentColor.withOpacity(0.8), fontFamily: 'monospace'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // ── Fade Shape Selector ─────────────────────────────────────
+          Text('FADE SHAPE',
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                  color: accentColor.withOpacity(0.7), letterSpacing: 1.2)),
+          const SizedBox(height: 4),
+          Row(
+            children: shapeOptions.map((opt) {
+              final bool isSelected = shapeName == opt['key'];
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() { _fadeShapes[pedal.instance] = opt['key']!; });
+                    _saveLayoutSettings();
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? accentColor.withOpacity(0.2)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isSelected ? accentColor : Colors.grey[700]!,
+                        width: isSelected ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Text(
+                      opt['label']!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected ? accentColor : Colors.grey[500],
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          // ── Custom S-Curve sliders ──────────────────────────────────
+          if (shapeName == 'custom') ...[
+            const SizedBox(height: 8),
+            Text('CUSTOM CURVE',
+                style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700,
+                    color: accentColor.withOpacity(0.7), letterSpacing: 1.2)),
+            const SizedBox(height: 4),
+            ...['cx', 'cy', 'slope'].map((param) {
+              final double val = customP[param] ?? 0.5;
+              final Map<String, String> labels = {
+                'cx': 'CENTER X', 'cy': 'CENTER Y', 'slope': 'BLEND',
+              };
+              return Row(
+                children: [
+                  SizedBox(
+                    width: 60,
+                    child: Text(labels[param]!,
+                        style: TextStyle(fontSize: 8, color: Colors.grey[500])),
+                  ),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: accentColor.withOpacity(0.7),
+                        inactiveTrackColor: accentColor.withOpacity(0.15),
+                        thumbColor: accentColor,
+                        trackHeight: 3,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                      ),
+                      child: Slider(
+                        value: val,
+                        min: 0.0,
+                        max: 1.0,
+                        onChanged: (v) {
+                          setState(() {
+                            _fadeCustomParams[pedal.instance] = {
+                              ...customP,
+                              param: v,
+                            };
+                          });
+                          _saveLayoutSettings();
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 32,
+                    child: Text(val.toStringAsFixed(2),
+                        style: TextStyle(fontSize: 9, fontFamily: 'monospace',
+                            color: accentColor.withOpacity(0.8))),
+                  ),
+                ],
+              );
+            }),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () {
+                  final String json = jsonEncode({
+                    'shape': 'custom',
+                    ...customP,
+                  });
+                  Clipboard.setData(ClipboardData(text: json));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Custom curve copied to clipboard'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: accentColor.withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'EXPORT',
+                    style: TextStyle(fontSize: 9, color: accentColor, letterSpacing: 1),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+
+          // ── Live Fade Curve Visualizer ──────────────────────────────
+          SizedBox(
+            height: 120,
+            child: CustomPaint(
+              painter: _FadeCurvePainter(
+                accentColor: accentColor,
+                curve: displayCurve,
+                progress: fadeProgress,
+                bars: _fadeBars,
+                rangeStart: rangeStart,
+                rangeEnd: rangeEnd,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ── Fade buttons ────────────────────────────────────────────
+          Row(
+            children: [
+              _buildFadeButton(
+                label: 'FADE IN',
+                icon: Icons.trending_up,
+                isBypassed: isBypassed,
+                onTap: () => _triggerFade(pedal, fadeIn: true),
+                accentColor: accentColor,
+                isFading: isFadingIn,
+              ),
+              _buildFadeButton(
+                label: 'FADE OUT',
+                icon: Icons.trending_down,
+                isBypassed: isBypassed,
+                onTap: () => _triggerFade(pedal, fadeIn: false),
+                accentColor: accentColor,
+                isFading: isFadingOut,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -3332,6 +3951,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setStringList('${key}_enabled', _enabledPluginInstances);
       await prefs.setString('${key}_colors', jsonEncode(_pedalGlowColors));
       await prefs.setString('${key}_sizes', jsonEncode(_pedalSizes));
+      // Fade settings
+      await prefs.setString('${key}_fadeRangeStart', jsonEncode(_fadeRangeStart));
+      await prefs.setString('${key}_fadeRangeEnd',   jsonEncode(_fadeRangeEnd));
+      await prefs.setString('${key}_fadeShapes',     jsonEncode(_fadeShapes));
+      // Encode nested map: Map<String, Map<String, double>>
+      final customEncoded = _fadeCustomParams.map(
+        (k, v) => MapEntry(k, jsonEncode(v)),
+      );
+      await prefs.setString('${key}_fadeCustomParams', jsonEncode(customEncoded));
       debugPrint('Saved layout settings for $key');
     } catch (e) {
       debugPrint('Error saving layout settings: $e');
