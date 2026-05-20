@@ -10,7 +10,7 @@
 - Updated `kAppVersion` → `1.2.5` and `pubspec.yaml`.
 
 ## 🔧 Currently In Progress
-Nothing mid-flight. Build verification in progress.
+Nothing mid-flight. Committed at v1.2.5 and APK debug build verified.
 
 ## ➡️ Recommended Next Step
 First unchecked item in `SPECIFICATION.md` §4 Todo:
