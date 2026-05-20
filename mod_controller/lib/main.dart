@@ -1737,7 +1737,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   if (isLooper) {
                     cardWidth = expandedWidth;
-                    cardHeight = 450.0;
+                    cardHeight = null; // Auto-expand to fit all content
                   } else {
                     if (size == 'compact') {
                       // Same height as regular — fade buttons take full width
