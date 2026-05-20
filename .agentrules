@@ -3,8 +3,8 @@
 ## 1. Git Commit Protocol (Strict)
 You are an autonomous agent with terminal and file system access. You must manage git versioning strictly using this three-tier system:
 * **Micro-Saves (vX.Y.Z):** Every time you successfully implement a working feature, fix a bug, or get a component to compile/run smoothly, you MUST automatically run a git commit. 
-* Increment the `Z` index (e.g., v0.0.1 -> v0.0.2).
-* Command format: `git commit -m "agent(v0.0.Z): [brief description of work done]"`
+* Increment the `Z` index to track agent micro-saves, prefixing with the current application version's major/minor indexes (e.g., if the app is v1.1.x, the next save is v1.1.3, then v1.1.4, etc.).
+* Command format: `git commit -m "agent(vX.Y.Z): [brief description of work done]"`
 * **Milestones (vX.Y.0):** You are forbidden from upgrading the `X` or `Y` version indexes on your own. When a major logical feature block from `SPECIFICATION.md` is fully operational, stop and ask the user to authorize a milestone commit.
 
 ## 2. Source of Truth & Execution Protocol
