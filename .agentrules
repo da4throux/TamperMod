@@ -6,6 +6,7 @@ Before doing any work, every agent — regardless of model — MUST execute thes
 2. Run `git log --oneline -10` to understand the most recent work done.
 3. Read `SPECIFICATION.md` to align on architecture, UI rules, and the current Todo list.
 4. Read `CURRENT_FOCUS.md` to understand what the user was working on last and what is next.
+5. Read `README.md` for another view on the philosophy and architecture of the application.
 Only after these four steps may the agent begin responding to requests or making changes.
 
 ---
@@ -25,6 +26,7 @@ You are an autonomous agent with terminal and file system access. You must manag
 * **Progress Tracking (MANDATORY — not optional):** On every micro-save commit you MUST:
 1. Update `SPECIFICATION.md`: flip completed `[ ]` checkboxes to `[x]`, update any §3 UI/UX rules that changed, and remove stale content.
 2. Update `CURRENT_FOCUS.md`: record what was just completed, what is currently in progress, and what the next recommended step is.
+3. Update `README.md`: maintain at current level the general philosophy, structure of the project (flutter application is in mod_controller/) and architecture of the application.
 Both files MUST be included in the same commit as the feature work. Not updating them is a protocol violation.
 * Do not jump ahead to other features until current checkboxes are completed.
 

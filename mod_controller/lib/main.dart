@@ -13,7 +13,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.6';
+const String kAppVersion = '1.2.7';
 
 // ─── Custom S-Curve for fade interpolation ────────────────────────────────
 /// A [Curve] defined by a midpoint (cx, cy) and a blend factor [slope].
@@ -1926,7 +1926,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
 
-    // ── Size-toggle icon ─────────────────────────────────────────────
+    // ── Size-toggle icon (left of title, bigger for finger tap) ──────
     Widget buildSizeToggle() {
       return GestureDetector(
         onTap: () {
@@ -1941,13 +1941,16 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
           _saveLayoutSettings();
         },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Icon(
-            Icons.aspect_ratio,
-            size: 14,
-            color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: (_isDarkMode ? Colors.grey[800] : Colors.grey[300])!
+                .withOpacity(0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: accentColor.withOpacity(0.4), width: 1.0),
           ),
+          child: Icon(Icons.aspect_ratio, size: 18, color: accentColor),
         ),
       );
     }
@@ -1990,9 +1993,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Row 1: Name | size-toggle | dB | mute
+                      // Row 1: size-toggle | Name | dB | mute
                       Row(
                         children: [
+                          buildSizeToggle(),
+                          const SizedBox(width: 4),
                           Expanded(
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
@@ -2010,7 +2015,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                             ),
                           ),
-                          buildSizeToggle(),
                           const SizedBox(width: 4),
                           Text(
                             '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
@@ -2106,6 +2110,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       // Row 1 header
                       Row(
                         children: [
+                          // Size toggle (left of title)
+                          buildSizeToggle(),
+                          const SizedBox(width: 4),
                           // Title: tap = highlight, long press = rename
                           Expanded(
                             child: GestureDetector(
@@ -2138,8 +2145,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                             ),
                           ),
-                          // Size toggle
-                          buildSizeToggle(),
                           const SizedBox(width: 4),
                           // Fixed-width dB box
                           buildDbBox(),
@@ -2330,6 +2335,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         // ── Header ──────────────────────────────────────────────────
         Row(
           children: [
+            // Size toggle (left of title)
+            buildSizeToggle(),
+            const SizedBox(width: 4),
             Expanded(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -2357,7 +2365,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
             ),
-            buildSizeToggle(),
             const SizedBox(width: 4),
             buildDbBox(),
             const SizedBox(width: 4),

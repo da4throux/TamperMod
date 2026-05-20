@@ -45,9 +45,9 @@ Please read and apply .agenrules
 ### 3.1 Workspace Dashboard Layout
 * **Dynamic Grid:** Built using a scrollable `Wrap` widget containing custom card instances.
 * **Card Sizing System:**
-  * **Compact (C):** Compact card (height: 110) representing minimal parameters. Name/size-toggle, gain dB, volume slider, speaker mute icon. Fade IN and OUT buttons stacked vertically side-by-side with a mini range indicator bar.
-  * **Regular (R):** Standard card (height: 240). Long-press on title = rename. Speaker icon (rightmost) = mute toggle. Size-toggle icon cycles compact→regular→expanded→compact. Fixed-width 72px dB box. Mini range indicator in the min/max row. No power button.
-  * **Expanded (E):** Full-width card (height: 520). Includes all Regular features plus: RangeSlider for fade start/end cursors, fade shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders with clipboard EXPORT, and a live CustomPainter fade curve visualiser with moving dot.
+  * **Compact (C):** Compact card (height: 240) representing minimal parameters. Size-toggle icon (left of name)/Name, gain dB, volume slider, speaker mute icon. Fade IN and OUT buttons stacked vertically side-by-side with a mini range indicator bar.
+  * **Regular (R):** Standard card (height:240). Long-press on title = rename. Speaker icon (rightmost) = mute toggle. Size-toggle icon (left of title) cycles compact→regular→expanded→compact. Fixed-width 72px dB box. Mini range indicator in the min/max row. No power button.
+  * **Expanded (E):** Full-width card (height: 520). Includes all Regular features plus: Size-toggle icon (left of title), RangeSlider for fade start/end cursors, fade shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders with clipboard EXPORT, and a live CustomPainter fade curve visualiser with moving dot.
   * *ALO Loopers always use full row width at height 450.*
 
 ### 3.2 Puzzle Organizer Settings Drawer
@@ -101,6 +101,11 @@ Please read and apply .agenrules
 * [x] Regular Gain card: remove power button, add speaker mute icon, long-press title = rename, fixed 72px dB box, range mini-indicator in min/max row, size-toggle cycles compact→regular→expanded.
 * [x] Expanded Gain card: RangeSlider for fade start/end cursors, shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders + clipboard EXPORT, live CustomPainter fade visualizer with moving dot (height 520px).
 * [x] Fade engine: uses per-pedal range cursors and selected curve shape (linear/easeInOut/easeIn/easeOut/custom); tracks _fadeProgress for visualizer.
+* [x] Increase card size toggle button size for better finger tap accessibility.
+* [x] Reposition card size toggle button to left of card name in compact view.
+* [x] Reposition card size toggle button to left of card name in regular view.
+* [x] Reposition card size toggle button to left of card name in expanded view.
+* [x] Ensure card size toggle button position remains stable during card size changes.
 
 ### Todo Tasks
 * [ ] Fix fadeout issues when running under `fade` mode in the Tampermonkey script.
