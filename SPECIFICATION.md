@@ -96,6 +96,7 @@ Please read and apply .agenrules
 * [x] Map ALO looper click volume slider to discrete 1-10 range in UI.
 * [x] Update ALO looper record logic to send flat 1.0 at start of recording and nothing more.
 * [x] Update ALO looper play/pause logic to send flat 1.0 (play) / 0.0 (pause).
+* [x] Fix compilation error by restoring missing _tapTimes state field.
 
 ### Todo Tasks
 * [ ] Fix fadeout issues when running under `fade` mode in the Tampermonkey script.

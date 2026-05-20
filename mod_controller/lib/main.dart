@@ -12,7 +12,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.2';
+const String kAppVersion = '1.2.3';
 
 
 
@@ -220,6 +220,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, Timer?> _fadeTimers = {};
   final Map<String, bool> _fadeDirections =
       {}; // true for Fade In, false for Fade Out
+
+  // Tap-tempo times keeper
+  final List<DateTime> _tapTimes = [];
 
   // User custom display titles for plugin cards (renaming support)
   final Map<String, String> _customTitles = {};
