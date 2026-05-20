@@ -12,7 +12,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.3';
+const String kAppVersion = '1.2.4';
 
 
 
@@ -4595,7 +4595,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             'mix';
 
         final double thresholdValue = pedal.parameters[thresholdPort] ?? -30.0;
-        final double clickValue = pedal.parameters[clickPort] ?? 0.5;
+        final double clickValue = pedal.parameters[clickPort] ?? 0;
         final double mixValue = pedal.parameters[mixPort] ?? 1.0;
 
         return GestureDetector(
@@ -4834,12 +4834,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
                                       ),
                                       child: Slider(
-                                        value: ((clickValue * 9.0) + 1.0).clamp(1.0, 10.0),
-                                        min: 1.0,
-                                        max: 10.0,
+                                        value: (clickValue).clamp(0, 10),
+                                        min: 0,
+                                        max: 10,
                                         divisions: 9,
                                         onChanged: (val) {
-                                          final targetVal = (val - 1.0) / 9.0;
+                                          final targetVal = val;
                                           setState(() {
                                             pedal.parameters[clickPort] = targetVal;
                                           });
@@ -4856,7 +4856,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   SizedBox(
                                     width: 50,
                                     child: Text(
-                                      ((clickValue * 9.0) + 1.0).round().toString(),
+                                      (clickValue).round().toString(),
                                       textAlign: TextAlign.end,
                                       style: TextStyle(
                                         fontSize: 11,
