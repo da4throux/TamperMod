@@ -13,7 +13,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.7';
+const String kAppVersion = '1.2.8';
 
 // ─── Custom S-Curve for fade interpolation ────────────────────────────────
 /// A [Curve] defined by a midpoint (cx, cy) and a blend factor [slope].
@@ -5452,6 +5452,31 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Size toggle button (greyed out, non-functional for ALO)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              (_isDarkMode
+                                      ? Colors.grey[800]
+                                      : Colors.grey[300])!
+                                  .withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.grey.withOpacity(0.3),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.aspect_ratio,
+                          size: 18,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
