@@ -270,7 +270,7 @@ class ModWebSocketService extends ChangeNotifier {
         gainPedals.value = gains;
         debugPrint('SUCCESSFULLY DISCOVERED ${gains.length} GAIN PEDALS: $gains');
         notifyListeners();
-      } else if (cmd == 'bpm') {
+      } else if (cmd == 'bpm' || cmd == 'transport_bpm' || cmd == 'transport-bpm' || cmd == 'tempo') {
         final double? val = double.tryParse(data);
         if (val != null) {
           bpm.value = val;
