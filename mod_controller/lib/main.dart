@@ -831,9 +831,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               children: [
                 // Inline Connection / IP bar
                 _buildConnectionPanel(),
-                
 
-                
+                // Bottom toolbar sits between connection bar and content
+                // (avoids conflict with Android system gesture bar)
+                _buildBottomToolbar(),
+
                 // BPM inline widget on tiny screens to avoid AppBar overcrowding
                 if (screenWidth <= 580) 
                   Padding(
@@ -848,7 +850,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ],
             ),
           ),
-          bottomNavigationBar: _buildBottomToolbar(),
         );
       },
     );
@@ -1195,7 +1196,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   final isLooper = uriLower.contains('alo') || titleLower.contains('alo');
                   
                   double cardWidth = regularWidth;
-                  double cardHeight = 225.0;
+                  // 240px prevents the FADE row from overflowing the card boundary
+                  double cardHeight = 240.0;
                   
                   if (isLooper) {
                     cardWidth = expandedWidth;
@@ -1206,10 +1208,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       cardHeight = 110.0;
                     } else if (size == 'regular') {
                       cardWidth = regularWidth;
-                      cardHeight = 225.0;
+                      cardHeight = 240.0;
                     } else {
                       cardWidth = expandedWidth;
-                      cardHeight = 225.0;
+                      cardHeight = 240.0;
                     }
                   }
 
@@ -3348,8 +3350,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       builder: (context, constraints) {
         final double drawerWidth = constraints.maxWidth;
         final double horizontalPadding = 12.0;
-        final double gridWidth = drawerWidth - horizontalPadding * 2;
         final double spacing = 6.0;
+        // Account for container margin (10px each side) + container padding (6px each side)
+        // so that two regularWidth tiles actually fit in a Wrap row.
+        final double tileAreaWidth = drawerWidth - horizontalPadding * 2 - 10 * 2 - 6 * 2;
+        final double gridWidth = tileAreaWidth;
         
         // 4 Columns available width calculation
         final double totalColumnWidth = gridWidth - (spacing * 3);
