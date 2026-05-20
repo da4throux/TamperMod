@@ -259,6 +259,70 @@ class _MiniRangePainter extends CustomPainter {
       old.accentColor != accentColor;
 }
 
+// ─── Range cursor overlay drawn ON the volume slider ─────────────────────
+class _RangeOverlayPainter extends CustomPainter {
+  final Color accentColor;
+  final double rangeStart;
+  final double rangeEnd;
+  final double thumbPadding;
+
+  _RangeOverlayPainter({
+    required this.accentColor,
+    required this.rangeStart,
+    required this.rangeEnd,
+    required this.thumbPadding,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double trackW = size.width - 2 * thumbPadding;
+    if (trackW <= 0) return;
+    final double cy = size.height / 2;
+    final double x1 = thumbPadding + rangeStart * trackW;
+    final double x2 = thumbPadding + rangeEnd   * trackW;
+
+    // Highlighted zone between cursors
+    canvas.drawRect(
+      Rect.fromLTRB(x1, cy - 7, x2, cy + 7),
+      Paint()
+        ..color = accentColor.withOpacity(0.18)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Downward-pointing triangle (tip at track centre)
+    void drawCursor(double x) {
+      final double h = (size.height * 0.38).clamp(6.0, 14.0);
+      final double w = h * 0.75;
+      canvas.drawPath(
+        Path()
+          ..moveTo(x,     cy)      // tip
+          ..lineTo(x - w, cy - h)  // upper-left
+          ..lineTo(x + w, cy - h)  // upper-right
+          ..close(),
+        Paint()..color = accentColor,
+      );
+      // Thin stem to top of widget
+      canvas.drawLine(
+        Offset(x, cy - h),
+        Offset(x, 0),
+        Paint()
+          ..color = accentColor.withOpacity(0.35)
+          ..strokeWidth = 1.0,
+      );
+    }
+
+    drawCursor(x1);
+    drawCursor(x2);
+  }
+
+  @override
+  bool shouldRepaint(_RangeOverlayPainter old) =>
+      old.rangeStart   != rangeStart   ||
+      old.rangeEnd     != rangeEnd     ||
+      old.accentColor  != accentColor  ||
+      old.thumbPadding != thumbPadding;
+}
+
 enum ViewMode { split, controls, web }
 
 void main() {
@@ -1658,23 +1722,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                       uriLower.contains('alo') || titleLower.contains('alo');
 
                   double cardWidth = regularWidth;
-                  // 240px prevents the FADE row from overflowing the card boundary
-                  double cardHeight = 240.0;
+                  double? cardHeight = 240.0;
 
                   if (isLooper) {
                     cardWidth = expandedWidth;
                     cardHeight = 450.0;
                   } else {
                     if (size == 'compact') {
+                      // Same height as regular — fade buttons take full width
                       cardWidth = compactWidth;
-                      cardHeight = 110.0;
+                      cardHeight = 240.0;
                     } else if (size == 'regular') {
                       cardWidth = regularWidth;
                       cardHeight = 240.0;
                     } else {
-                      // Expanded gain card — taller to accommodate range selector + visualizer
+                      // Expanded: self-sizes to content (null = no height constraint)
                       cardWidth = expandedWidth;
-                      cardHeight = 520.0;
+                      cardHeight = null;
                     }
                   }
 
@@ -1741,7 +1805,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final double rangeStart = _fadeRangeStart[pedal.instance] ?? 0.0;
     final double rangeEnd   = _fadeRangeEnd[pedal.instance]   ?? 1.0;
 
-    // ── Shared slider builder ────────────────────────────────────────
+    // ── Volume slider (bare) ───────────────────────────────────────────
     Widget buildVolumeSlider({bool compact = false}) {
       return SliderTheme(
         data: SliderTheme.of(context).copyWith(
@@ -1785,28 +1849,24 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
 
-    // ── Mini range indicator (compact / regular) ─────────────────────
-    Widget buildMiniRangeIndicator() {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
+    // ── Slider + range overlay triangles ───────────────────────────────
+    // thumbPad = Flutter's overlayRadius = horizontal inset of the track.
+    Widget buildSliderWithRangeOverlay({bool compact = false}) {
+      final double thumbPad = compact ? 12.0 : 28.0;
+      return Stack(
+        clipBehavior: Clip.none,
         children: [
-          SizedBox(
-            height: 32,
-            child: CustomPaint(
-              painter: _MiniRangePainter(
-                accentColor: accentColor,
-                rangeStart: rangeStart,
-                rangeEnd: rangeEnd,
+          buildVolumeSlider(compact: compact),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _RangeOverlayPainter(
+                  accentColor: accentColor,
+                  rangeStart: rangeStart,
+                  rangeEnd: rangeEnd,
+                  thumbPadding: thumbPad,
+                ),
               ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          Text(
-            '${(rangeStart * 100).round()}–${(rangeEnd * 100).round()}%',
-            style: TextStyle(
-              fontSize: 8,
-              color: accentColor.withOpacity(0.7),
-              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -1915,33 +1975,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Row 1: Name | size-toggle | dB
+                      // Row 1: Name | size-toggle | dB | mute
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => _highlightPedalInWebView(pedal),
                               onLongPress: () => _showRenameDialog(pedal),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w900,
-                                        color: accentColor,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                  buildSizeToggle(),
-                                ],
+                              child: Text(
+                                (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: accentColor,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ),
+                          buildSizeToggle(),
                           const SizedBox(width: 4),
                           Text(
                             '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
@@ -1952,52 +2005,64 @@ class _DashboardScreenState extends State<DashboardScreen>
                               fontFamily: 'monospace',
                             ),
                           ),
-                        ],
-                      ),
-                      const Spacer(),
-                      // Row 2: Slider | Mute icon
-                      Row(
-                        children: [
-                          Expanded(child: buildVolumeSlider(compact: true)),
                           const SizedBox(width: 4),
                           buildMuteIcon(size: 18),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      // Row 3: [IN/OUT stacked] | mini range indicator
+                      const Spacer(),
+                      // Row 2: Slider WITH range triangles
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              children: [
-                                _buildFadeButton(
-                                  label: 'IN',
-                                  icon: Icons.trending_up,
-                                  isBypassed: isBypassed,
-                                  onTap: () => _triggerFade(pedal, fadeIn: true),
-                                  accentColor: accentColor,
-                                  isFading: isFadingIn,
-                                  isCompact: true,
-                                ),
-                                const SizedBox(height: 2),
-                                _buildFadeButton(
-                                  label: 'OUT',
-                                  icon: Icons.trending_down,
-                                  isBypassed: isBypassed,
-                                  onTap: () => _triggerFade(pedal, fadeIn: false),
-                                  accentColor: accentColor,
-                                  isFading: isFadingOut,
-                                  isCompact: true,
-                                ),
-                              ],
+                          Icon(Icons.volume_mute,
+                              color: _isDarkMode
+                                  ? Colors.grey[isBypassed ? 700 : 600]
+                                  : Colors.grey[isBypassed ? 600 : 700],
+                              size: 18),
+                          Expanded(child: buildSliderWithRangeOverlay()),
+                          Icon(Icons.volume_up, color: accentColor, size: 18),
+                        ],
+                      ),
+                      // Range % + min/max labels
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('${minRange.toStringAsFixed(1)} dB',
+                              style: TextStyle(fontSize: 9, color: Colors.grey[600])),
+                          Text(
+                            '${(rangeStart * 100).round()}–${(rangeEnd * 100).round()}%',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: accentColor.withOpacity(0.7),
+                              fontFamily: 'monospace',
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          Text('${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+                              style: TextStyle(fontSize: 9, color: Colors.grey[600])),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // Row 3: FADE IN | FADE OUT — full width side-by-side
+                      Row(
+                        children: [
                           Expanded(
-                            flex: 1,
-                            child: buildMiniRangeIndicator(),
+                            child: _buildFadeButton(
+                              label: 'FADE IN',
+                              icon: Icons.trending_up,
+                              isBypassed: isBypassed,
+                              onTap: () => _triggerFade(pedal, fadeIn: true),
+                              accentColor: accentColor,
+                              isFading: isFadingIn,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildFadeButton(
+                              label: 'FADE OUT',
+                              icon: Icons.trending_down,
+                              isBypassed: isBypassed,
+                              onTap: () => _triggerFade(pedal, fadeIn: false),
+                              accentColor: accentColor,
+                              isFading: isFadingOut,
+                            ),
                           ),
                         ],
                       ),
@@ -2067,7 +2132,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                           ),
                           const SizedBox(height: 6),
-                          // Volume slider row
+                          // Volume slider row WITH range triangles overlay
                           Row(
                             children: [
                               Icon(Icons.volume_mute,
@@ -2075,12 +2140,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ? Colors.grey[isBypassed ? 700 : 600]
                                       : Colors.grey[isBypassed ? 600 : 700],
                                   size: 20),
-                              Expanded(child: buildVolumeSlider()),
+                              Expanded(child: buildSliderWithRangeOverlay()),
                               Icon(Icons.volume_up, color: accentColor, size: 20),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          // Min / range bar / max row
+                          // Min / cursor range % / max labels
                           Row(
                             children: [
                               Text(
@@ -2093,9 +2158,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 ),
                               ),
                               Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  child: buildMiniRangeIndicator(),
+                                child: Text(
+                                  '${(rangeStart * 100).round()}–${(rangeEnd * 100).round()}%',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: accentColor.withOpacity(0.7),
+                                    fontFamily: 'monospace',
+                                  ),
                                 ),
                               ),
                               Text(
@@ -2210,10 +2280,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       {'key': 'custom',    'label': 'CUSTOM'},
     ];
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
           // ── Header ──────────────────────────────────────────────────
           Row(
             children: [
@@ -2504,8 +2574,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
         ],
-      ),
-    );
+      );
   }
 
   void _highlightAllPedalsInWebView() {
