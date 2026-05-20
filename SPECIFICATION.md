@@ -45,8 +45,8 @@ Please read and apply .agenrules
 ### 3.1 Workspace Dashboard Layout
 * **Dynamic Grid:** Built using a scrollable `Wrap` widget containing custom card instances.
 * **Card Sizing System:**
-  * **Compact (C):** Compact card (height: 110) representing minimal parameters.
-  * **Regular (R):** Standard card (height: 240) with common sliders and switches. Two Regular cards share a row on wide screens.
+  * **Compact (C):** Compact card (height: 110) representing minimal parameters (name/size toggle, volume/mute button, and fade in/out buttons).
+  * **Regular (R):** Standard card (height: 240) with common sliders and switches. The power button acts as a software mute toggle. Two Regular cards share a row on wide screens.
   * **Expanded (E):** Fully expanded card (height: 240, full row width) with inline title edits and detailed sliders.
   * *ALO Loopers always use full row width at height 450.*
 
@@ -91,6 +91,11 @@ Please read and apply .agenrules
 * [x] Fix control card overflow — Regular card height set to 240px to fully accommodate the fade row.
 * [x] Fix drawer tile layout so two Regular tiles share a row, mirroring the main canvas proportions.
 * [x] Simplify settings drawer by removing open in browser and version banner, and reposition bottom toolbar (UI bar) above connection bar.
+* [x] Implement compact form of Gain card (half-width) with name/size toggle, volume slider/mute toggle, and fade in/out buttons.
+* [x] Map regular Gain card power settings button to toggle mute (software muting) instead of bypass.
+* [x] Map ALO looper click volume slider to discrete 1-10 range in UI.
+* [x] Update ALO looper record logic to send flat 1.0 at start of recording and nothing more.
+* [x] Update ALO looper play/pause logic to send flat 1.0 (play) / 0.0 (pause).
 
 ### Todo Tasks
 * [ ] Fix fadeout issues when running under `fade` mode in the Tampermonkey script.

@@ -105,7 +105,7 @@ class LooperController extends ChangeNotifier {
         final double elapsed1 = _stopwatch1.elapsedMilliseconds.toDouble();
         if (_state1 == LooperState.countIn) {
           if (elapsed1 >= total) {
-            _triggerSwitch(1);
+            _sendLooperValue(1, 1.0);
             _stopwatch1.reset();
             _state1 = LooperState.recording;
           } else {
@@ -116,7 +116,6 @@ class LooperController extends ChangeNotifier {
           }
         } else if (_state1 == LooperState.recording) {
           if (elapsed1 >= total) {
-            _triggerSwitch(1);
             _stopwatch1.reset();
             _state1 = LooperState.playing;
           } else {
@@ -139,7 +138,7 @@ class LooperController extends ChangeNotifier {
         final double elapsed2 = _stopwatch2.elapsedMilliseconds.toDouble();
         if (_state2 == LooperState.countIn) {
           if (elapsed2 >= total) {
-            _triggerSwitch(2);
+            _sendLooperValue(2, 1.0);
             _stopwatch2.reset();
             _state2 = LooperState.recording;
           } else {
@@ -150,7 +149,6 @@ class LooperController extends ChangeNotifier {
           }
         } else if (_state2 == LooperState.recording) {
           if (elapsed2 >= total) {
-            _triggerSwitch(2);
             _stopwatch2.reset();
             _state2 = LooperState.playing;
           } else {
@@ -170,6 +168,17 @@ class LooperController extends ChangeNotifier {
 
       notifyListeners();
     });
+  }
+
+  // Sends raw parameter value to loop1 or loop2 of ALO
+  void _sendLooperValue(int loopNum, double value) {
+    if (_activeLooper == null) return;
+    final port = loopNum == 1 ? 'loop1' : 'loop2';
+    webSocketService.setParamValue(
+      instance: _activeLooper!.instance,
+      port: port,
+      value: value,
+    );
   }
 
   // Sends simulated single click/tap on ALO's loop1 or loop2
@@ -235,7 +244,7 @@ class LooperController extends ChangeNotifier {
     final currentState = loopNum == 1 ? _state1 : _state2;
     if (currentState != LooperState.playing) return;
     
-    _triggerSwitch(loopNum);
+    _sendLooperValue(loopNum, 0.0);
     if (loopNum == 1) {
       _stopwatch1.stop();
       _state1 = LooperState.paused;
@@ -252,7 +261,7 @@ class LooperController extends ChangeNotifier {
     final currentState = loopNum == 1 ? _state1 : _state2;
     if (currentState != LooperState.paused) return;
     
-    _triggerSwitch(loopNum);
+    _sendLooperValue(loopNum, 1.0);
     if (loopNum == 1) {
       _stopwatch1.start();
       _state1 = LooperState.playing;

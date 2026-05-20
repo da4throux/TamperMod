@@ -1,11 +1,13 @@
 # TamperMod — Current Focus
 
-## ✅ Last Completed (v1.2.1)
-- Repositioned the bottom toolbar (UI bar) above the connection panel.
-- Simplified settings drawer: removed "Open Pedalboard in Browser" button and all duplicate version text references.
-- Aligned workspace active card sorting with settings drawer order.
-- Added drag-and-drop to empty space in settings drawer to move tiles to the end.
-- Updated version to 1.2.1 in both `main.dart` and `pubspec.yaml` per atomic versioning rule.
+## ✅ Last Completed (v1.2.2)
+- Created a compact (half-width) form of the Gain card with name/size toggle, volume slider, mute toggle, and fade in/out buttons.
+- Configured the power button on regular Gain cards to act as a software mute toggle.
+- Mapped ALO looper click volume control to 1-10 steps (increasing 1 by 1) in UI.
+- Refined ALO looper record logic to send flat 1.0 at start of recording and no tap at the end of recording.
+- Refined ALO looper play/pause logic to send flat 1.0 (play) and 0.0 (pause).
+- Verified compilation and static analysis with flutter analyze.
+- Updated application version to 1.2.2 in `main.dart` and `pubspec.yaml` per atomic versioning rule.
 
 ## 🔧 Currently In Progress
 Nothing mid-flight. All changes committed and verified.
@@ -18,7 +20,6 @@ First unchecked item in `SPECIFICATION.md` §4 Todo:
 ## 📋 Quick Context
 - **App:** Flutter (`mod_controller/`) — Pixel Tablet controller for MOD Dwarf pedalboard.
 - **Transport:** WebSocket `ws://192.168.51.1/websocket` (MOD Dwarf proprietary protocol, space-separated commands).
-- **Current version:** `1.2.1` (matches `kAppVersion` in `main.dart` and `pubspec.yaml`).
+- **Current version:** `1.2.2` (matches `kAppVersion` in `main.dart` and `pubspec.yaml`).
 - **Key files:** `mod_controller/lib/main.dart`, `mod_controller/lib/services/websocket_service.dart`, `TamperMod.user.js`, `SPECIFICATION.md`.
 - **Connected device:** Pixel Tablet (`3417105H801S8D`) via ADB — run `flutter run -d 3417105H801S8D` to deploy.
-

@@ -12,7 +12,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.1';
+const String kAppVersion = '1.2.2';
 
 
 
@@ -86,6 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Track volume slider values locally to make the slider extremely responsive
   final Map<String, double> _localVolumes = {};
+  final Map<String, double> _mutedVolumes = {};
 
   // Custom User Ordering and Visibility List
   List<String> _enabledPluginInstances = [];
@@ -223,8 +224,49 @@ class _DashboardScreenState extends State<DashboardScreen>
   // User custom display titles for plugin cards (renaming support)
   final Map<String, String> _customTitles = {};
 
-  // Tap-tempo times keeper
-  final List<DateTime> _tapTimes = [];
+  bool _isMuted(PluginInstance pedal) {
+    final double currentValue = _localVolumes[pedal.instance] ??
+        (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null) ??
+        0.0;
+    return currentValue == pedal.minGain;
+  }
+
+  void _toggleMute(PluginInstance pedal) {
+    final String instanceId = pedal.instance;
+    final double currentValue = _localVolumes[instanceId] ??
+        (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null) ??
+        0.0;
+    final double minRange = pedal.minGain;
+
+    if (currentValue == minRange) {
+      // It is currently muted. Unmute it.
+      final double restoredValue = _mutedVolumes[instanceId] ?? 0.0;
+      _mutedVolumes.remove(instanceId);
+      setState(() {
+        _localVolumes[instanceId] = restoredValue;
+      });
+      if (pedal.gainPortSymbol != null) {
+        _webSocketService.setParamValue(
+          instance: instanceId,
+          port: pedal.gainPortSymbol!,
+          value: double.parse(restoredValue.toStringAsFixed(2)),
+        );
+      }
+    } else {
+      // Mute it. Save current value.
+      _mutedVolumes[instanceId] = currentValue;
+      setState(() {
+        _localVolumes[instanceId] = minRange;
+      });
+      if (pedal.gainPortSymbol != null) {
+        _webSocketService.setParamValue(
+          instance: instanceId,
+          port: pedal.gainPortSymbol!,
+          value: minRange,
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -1372,7 +1414,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Design states based on active status and chosen neon color
     final Color accentColor = isBypassed ? Colors.grey[600]! : glowColor;
 
-    final Color powerIconColor = isBypassed
+    final bool isMuted = _isMuted(pedal);
+    final Color powerIconColor = isMuted
         ? const Color(0xFFFF007F)
         : glowColor;
 
@@ -1420,6 +1463,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Row 1: Name, size toggle, and current gain
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1427,70 +1471,58 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => _highlightPedalInWebView(pedal),
-                              child: Text(
-                                (_customTitles[pedal.instance] ?? pedal.title)
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: accentColor,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      (_customTitles[pedal.instance] ?? pedal.title)
+                                          .toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: accentColor,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _pedalSizes[pedal.instance] = 'regular';
+                                      });
+                                      _saveLayoutSettings();
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                      child: Icon(
+                                        Icons.aspect_ratio,
+                                        size: 12,
+                                        color: _isDarkMode
+                                            ? Colors.grey[500]
+                                            : Colors.grey[600],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.edit,
-                              size: 12,
-                              color: _isDarkMode
-                                  ? Colors.grey[500]
-                                  : Colors.grey[600],
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () => _showRenameDialog(pedal),
-                          ),
                           const SizedBox(width: 4),
-                          IconButton(
-                            icon: Icon(
-                              Icons.help_outline,
-                              size: 12,
-                              color: accentColor.withOpacity(0.8),
-                            ),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            onPressed: () =>
-                                _showModuleHelpSheet(context, 'gain'),
-                          ),
-                          const SizedBox(width: 8),
-                          // Compact Power Switch
-                          GestureDetector(
-                            onTap: () {
-                              _webSocketService.toggleBypass(
-                                instance: pedal.instance,
-                                bypass: !isBypassed,
-                              );
-                            },
-                            child: Icon(
-                              Icons.power_settings_new,
-                              color: powerIconColor,
-                              size: 20,
+                          Text(
+                            '${clampedValue.toStringAsFixed(1)} dB',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w900,
+                              color: accentColor,
+                              fontFamily: 'monospace',
                             ),
                           ),
                         ],
                       ),
                       const Spacer(),
-                      // Compact Volume Slider
+                      // Row 2: Volume Slider and Mute Toggle
                       Row(
                         children: [
-                          Icon(
-                            Icons.volume_down,
-                            color: _isDarkMode
-                                ? Colors.grey[isBypassed ? 700 : 600]
-                                : Colors.grey[isBypassed ? 600 : 700],
-                            size: 14,
-                          ),
                           Expanded(
                             child: SliderTheme(
                               data: SliderTheme.of(context).copyWith(
@@ -1498,17 +1530,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 inactiveTrackColor: _isDarkMode
                                     ? Colors.grey[850]
                                     : Colors.grey[300],
-                                trackHeight: 5.0,
+                                trackHeight: 4.0,
                                 thumbColor: isBypassed
                                     ? Colors.grey[400]
                                     : (_isDarkMode
                                           ? Colors.white
                                           : Colors.grey[100]),
                                 thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 8.0,
+                                  enabledThumbRadius: 6.0,
                                 ),
                                 overlayShape: const RoundSliderOverlayShape(
-                                  overlayRadius: 16.0,
+                                  overlayRadius: 12.0,
                                 ),
                               ),
                               child: Slider(
@@ -1517,6 +1549,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 max: maxRange,
                                 onChanged: (newValue) {
                                   _fadeTimers[pedal.instance]?.cancel();
+                                  if (_mutedVolumes.containsKey(pedal.instance)) {
+                                    _mutedVolumes.remove(pedal.instance);
+                                  }
                                   setState(() {
                                     _fadeTimers[pedal.instance] = null;
                                     _localVolumes[pedal.instance] = newValue;
@@ -1534,14 +1569,43 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                             ),
                           ),
-                          Text(
-                            '${clampedValue.toStringAsFixed(1)} dB',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w900,
-                              color: accentColor,
-                              fontFamily: 'monospace',
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => _toggleMute(pedal),
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 4, right: 2),
+                              child: Icon(
+                                _isMuted(pedal) ? Icons.volume_off : Icons.volume_up,
+                                color: _isMuted(pedal)
+                                    ? const Color(0xFFFF007F)
+                                    : accentColor,
+                                size: 18,
+                              ),
                             ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      // Row 3: Fade In and Fade Out buttons
+                      Row(
+                        children: [
+                          _buildFadeButton(
+                            label: 'IN',
+                            icon: Icons.trending_up,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: true),
+                            accentColor: accentColor,
+                            isFading: isFadingIn,
+                            isCompact: true,
+                          ),
+                          _buildFadeButton(
+                            label: 'OUT',
+                            icon: Icons.trending_down,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: false),
+                            accentColor: accentColor,
+                            isFading: isFadingOut,
+                            isCompact: true,
                           ),
                         ],
                       ),
@@ -1605,6 +1669,24 @@ class _DashboardScreenState extends State<DashboardScreen>
                                             'gain',
                                           ),
                                         ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.aspect_ratio,
+                                            size: 14,
+                                            color: _isDarkMode
+                                                ? Colors.grey[500]
+                                                : Colors.grey[600],
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () {
+                                            setState(() {
+                                              _pedalSizes[pedal.instance] = 'compact';
+                                            });
+                                            _saveLayoutSettings();
+                                          },
+                                        ),
                                       ],
                                     ),
                                     const SizedBox(height: 2),
@@ -1648,22 +1730,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ),
                           ),
 
-                          // Power Switch
+                          // Power Switch acting as mute toggle
                           IconButton(
                             icon: Icon(
                               Icons.power_settings_new,
                               color: powerIconColor,
                               size: 26,
                             ),
-                            tooltip: isBypassed
-                                ? 'Activate Pedal'
-                                : 'Bypass Pedal',
-                            onPressed: () {
-                              _webSocketService.toggleBypass(
-                                instance: pedal.instance,
-                                bypass: !isBypassed,
-                              );
-                            },
+                            tooltip: _isMuted(pedal) ? 'Unmute' : 'Mute',
+                            onPressed: () => _toggleMute(pedal),
                           ),
                           const SizedBox(width: 8),
 
@@ -2670,6 +2745,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     required VoidCallback onTap,
     required Color accentColor,
     required bool isFading,
+    bool isCompact = false,
   }) {
     return Expanded(
       child: Container(
@@ -2678,15 +2754,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           onPressed: isBypassed ? null : onTap,
           icon: Icon(
             icon,
-            size: 13,
+            size: isCompact ? 10 : 13,
             color: isFading ? const Color(0xFFFF007F) : Colors.black,
           ),
           label: Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: isCompact ? 9 : 11,
               fontWeight: FontWeight.w900,
-              letterSpacing: 1.0,
+              letterSpacing: isCompact ? 0.5 : 1.0,
               color: isFading ? const Color(0xFFFF007F) : Colors.black,
             ),
           ),
@@ -2695,7 +2771,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ? const Color(0xFFFF007F).withOpacity(0.12)
                 : accentColor,
             disabledBackgroundColor: Colors.grey[800],
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: EdgeInsets.symmetric(vertical: isCompact ? 4 : 8),
             elevation: isFading ? 4 : 1,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -4729,23 +4805,65 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 },
                               ),
                               const SizedBox(height: 6),
-                              _buildLooperSlider(
-                                label: 'Click Volume',
-                                value: clickValue,
-                                min: 0.0,
-                                max: 1.0,
-                                isPercentage: true,
-                                accentColor: looperAccentColor,
-                                onChanged: (val) {
-                                  setState(() {
-                                    pedal.parameters[clickPort] = val;
-                                  });
-                                  _webSocketService.setParamValue(
-                                    instance: pedal.instance,
-                                    port: clickPort,
-                                    value: double.parse(val.toStringAsFixed(2)),
-                                  );
-                                },
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 90,
+                                    child: Text(
+                                      'Click Volume',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isDarkMode ? Colors.grey[300] : Colors.grey[750],
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: SliderTheme(
+                                      data: SliderTheme.of(context).copyWith(
+                                        activeTrackColor: looperAccentColor,
+                                        inactiveTrackColor: _isDarkMode
+                                            ? Colors.grey[850]
+                                            : Colors.grey[300],
+                                        trackHeight: 4.0,
+                                        thumbColor: _isDarkMode ? Colors.white : Colors.grey[100],
+                                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                                      ),
+                                      child: Slider(
+                                        value: ((clickValue * 9.0) + 1.0).clamp(1.0, 10.0),
+                                        min: 1.0,
+                                        max: 10.0,
+                                        divisions: 9,
+                                        onChanged: (val) {
+                                          final targetVal = (val - 1.0) / 9.0;
+                                          setState(() {
+                                            pedal.parameters[clickPort] = targetVal;
+                                          });
+                                          _webSocketService.setParamValue(
+                                            instance: pedal.instance,
+                                            port: clickPort,
+                                            value: double.parse(targetVal.toStringAsFixed(2)),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 50,
+                                    child: Text(
+                                      ((clickValue * 9.0) + 1.0).round().toString(),
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                        color: looperAccentColor,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
