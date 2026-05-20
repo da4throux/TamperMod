@@ -5578,160 +5578,154 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   const SizedBox(height: 8),
 
-                  // Scrollable tracks and sliders to prevent overflow
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
+                  // Auto-expanding tracks and sliders (no internal scrolling)
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Track 1
+                      SizedBox(
+                        height: 140,
+                        child: _buildLooperTrackSegment(
+                          1,
+                          looperAccentColor,
+                          pedal,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Track 2
+                      SizedBox(
+                        height: 140,
+                        child: _buildLooperTrackSegment(
+                          2,
+                          looperAccentColor,
+                          pedal,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Divider(
+                        color:
+                            (_isDarkMode ? Colors.grey[850] : Colors.grey[300])
+                                ?.withOpacity(0.5),
+                        height: 1,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Sliders Column at bottom
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Track 1
-                          SizedBox(
-                            height: 140,
-                            child: _buildLooperTrackSegment(
-                              1,
-                              looperAccentColor,
-                              pedal,
-                            ),
+                          _buildLooperSlider(
+                            label: 'Threshold',
+                            value: thresholdValue,
+                            min: -60.0,
+                            max: 0.0,
+                            valueSuffix: ' dB',
+                            accentColor: looperAccentColor,
+                            onChanged: (val) {
+                              setState(() {
+                                pedal.parameters[thresholdPort] = val;
+                              });
+                              _webSocketService.setParamValue(
+                                instance: pedal.instance,
+                                port: thresholdPort,
+                                value: double.parse(val.toStringAsFixed(2)),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 12),
-
-                          // Track 2
-                          SizedBox(
-                            height: 140,
-                            child: _buildLooperTrackSegment(
-                              2,
-                              looperAccentColor,
-                              pedal,
-                            ),
+                          const SizedBox(height: 6),
+                          _buildLooperSlider(
+                            label: 'Mix Setting',
+                            value: mixValue,
+                            min: 0.0,
+                            max: 1.0,
+                            isPercentage: true,
+                            accentColor: looperAccentColor,
+                            onChanged: (val) {
+                              setState(() {
+                                pedal.parameters[mixPort] = val;
+                              });
+                              _webSocketService.setParamValue(
+                                instance: pedal.instance,
+                                port: mixPort,
+                                value: double.parse(val.toStringAsFixed(2)),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 12),
-                          Divider(
-                            color:
-                                (_isDarkMode
-                                        ? Colors.grey[850]
-                                        : Colors.grey[300])
-                                    ?.withOpacity(0.5),
-                            height: 1,
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Sliders Column at bottom
-                          Column(
+                          const SizedBox(height: 6),
+                          Row(
                             children: [
-                              _buildLooperSlider(
-                                label: 'Threshold',
-                                value: thresholdValue,
-                                min: -60.0,
-                                max: 0.0,
-                                valueSuffix: ' dB',
-                                accentColor: looperAccentColor,
-                                onChanged: (val) {
-                                  setState(() {
-                                    pedal.parameters[thresholdPort] = val;
-                                  });
-                                  _webSocketService.setParamValue(
-                                    instance: pedal.instance,
-                                    port: thresholdPort,
-                                    value: double.parse(val.toStringAsFixed(2)),
-                                  );
-                                },
+                              SizedBox(
+                                width: 90,
+                                child: Text(
+                                  'Click Volume',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: _isDarkMode
+                                        ? Colors.grey[300]
+                                        : Colors.grey[750],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 6),
-                              _buildLooperSlider(
-                                label: 'Mix Setting',
-                                value: mixValue,
-                                min: 0.0,
-                                max: 1.0,
-                                isPercentage: true,
-                                accentColor: looperAccentColor,
-                                onChanged: (val) {
-                                  setState(() {
-                                    pedal.parameters[mixPort] = val;
-                                  });
-                                  _webSocketService.setParamValue(
-                                    instance: pedal.instance,
-                                    port: mixPort,
-                                    value: double.parse(val.toStringAsFixed(2)),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  SizedBox(
-                                    width: 90,
-                                    child: Text(
-                                      'Click Volume',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: _isDarkMode
-                                            ? Colors.grey[300]
-                                            : Colors.grey[750],
-                                      ),
+                              Expanded(
+                                child: SliderTheme(
+                                  data: SliderTheme.of(context).copyWith(
+                                    activeTrackColor: looperAccentColor,
+                                    inactiveTrackColor: _isDarkMode
+                                        ? Colors.grey[850]
+                                        : Colors.grey[300],
+                                    trackHeight: 4.0,
+                                    thumbColor: _isDarkMode
+                                        ? Colors.white
+                                        : Colors.grey[100],
+                                    thumbShape: const RoundSliderThumbShape(
+                                      enabledThumbRadius: 6.0,
+                                    ),
+                                    overlayShape: const RoundSliderOverlayShape(
+                                      overlayRadius: 12.0,
                                     ),
                                   ),
-                                  Expanded(
-                                    child: SliderTheme(
-                                      data: SliderTheme.of(context).copyWith(
-                                        activeTrackColor: looperAccentColor,
-                                        inactiveTrackColor: _isDarkMode
-                                            ? Colors.grey[850]
-                                            : Colors.grey[300],
-                                        trackHeight: 4.0,
-                                        thumbColor: _isDarkMode
-                                            ? Colors.white
-                                            : Colors.grey[100],
-                                        thumbShape: const RoundSliderThumbShape(
-                                          enabledThumbRadius: 6.0,
+                                  child: Slider(
+                                    value: (clickValue).clamp(0, 10),
+                                    min: 0,
+                                    max: 10,
+                                    divisions: 9,
+                                    onChanged: (val) {
+                                      final targetVal = val;
+                                      setState(() {
+                                        pedal.parameters[clickPort] = targetVal;
+                                      });
+                                      _webSocketService.setParamValue(
+                                        instance: pedal.instance,
+                                        port: clickPort,
+                                        value: double.parse(
+                                          targetVal.toStringAsFixed(2),
                                         ),
-                                        overlayShape:
-                                            const RoundSliderOverlayShape(
-                                              overlayRadius: 12.0,
-                                            ),
-                                      ),
-                                      child: Slider(
-                                        value: (clickValue).clamp(0, 10),
-                                        min: 0,
-                                        max: 10,
-                                        divisions: 9,
-                                        onChanged: (val) {
-                                          final targetVal = val;
-                                          setState(() {
-                                            pedal.parameters[clickPort] =
-                                                targetVal;
-                                          });
-                                          _webSocketService.setParamValue(
-                                            instance: pedal.instance,
-                                            port: clickPort,
-                                            value: double.parse(
-                                              targetVal.toStringAsFixed(2),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
+                                      );
+                                    },
                                   ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 50,
-                                    child: Text(
-                                      (clickValue).round().toString(),
-                                      textAlign: TextAlign.end,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w900,
-                                        color: looperAccentColor,
-                                        fontFamily: 'monospace',
-                                      ),
-                                    ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 50,
+                                child: Text(
+                                  (clickValue).round().toString(),
+                                  textAlign: TextAlign.end,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: looperAccentColor,
+                                    fontFamily: 'monospace',
                                   ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),

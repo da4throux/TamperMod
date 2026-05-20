@@ -33,7 +33,9 @@ Both files MUST be included in the same commit as the feature work. Not updating
 ---
 
 ## 3. Versioning & Deployment Synchronization (Strict)
-* **Atomic Version Rule (MANDATORY on every micro-save):** Before running any `git commit -m "agentName(vX.Y.Z): ..."` command, replace agentName with your name (Haiku4.5, GeminiPro3.1, ...), you MUST FIRST update BOTH of the following to exactly `X.Y.Z`:
+* **Atomic Version Rule (MANDATORY on every micro-save):** Before running any `git commit -m "agentName(vX.Y.Z): ..."` command
+* **in the commit name start with the agent name, i.e. replace agentName with your name: Haiku4.5, GeminiPro3.1, Tencent, Claude3.5Sonnet ...
+you MUST FIRST update BOTH of the following to exactly `X.Y.Z`:
 1. `mod_controller/lib/main.dart` → `const String kAppVersion = 'X.Y.Z';`
 2. `mod_controller/pubspec.yaml` → `version: X.Y.Z`
 These two files MUST be included in the same commit. The commit tag, `kAppVersion`, and `pubspec.yaml` must always be identical. No exceptions.
