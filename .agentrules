@@ -23,18 +23,18 @@ You are an autonomous agent with terminal and file system access. You must manag
 * Your absolute source of truth for features, architecture, UI, and data models is `SPECIFICATION.md`.
 * You must read `SPECIFICATION.md` at the start of every task to maintain architectural alignment.
 * **Progress Tracking (MANDATORY — not optional):** On every micro-save commit you MUST:
-  1. Update `SPECIFICATION.md`: flip completed `[ ]` checkboxes to `[x]`, update any §3 UI/UX rules that changed, and remove stale content.
-  2. Update `CURRENT_FOCUS.md`: record what was just completed, what is currently in progress, and what the next recommended step is.
-  Both files MUST be included in the same commit as the feature work. Not updating them is a protocol violation.
+1. Update `SPECIFICATION.md`: flip completed `[ ]` checkboxes to `[x]`, update any §3 UI/UX rules that changed, and remove stale content.
+2. Update `CURRENT_FOCUS.md`: record what was just completed, what is currently in progress, and what the next recommended step is.
+Both files MUST be included in the same commit as the feature work. Not updating them is a protocol violation.
 * Do not jump ahead to other features until current checkboxes are completed.
 
 ---
 
 ## 3. Versioning & Deployment Synchronization (Strict)
-* **Atomic Version Rule (MANDATORY on every micro-save):** Before running any `git commit -m "agent(vX.Y.Z): ..."` command, you MUST FIRST update BOTH of the following to exactly `X.Y.Z`:
-  1. `mod_controller/lib/main.dart` → `const String kAppVersion = 'X.Y.Z';`
-  2. `mod_controller/pubspec.yaml` → `version: X.Y.Z`
-  These two files MUST be included in the same commit. The commit tag, `kAppVersion`, and `pubspec.yaml` must always be identical. No exceptions.
+* **Atomic Version Rule (MANDATORY on every micro-save):** Before running any `git commit -m "agentName(vX.Y.Z): ..."` command, replace agentName with your name (Haiku4.5, GeminiPro3.1, ...), you MUST FIRST update BOTH of the following to exactly `X.Y.Z`:
+1. `mod_controller/lib/main.dart` → `const String kAppVersion = 'X.Y.Z';`
+2. `mod_controller/pubspec.yaml` → `version: X.Y.Z`
+These two files MUST be included in the same commit. The commit tag, `kAppVersion`, and `pubspec.yaml` must always be identical. No exceptions.
 * **UI & Configuration Alignment:** Every time you publish, deploy, or prepare a stable version (e.g., deploying to Firebase, updating configuration files, building for local devices), you MUST verify that the version string reflected in the Flutter Application UI dynamically matches the target release version.
 * **Mandatory Chat Confirmation:** In your final response to the user after a successful deployment/build, you MUST include a dedicated line that reads exactly:
 `🚀 Deployment Complete: Version X.Y.Z is now live and updated in the application UI.`
@@ -46,7 +46,7 @@ This project is worked on by multiple AI agents (e.g. Claude, Gemini). To ensure
 * **`CURRENT_FOCUS.md`** is the single handoff document. It must always reflect the true current state. Any agent receiving a new session must read it before acting.
 * **Never assume** what the previous agent did — always verify by reading `git log --oneline -10` and `CURRENT_FOCUS.md`.
 * **At session end** (or after completing a task block), update `CURRENT_FOCUS.md` with:
-  * ✅ What was just completed (with version tag).
-  * 🔧 What is currently in progress (if anything was left mid-flight).
-  * ➡️ What the recommended next step is (first unchecked Todo item from `SPECIFICATION.md`).
+* ✅ What was just completed (with version tag).
+* 🔧 What is currently in progress (if anything was left mid-flight).
+* ➡️ What the recommended next step is (first unchecked Todo item from `SPECIFICATION.md`).
 * The format of `CURRENT_FOCUS.md` must be kept short (under 30 lines) so any agent can parse it instantly.

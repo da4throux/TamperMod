@@ -1,4 +1,5 @@
 # Specification Blueprint: TamperMod
+Please read and apply .agenrules
 
 ## 1. Architecture Overview
 * **Frontend Controller:** Flutter application (`mod_controller`) managing state, websocket communication, and tablet UI.

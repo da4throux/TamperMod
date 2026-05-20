@@ -1,4 +1,5 @@
 # TamperMod - MOD Dwarf Live Remote Controller
+please read and apply .agentrules
 
 A native Flutter application for controlling the MOD Dwarf guitar pedal board in real-time during live performances. Replaces the legacy Tampermonkey script with a modern, stage-ready Android app.
 
