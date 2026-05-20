@@ -22,6 +22,7 @@
   * `isBypassed` (bool): Bypass state of the plugin instance.
 
 ### 2.2 LooperState
+* ALO looper doc: https://github.com/devcurmudgeon/alo
 * Defines states of the ALO looper tracks:
   * `empty`: Track contains no loop data.
   * `countIn`: Host transport is running count-in before recording.

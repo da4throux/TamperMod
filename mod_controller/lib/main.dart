@@ -12,18 +12,14 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.1.8';
+const String kAppVersion = '1.1.9';
 
-enum ViewMode {
-  split,
-  controls,
-  web,
-}
+enum ViewMode { split, controls, web }
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   WakelockPlus.enable();
-  
+
   runApp(const ModControllerApp());
 }
 
@@ -71,12 +67,15 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingObserver {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   final ModWebSocketService _webSocketService = ModWebSocketService();
   late final LooperController _looperController;
-  final TextEditingController _ipController = TextEditingController(text: '192.168.51.1');
+  final TextEditingController _ipController = TextEditingController(
+    text: '192.168.51.1',
+  );
   late final WebViewController _webViewController;
-  
+
   bool _showControls = true;
   bool _showWeb = true;
   bool _isDarkMode = true;
@@ -110,8 +109,6 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     return const Color(0xFF00FFCC);
   }
 
-
-
   void _updateAllGlowsInWebView() {
     final List<Map<String, dynamic>> configs = [];
     for (final instanceId in _enabledPluginInstances) {
@@ -142,7 +139,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       });
     }
 
-    final String jsCode = '''
+    final String jsCode =
+        '''
       (function() {
         const configs = ${jsonEncode(configs)};
         console.log("TamperMod: Updating permanent glows", configs);
@@ -201,15 +199,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     }
   }
 
-
-
   // Fading and BPM Parameter State
   double _bpm = 120.0;
-  int _fadeBars = 8; // Default fade speed period in bars (configurable: 1, 2, 4, 8, 16)
-  
+  int _fadeBars =
+      8; // Default fade speed period in bars (configurable: 1, 2, 4, 8, 16)
+
   final Map<String, double> _preFadeVolumes = {};
   final Map<String, Timer?> _fadeTimers = {};
-  final Map<String, bool> _fadeDirections = {}; // true for Fade In, false for Fade Out
+  final Map<String, bool> _fadeDirections =
+      {}; // true for Fade In, false for Fade Out
 
   // User custom display titles for plugin cards (renaming support)
   final Map<String, String> _customTitles = {};
@@ -222,7 +220,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     super.initState();
     _looperController = LooperController(webSocketService: _webSocketService);
     WidgetsBinding.instance.addObserver(this);
-    
+
     // Initialize WebViewController
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -235,7 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           },
         ),
       );
-      
+
     // Load initial URL
     _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
 
@@ -244,7 +242,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
     // Connect automatically on launch
     _webSocketService.connect(ip: _ipController.text);
-    
+
     // Listen to value changes to update local volume values and BPM initially
     _webSocketService.gainPedals.addListener(_initializeLocalVolumes);
     _webSocketService.bpm.addListener(_updateBpmFromService);
@@ -261,13 +259,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         }
       }
     }
-    
+
     // Auto-populate custom control workspace by default with gains
     if (_enabledPluginInstances.isEmpty && gains.isNotEmpty) {
       _enabledPluginInstances = gains.map((p) => p.instance).toList();
       _updateAllGlowsInWebView();
     }
-    
+
     setState(() {});
   }
 
@@ -315,7 +313,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       // 2. Enabled/Visible
       List<String> newEnabled = [];
       if (savedEnabled != null) {
-        newEnabled = savedEnabled.where((id) => currentIds.contains(id)).toList();
+        newEnabled = savedEnabled
+            .where((id) => currentIds.contains(id))
+            .toList();
       } else {
         // default populate with gains
         final gains = _webSocketService.gainPedals.value;
@@ -352,7 +352,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         if (!newSizes.containsKey(p.instance)) {
           final uriLower = p.uri.toLowerCase();
           final titleLower = p.title.toLowerCase();
-          final isLooper = uriLower.contains('alo') || titleLower.contains('alo');
+          final isLooper =
+              uriLower.contains('alo') || titleLower.contains('alo');
           newSizes[p.instance] = isLooper ? 'expanded' : 'regular';
         }
       }
@@ -374,21 +375,24 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   void _onTapTempo() {
     final now = DateTime.now();
     _tapTimes.add(now);
-    
+
     // Keep only the last 5 taps for a running average
     if (_tapTimes.length > 5) {
       _tapTimes.removeAt(0);
     }
-    
+
     if (_tapTimes.length >= 2) {
       double totalMs = 0;
       for (int i = 1; i < _tapTimes.length; i++) {
         totalMs += _tapTimes[i].difference(_tapTimes[i - 1]).inMilliseconds;
       }
       final double avgMs = totalMs / (_tapTimes.length - 1);
-      if (avgMs > 200 && avgMs < 2000) { // Limit to 30 to 300 BPM
+      if (avgMs > 200 && avgMs < 2000) {
+        // Limit to 30 to 300 BPM
         final double calculatedBpm = 60000 / avgMs;
-        _webSocketService.setBpm(double.parse(calculatedBpm.toStringAsFixed(1)));
+        _webSocketService.setBpm(
+          double.parse(calculatedBpm.toStringAsFixed(1)),
+        );
       }
     }
   }
@@ -396,14 +400,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _syncNow() async {
     final ip = _ipController.text;
     if (ip.isEmpty) return;
-    
+
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 2);
-      final request = await client.postUrl(Uri.parse('http://$ip/pedalboard/transport/sync/none'));
+      final request = await client.postUrl(
+        Uri.parse('http://$ip/pedalboard/transport/sync/none'),
+      );
       final response = await request.close();
       debugPrint('Sync POST Response status code: ${response.statusCode}');
-      
+
       // Also send rolling command via websocket
       _webSocketService.sendRawMessage('transport-rolling 1');
     } catch (e) {
@@ -416,21 +422,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _setTransportSyncMode(int mode) async {
     final ip = _ipController.text;
     if (ip.isEmpty) return;
-    
+
     String modeStr = 'none';
     if (mode == 1) {
       modeStr = 'midi';
     } else if (mode == 2) {
       modeStr = 'link';
     }
-    
+
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 2);
-      final request = await client.postUrl(Uri.parse('http://$ip/pedalboard/transport/sync/$modeStr'));
+      final request = await client.postUrl(
+        Uri.parse('http://$ip/pedalboard/transport/sync/$modeStr'),
+      );
       final response = await request.close();
       debugPrint('Sync Mode POST ($modeStr) response: ${response.statusCode}');
-      
+
       // Update local state optimistically
       _webSocketService.transportSyncMode.value = mode;
     } catch (e) {
@@ -451,9 +459,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open URL: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not open URL: $e')));
       }
     }
   }
@@ -468,10 +476,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           title: Text(
             'SET HOST TEMPO',
             style: TextStyle(
-              color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
-              fontWeight: FontWeight.bold, 
-              letterSpacing: 1.2, 
-              fontSize: 16
+              color: _isDarkMode
+                  ? const Color(0xFF00FFCC)
+                  : const Color(0xFF00B3FF),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              fontSize: 16,
             ),
           ),
           content: TextField(
@@ -479,30 +489,40 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: 'Tempo (BPM)',
-              labelStyle: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[750]),
-              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+              labelStyle: TextStyle(
+                color: _isDarkMode ? Colors.grey : Colors.grey[750],
+              ),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey),
+              ),
               focusedBorder: UnderlineInputBorder(
                 borderSide: BorderSide(
-                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  color: _isDarkMode
+                      ? const Color(0xFF00FFCC)
+                      : const Color(0xFF00B3FF),
                 ),
               ),
             ),
             style: TextStyle(
-              color: _isDarkMode ? Colors.white : Colors.black, 
-              fontFamily: 'monospace'
+              color: _isDarkMode ? Colors.white : Colors.black,
+              fontFamily: 'monospace',
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'CANCEL', 
-                style: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[600])
+                'CANCEL',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
+                backgroundColor: _isDarkMode
+                    ? const Color(0xFF00FFCC)
+                    : const Color(0xFF00B3FF),
                 foregroundColor: _isDarkMode ? Colors.black : Colors.white,
               ),
               onPressed: () {
@@ -512,7 +532,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 }
                 Navigator.pop(context);
               },
-              child: const Text('SET', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'SET',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -522,16 +545,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _triggerFade(PluginInstance pedal, {required bool fadeIn}) {
     if (pedal.gainPortSymbol == null) return;
-    
-    final double currentValue = _localVolumes[pedal.instance] ?? 
-        pedal.parameters[pedal.gainPortSymbol] ?? 
+
+    final double currentValue =
+        _localVolumes[pedal.instance] ??
+        pedal.parameters[pedal.gainPortSymbol] ??
         0.0;
-        
+
     final double minRange = pedal.minGain;
     final double maxRange = pedal.maxGain;
-    
+
     final double startVal = currentValue.clamp(minRange, maxRange);
-    
+
     double targetEndValue;
     if (fadeIn) {
       targetEndValue = _preFadeVolumes[pedal.instance] ?? 0.0;
@@ -543,62 +567,68 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       }
       targetEndValue = minRange;
     }
-    
+
     // Duration in seconds: (60 / BPM) * 4 beats per bar * bars count
     final double duration = (60 / _bpm) * 4 * _fadeBars;
     final int totalSteps = (duration / 0.05).round();
-    
+
     if (totalSteps <= 0) return;
-    
+
     int currentStep = 0;
-    
+
     // Stop any existing fade timer
     _fadeTimers[pedal.instance]?.cancel();
-    
+
     setState(() {
       _fadeDirections[pedal.instance] = fadeIn;
     });
-    
-    _fadeTimers[pedal.instance] = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      
-      currentStep++;
-      if (currentStep >= totalSteps) {
-        setState(() {
-          _localVolumes[pedal.instance] = targetEndValue;
-          _fadeTimers[pedal.instance] = null;
-        });
-        _webSocketService.setParamValue(
-          instance: pedal.instance,
-          port: pedal.gainPortSymbol!,
-          value: double.parse(targetEndValue.toStringAsFixed(2)),
-        );
-        timer.cancel();
-      } else {
-        // Compute S-curve interpolation using Curves.easeInOut
-        final double progress = currentStep / totalSteps;
-        final double curvedProgress = Curves.easeInOut.transform(progress);
-        final double intermediateVal = startVal + (targetEndValue - startVal) * curvedProgress;
-        
-        setState(() {
-          _localVolumes[pedal.instance] = intermediateVal;
-        });
-        _webSocketService.setParamValue(
-          instance: pedal.instance,
-          port: pedal.gainPortSymbol!,
-          value: double.parse(intermediateVal.toStringAsFixed(2)),
-        );
-      }
-    });
+
+    _fadeTimers[pedal.instance] = Timer.periodic(
+      const Duration(milliseconds: 50),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+
+        currentStep++;
+        if (currentStep >= totalSteps) {
+          setState(() {
+            _localVolumes[pedal.instance] = targetEndValue;
+            _fadeTimers[pedal.instance] = null;
+          });
+          _webSocketService.setParamValue(
+            instance: pedal.instance,
+            port: pedal.gainPortSymbol!,
+            value: double.parse(targetEndValue.toStringAsFixed(2)),
+          );
+          timer.cancel();
+        } else {
+          // Compute S-curve interpolation using Curves.easeInOut
+          final double progress = currentStep / totalSteps;
+          final double curvedProgress = Curves.easeInOut.transform(progress);
+          final double intermediateVal =
+              startVal + (targetEndValue - startVal) * curvedProgress;
+
+          setState(() {
+            _localVolumes[pedal.instance] = intermediateVal;
+          });
+          _webSocketService.setParamValue(
+            instance: pedal.instance,
+            port: pedal.gainPortSymbol!,
+            value: double.parse(intermediateVal.toStringAsFixed(2)),
+          );
+        }
+      },
+    );
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      debugPrint('App returned from background: automatically restoring remote connection...');
+      debugPrint(
+        'App returned from background: automatically restoring remote connection...',
+      );
       if (_webSocketService.status == ConnectionStatus.disconnected) {
         _webSocketService.connect(ip: _ipController.text);
       }
@@ -612,12 +642,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     _webSocketService.bpm.removeListener(_updateBpmFromService);
     _webSocketService.allPlugins.removeListener(_syncOrderedPlugins);
     _cardsScrollController.dispose();
-    
+
     // Cancel all running fade timers
     for (var timer in _fadeTimers.values) {
       timer?.cancel();
     }
-    
+
     _looperController.dispose();
     _webSocketService.dispose();
     _ipController.dispose();
@@ -627,7 +657,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Future<void> _openWebInterface() async {
     final ip = _ipController.text;
     if (ip.isEmpty) return;
-    
+
     final uri = Uri.parse('http://$ip');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -669,7 +699,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) {
     final statusBarHeight = MediaQuery.of(context).padding.top;
-    
+
     return ListenableBuilder(
       listenable: _webSocketService,
       builder: (context, _) {
@@ -688,19 +718,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
                 border: Border(
                   left: BorderSide(
-                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
-                    width: 1.5
+                    color: _isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF),
+                    width: 1.5,
                   ),
                   top: BorderSide(
-                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
-                    width: 1.5
+                    color: _isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF),
+                    width: 1.5,
                   ),
                 ),
               ),
               child: _buildDrawerContent(),
             ),
           ),
-          
+
           // Continuous Left-aligned navigation and metrics drawer
           drawer: Drawer(
             backgroundColor: Colors.transparent,
@@ -710,17 +744,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
                 border: Border(
                   right: BorderSide(
-                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
-                    width: 1.5
+                    color: _isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF),
+                    width: 1.5,
                   ),
                 ),
               ),
               child: _buildLeftDrawerContent(),
             ),
           ),
-          
+
           appBar: AppBar(
-            backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : const Color(0xFFE4E6EB),
+            backgroundColor: _isDarkMode
+                ? const Color(0xFF0F141C)
+                : const Color(0xFFE4E6EB),
             elevation: 8,
             leadingWidth: 52,
             leading: Builder(
@@ -729,29 +767,36 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Scaffold.of(context).openDrawer();
                 },
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 14.0, top: 10.0, bottom: 10.0),
+                  padding: const EdgeInsets.only(
+                    left: 14.0,
+                    top: 10.0,
+                    bottom: 10.0,
+                  ),
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         colors: _isDarkMode
                             ? [const Color(0xFF00FFCC), const Color(0xFFFF007F)]
-                            : [const Color(0xFF00B3FF), const Color(0xFFFF0055)],
+                            : [
+                                const Color(0xFF00B3FF),
+                                const Color(0xFFFF0055),
+                              ],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)).withOpacity(0.4),
+                          color:
+                              (_isDarkMode
+                                      ? const Color(0xFF00FFCC)
+                                      : const Color(0xFF00B3FF))
+                                  .withOpacity(0.4),
                           blurRadius: 6,
                           spreadRadius: 1,
-                        )
+                        ),
                       ],
                     ),
                     child: const Center(
-                      child: Icon(
-                        Icons.tune,
-                        size: 14,
-                        color: Colors.white,
-                      ),
+                      child: Icon(Icons.tune, size: 14, color: Colors.white),
                     ),
                   ),
                 ),
@@ -766,8 +811,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     Text(
                       'TAMPERMOD LIVE',
                       style: TextStyle(
-                        fontSize: 14, 
-                        fontWeight: FontWeight.w900, 
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
                         letterSpacing: 1.5,
                         color: _isDarkMode ? Colors.white : Colors.black,
                       ),
@@ -788,9 +833,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.bold,
-                            color: _isDarkMode 
-                                ? _getStatusColor(_webSocketService.status) 
-                                : _getStatusColor(_webSocketService.status).withOpacity(0.85),
+                            color: _isDarkMode
+                                ? _getStatusColor(_webSocketService.status)
+                                : _getStatusColor(
+                                    _webSocketService.status,
+                                  ).withOpacity(0.85),
                           ),
                         ),
                       ],
@@ -803,11 +850,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               // Premium Integrated BPM & Fade Controller
               if (screenWidth > 580) _buildBpmControllerWidget(),
               const SizedBox(width: 8),
-              
+
               // Open Settings Drawer
               Builder(
                 builder: (context) => IconButton(
-                  icon: const Icon(Icons.settings_outlined, color: Color(0xFFFF007F), size: 22),
+                  icon: const Icon(
+                    Icons.settings_outlined,
+                    color: Color(0xFFFF007F),
+                    size: 22,
+                  ),
                   tooltip: 'Workspace Settings',
                   onPressed: () {
                     Scaffold.of(context).openEndDrawer();
@@ -822,7 +873,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: _isDarkMode 
+                colors: _isDarkMode
                     ? [const Color(0xFF0F141C), const Color(0xFF05070A)]
                     : [const Color(0xFFF0F2F5), const Color(0xFFE4E6EB)],
               ),
@@ -837,16 +888,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 _buildBottomToolbar(),
 
                 // BPM inline widget on tiny screens to avoid AppBar overcrowding
-                if (screenWidth <= 580) 
+                if (screenWidth <= 580)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: _buildBpmControllerWidget(),
                   ),
- 
+
                 // Responsive layout container
-                Expanded(
-                  child: _buildBodyContent(isLandscape),
-                ),
+                Expanded(child: _buildBodyContent(isLandscape)),
               ],
             ),
           ),
@@ -857,14 +909,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   Widget _buildBpmControllerWidget() {
     final double seconds = (60 / _bpm) * 4 * _fadeBars;
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _isDarkMode ? Colors.black.withOpacity(0.35) : Colors.grey[300]!.withOpacity(0.5),
+        color: _isDarkMode
+            ? Colors.black.withOpacity(0.35)
+            : Colors.grey[300]!.withOpacity(0.5),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)).withOpacity(0.2)
+          color:
+              (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                  .withOpacity(0.2),
         ),
       ),
       child: Row(
@@ -878,7 +934,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               decoration: BoxDecoration(
                 color: const Color(0xFFFF007F).withOpacity(0.12),
                 borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFFFF007F).withOpacity(0.4)),
+                border: Border.all(
+                  color: const Color(0xFFFF007F).withOpacity(0.4),
+                ),
               ),
               child: const Text(
                 'TAP',
@@ -892,7 +950,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ),
           ),
           const SizedBox(width: 8),
-          
+
           // Editable BPM readout
           GestureDetector(
             onTap: _showBpmDialog,
@@ -902,22 +960,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 fontFamily: 'monospace',
                 fontSize: 12.5,
                 fontWeight: FontWeight.bold,
-                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF0099FF),
+                color: _isDarkMode
+                    ? const Color(0xFF00FFCC)
+                    : const Color(0xFF0099FF),
               ),
             ),
           ),
           const SizedBox(width: 8),
-          
+
           // Dropdown selector for Fade Beats length
           DropdownButton<int>(
             value: _fadeBars,
             dropdownColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
             underline: const SizedBox(),
-            icon: const Icon(Icons.arrow_drop_down, color: Colors.grey, size: 16),
+            icon: const Icon(
+              Icons.arrow_drop_down,
+              color: Colors.grey,
+              size: 16,
+            ),
             style: TextStyle(
-              color: _isDarkMode ? Colors.white : Colors.black, 
-              fontSize: 11.5, 
-              fontWeight: FontWeight.bold
+              color: _isDarkMode ? Colors.white : Colors.black,
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
             ),
             onChanged: (val) {
               if (val != null) {
@@ -934,13 +998,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             }).toList(),
           ),
           const SizedBox(width: 4),
-          
+
           // Live duration calculation text
           Text(
             '(${seconds.toStringAsFixed(1)}s)',
-            style: TextStyle(fontSize: 10, color: _isDarkMode ? Colors.grey[500] : Colors.grey[700]),
+            style: TextStyle(
+              fontSize: 10,
+              color: _isDarkMode ? Colors.grey[500] : Colors.grey[700],
+            ),
           ),
-          
+
           // Vertical divider
           Container(
             height: 20,
@@ -960,7 +1027,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   isRolling ? Icons.stop : Icons.play_arrow,
                   color: isRolling
                       ? const Color(0xFFFF0055)
-                      : (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)),
+                      : (_isDarkMode
+                            ? const Color(0xFF00FFCC)
+                            : const Color(0xFF00B3FF)),
                   size: 20,
                 ),
                 tooltip: isRolling ? 'Stop Transport' : 'Play Transport',
@@ -978,7 +1047,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             builder: (context, syncMode, _) {
               return DropdownButton<int>(
                 value: (syncMode >= 0 && syncMode <= 2) ? syncMode : 0,
-                dropdownColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+                dropdownColor: _isDarkMode
+                    ? const Color(0xFF0F141C)
+                    : Colors.white,
                 underline: const SizedBox(),
                 icon: const Icon(Icons.sync, color: Colors.grey, size: 14),
                 style: TextStyle(
@@ -992,18 +1063,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   }
                 },
                 items: const [
-                  DropdownMenuItem<int>(
-                    value: 0,
-                    child: Text('INTERNAL'),
-                  ),
-                  DropdownMenuItem<int>(
-                    value: 1,
-                    child: Text('MIDI'),
-                  ),
-                  DropdownMenuItem<int>(
-                    value: 2,
-                    child: Text('LINK'),
-                  ),
+                  DropdownMenuItem<int>(value: 0, child: Text('INTERNAL')),
+                  DropdownMenuItem<int>(value: 1, child: Text('MIDI')),
+                  DropdownMenuItem<int>(value: 2, child: Text('LINK')),
                 ],
               );
             },
@@ -1023,10 +1085,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       return isLandscape
           ? Row(
               children: [
-                Expanded(
-                  flex: 5,
-                  child: _buildUnifiedControlsList(),
-                ),
+                Expanded(flex: 5, child: _buildUnifiedControlsList()),
                 Container(width: 1.5, color: Colors.grey[850]),
                 Expanded(
                   flex: 6,
@@ -1042,10 +1101,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             )
           : Column(
               children: [
-                Expanded(
-                  flex: 5,
-                  child: _buildUnifiedControlsList(),
-                ),
+                Expanded(flex: 5, child: _buildUnifiedControlsList()),
                 Container(height: 1.5, color: Colors.grey[850]),
                 Expanded(
                   flex: 6,
@@ -1072,7 +1128,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.link_off, size: 64, color: const Color(0xFFFF007F).withOpacity(0.5)),
+            Icon(
+              Icons.link_off,
+              size: 64,
+              color: const Color(0xFFFF007F).withOpacity(0.5),
+            ),
             const SizedBox(height: 16),
             const Text(
               'Not connected to MOD Dwarf',
@@ -1094,19 +1154,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         // Self-healing: if a new pedalboard is loaded, stale instances in _enabledPluginInstances should be reset
         if (_enabledPluginInstances.isNotEmpty && plugins.isNotEmpty) {
           final bool hasAnyActive = _enabledPluginInstances.any(
-            (instanceId) => plugins.any((p) => p.instance == instanceId)
+            (instanceId) => plugins.any((p) => p.instance == instanceId),
           );
           if (!hasAnyActive) {
-            final newGains = plugins.where((p) {
-              final uriLower = p.uri.toLowerCase();
-              final titleLower = p.title.toLowerCase();
-              return uriLower.contains('gain') || 
-                     uriLower.contains('volume') || 
-                     uriLower.contains('amp') ||
-                     titleLower.contains('gain') || 
-                     titleLower.contains('volume');
-            }).map((p) => p.instance).toList();
-            
+            final newGains = plugins
+                .where((p) {
+                  final uriLower = p.uri.toLowerCase();
+                  final titleLower = p.title.toLowerCase();
+                  return uriLower.contains('gain') ||
+                      uriLower.contains('volume') ||
+                      uriLower.contains('amp') ||
+                      titleLower.contains('gain') ||
+                      titleLower.contains('volume');
+                })
+                .map((p) => p.instance)
+                .toList();
+
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 setState(() {
@@ -1144,7 +1207,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   const SizedBox(height: 16),
                   const Text(
                     'No Active Custom Controls',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -1164,7 +1231,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             final double sidePadding = 8.0;
             final double availableWidth = width - sidePadding * 2;
             final double spacing = 16.0;
-            
+
             double compactWidth;
             double regularWidth;
             double expandedWidth;
@@ -1193,12 +1260,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   final String size = _pedalSizes[pedal.instance] ?? 'regular';
                   final uriLower = pedal.uri.toLowerCase();
                   final titleLower = pedal.title.toLowerCase();
-                  final isLooper = uriLower.contains('alo') || titleLower.contains('alo');
-                  
+                  final isLooper =
+                      uriLower.contains('alo') || titleLower.contains('alo');
+
                   double cardWidth = regularWidth;
                   // 240px prevents the FADE row from overflowing the card boundary
                   double cardHeight = 240.0;
-                  
+
                   if (isLooper) {
                     cardWidth = expandedWidth;
                     cardHeight = 450.0;
@@ -1216,12 +1284,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   }
 
                   Widget cardWidget;
-                  final isSwitch = uriLower.contains('switch') || titleLower.contains('switch');
-                  final isGainOrVolume = uriLower.contains('gain') || 
-                                         uriLower.contains('volume') || 
-                                         uriLower.contains('amp') ||
-                                         titleLower.contains('gain') || 
-                                         titleLower.contains('volume');
+                  final isSwitch =
+                      uriLower.contains('switch') ||
+                      titleLower.contains('switch');
+                  final isGainOrVolume =
+                      uriLower.contains('gain') ||
+                      uriLower.contains('volume') ||
+                      uriLower.contains('amp') ||
+                      titleLower.contains('gain') ||
+                      titleLower.contains('volume');
 
                   if (isLooper) {
                     cardWidget = _buildLooperControlPanel(pedal);
@@ -1248,10 +1319,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Widget _buildGainCard(PluginInstance pedal, String size) {
-    final double currentValue = _localVolumes[pedal.instance] ?? 
-        (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null) ?? 
+    final double currentValue =
+        _localVolumes[pedal.instance] ??
+        (pedal.gainPortSymbol != null
+            ? pedal.parameters[pedal.gainPortSymbol]
+            : null) ??
         0.0;
-    
+
     final double minRange = pedal.minGain;
     final double maxRange = pedal.maxGain;
 
@@ -1259,24 +1333,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final bool isBypassed = pedal.isBypassed;
 
     // Read the custom glow configuration
-    final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
+    final String colorHex =
+        _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
 
     // Design states based on active status and chosen neon color
-    final Color accentColor = isBypassed 
-        ? Colors.grey[600]! 
-        : glowColor;
-        
-    final Color powerIconColor = isBypassed 
-        ? const Color(0xFFFF007F) 
+    final Color accentColor = isBypassed ? Colors.grey[600]! : glowColor;
+
+    final Color powerIconColor = isBypassed
+        ? const Color(0xFFFF007F)
         : glowColor;
 
     final double cardOpacity = isBypassed ? 0.70 : 1.0;
-    
+
     // Check if dynamic fading is active
     final bool isFading = _fadeTimers[pedal.instance] != null;
-    final bool isFadingIn = isFading && (_fadeDirections[pedal.instance] == true);
-    final bool isFadingOut = isFading && (_fadeDirections[pedal.instance] == false);
+    final bool isFadingIn =
+        isFading && (_fadeDirections[pedal.instance] == true);
+    final bool isFadingOut =
+        isFading && (_fadeDirections[pedal.instance] == false);
 
     return GestureDetector(
       onLongPress: () => _showColorPickerDialog(pedal),
@@ -1299,7 +1374,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
               // 2. Softer glow that goes further away
               BoxShadow(
-                color: glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35)),
+                color: glowColor.withOpacity(
+                  isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35),
+                ),
                 blurRadius: 80,
                 spreadRadius: 2,
               ),
@@ -1319,7 +1396,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               behavior: HitTestBehavior.opaque,
                               onTap: () => _highlightPedalInWebView(pedal),
                               child: Text(
-                                (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                (_customTitles[pedal.instance] ?? pedal.title)
+                                    .toUpperCase(),
                                 style: TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w900,
@@ -1330,17 +1408,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.edit, size: 12, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+                            icon: Icon(
+                              Icons.edit,
+                              size: 12,
+                              color: _isDarkMode
+                                  ? Colors.grey[500]
+                                  : Colors.grey[600],
+                            ),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () => _showRenameDialog(pedal),
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: Icon(Icons.help_outline, size: 12, color: accentColor.withOpacity(0.8)),
+                            icon: Icon(
+                              Icons.help_outline,
+                              size: 12,
+                              color: accentColor.withOpacity(0.8),
+                            ),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _showModuleHelpSheet(context, 'gain'),
+                            onPressed: () =>
+                                _showModuleHelpSheet(context, 'gain'),
                           ),
                           const SizedBox(width: 8),
                           // Compact Power Switch
@@ -1364,19 +1453,31 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       Row(
                         children: [
                           Icon(
-                            Icons.volume_down, 
-                            color: _isDarkMode ? Colors.grey[isBypassed ? 700 : 600] : Colors.grey[isBypassed ? 600 : 700], 
-                            size: 14
+                            Icons.volume_down,
+                            color: _isDarkMode
+                                ? Colors.grey[isBypassed ? 700 : 600]
+                                : Colors.grey[isBypassed ? 600 : 700],
+                            size: 14,
                           ),
                           Expanded(
                             child: SliderTheme(
                               data: SliderTheme.of(context).copyWith(
                                 activeTrackColor: accentColor,
-                                inactiveTrackColor: _isDarkMode ? Colors.grey[850] : Colors.grey[300],
+                                inactiveTrackColor: _isDarkMode
+                                    ? Colors.grey[850]
+                                    : Colors.grey[300],
                                 trackHeight: 5.0,
-                                thumbColor: isBypassed ? Colors.grey[400] : (_isDarkMode ? Colors.white : Colors.grey[100]),
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
+                                thumbColor: isBypassed
+                                    ? Colors.grey[400]
+                                    : (_isDarkMode
+                                          ? Colors.white
+                                          : Colors.grey[100]),
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 8.0,
+                                ),
+                                overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 16.0,
+                                ),
                               ),
                               child: Slider(
                                 value: clampedValue,
@@ -1392,7 +1493,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                     _webSocketService.setParamValue(
                                       instance: pedal.instance,
                                       port: pedal.gainPortSymbol!,
-                                      value: double.parse(newValue.toStringAsFixed(2)),
+                                      value: double.parse(
+                                        newValue.toStringAsFixed(2),
+                                      ),
                                     );
                                   }
                                 },
@@ -1415,221 +1518,264 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-              // Header parameters
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _highlightPedalInWebView(pedal),
-                      child: Tooltip(
-                        message: 'Tap to locate in Web interface',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w900,
-                                      color: accentColor,
-                                      overflow: TextOverflow.ellipsis,
+                      // Header parameters
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _highlightPedalInWebView(pedal),
+                              child: Tooltip(
+                                message: 'Tap to locate in Web interface',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            (_customTitles[pedal.instance] ??
+                                                    pedal.title)
+                                                .toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w900,
+                                              color: accentColor,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.edit,
+                                            size: 14,
+                                            color: _isDarkMode
+                                                ? Colors.grey[500]
+                                                : Colors.grey[600],
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () =>
+                                              _showRenameDialog(pedal),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.help_outline,
+                                            size: 14,
+                                            color: accentColor.withOpacity(0.8),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () => _showModuleHelpSheet(
+                                            context,
+                                            'gain',
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () =>
+                                                _openPluginUri(pedal.uri),
+                                            child: Text(
+                                              pedal.uri,
+                                              style: TextStyle(
+                                                fontSize: 8.5,
+                                                color: _isDarkMode
+                                                    ? const Color(0xFF00FFCC)
+                                                    : const Color(0xFF00B3FF),
+                                                decoration:
+                                                    TextDecoration.underline,
+                                                fontFamily: 'monospace',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Port: ${pedal.gainPortSymbol ?? "Gain"}',
+                                          style: TextStyle(
+                                            fontSize: 8.5,
+                                            color: _isDarkMode
+                                                ? Colors.grey[500]
+                                                : Colors.grey[750],
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.edit, size: 14, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _showRenameDialog(pedal),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.8)),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _showModuleHelpSheet(context, 'gain'),
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => _openPluginUri(pedal.uri),
-                                    child: Text(
-                                      pedal.uri,
-                                      style: TextStyle(
-                                        fontSize: 8.5,
-                                        color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
-                                        decoration: TextDecoration.underline,
-                                        fontFamily: 'monospace',
-                                        overflow: TextOverflow.ellipsis,
+                          ),
+
+                          // Power Switch
+                          IconButton(
+                            icon: Icon(
+                              Icons.power_settings_new,
+                              color: powerIconColor,
+                              size: 26,
+                            ),
+                            tooltip: isBypassed
+                                ? 'Activate Pedal'
+                                : 'Bypass Pedal',
+                            onPressed: () {
+                              _webSocketService.toggleBypass(
+                                instance: pedal.instance,
+                                bypass: !isBypassed,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Decibel Value Box
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _isDarkMode
+                                  ? Colors.black
+                                  : Colors.grey[900],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: accentColor.withOpacity(0.5),
+                              ),
+                            ),
+                            child: Text(
+                              '${clampedValue.toStringAsFixed(1)} dB',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: accentColor,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+
+                      // Custom styled Volume Slider
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.volume_mute,
+                            color: _isDarkMode
+                                ? Colors.grey[isBypassed ? 700 : 600]
+                                : Colors.grey[isBypassed ? 600 : 700],
+                            size: 20,
+                          ),
+                          Expanded(
+                            child: SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                activeTrackColor: accentColor,
+                                inactiveTrackColor: _isDarkMode
+                                    ? Colors.grey[850]
+                                    : Colors.grey[300],
+                                trackHeight: 12.0,
+                                thumbColor: isBypassed
+                                    ? Colors.grey[400]
+                                    : (_isDarkMode
+                                          ? Colors.white
+                                          : Colors.grey[100]),
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 15.0,
+                                ),
+                                overlayColor: accentColor.withOpacity(0.2),
+                                overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 28.0,
+                                ),
+                              ),
+                              child: Slider(
+                                value: clampedValue,
+                                min: minRange,
+                                max: maxRange,
+                                onChanged: (newValue) {
+                                  // Interrupt and cancel any active fade immediately if user moves thumb
+                                  _fadeTimers[pedal.instance]?.cancel();
+                                  setState(() {
+                                    _fadeTimers[pedal.instance] = null;
+                                    _localVolumes[pedal.instance] = newValue;
+                                  });
+
+                                  if (pedal.gainPortSymbol != null) {
+                                    _webSocketService.setParamValue(
+                                      instance: pedal.instance,
+                                      port: pedal.gainPortSymbol!,
+                                      value: double.parse(
+                                        newValue.toStringAsFixed(2),
                                       ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Port: ${pedal.gainPortSymbol ?? "Gain"}',
-                                  style: TextStyle(
-                                    fontSize: 8.5,
-                                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ],
+                                    );
+                                  }
+                                },
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                          Icon(Icons.volume_up, color: accentColor, size: 20),
+                        ],
                       ),
-                    ),
-                  ),
-                  
-                  // Power Switch
-                  IconButton(
-                    icon: Icon(
-                      Icons.power_settings_new,
-                      color: powerIconColor,
-                      size: 26,
-                    ),
-                    tooltip: isBypassed ? 'Activate Pedal' : 'Bypass Pedal',
-                    onPressed: () {
-                      _webSocketService.toggleBypass(
-                        instance: pedal.instance,
-                        bypass: !isBypassed,
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
- 
-                  // Decibel Value Box
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _isDarkMode ? Colors.black : Colors.grey[900],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: accentColor.withOpacity(0.5),
+
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${minRange.toStringAsFixed(1)} dB',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _isDarkMode
+                                  ? Colors.grey[isBypassed ? 750 : 650]
+                                  : Colors.grey[isBypassed ? 600 : 700],
+                            ),
+                          ),
+                          Text(
+                            '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB (Max)',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: _isDarkMode
+                                  ? Colors.grey[isBypassed ? 750 : 650]
+                                  : Colors.grey[isBypassed ? 600 : 700],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    child: Text(
-                      '${clampedValue.toStringAsFixed(1)} dB',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: accentColor,
-                        fontFamily: 'monospace',
+                      const SizedBox(height: 8),
+
+                      // Fade Action Row
+                      Row(
+                        children: [
+                          _buildFadeButton(
+                            label: 'FADE IN',
+                            icon: Icons.trending_up,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: true),
+                            accentColor: accentColor,
+                            isFading: isFadingIn,
+                          ),
+                          _buildFadeButton(
+                            label: 'FADE OUT',
+                            icon: Icons.trending_down,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: false),
+                            accentColor: accentColor,
+                            isFading: isFadingOut,
+                          ),
+                        ],
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const Spacer(),
-              
-              // Custom styled Volume Slider
-              Row(
-                children: [
-                  Icon(
-                    Icons.volume_mute, 
-                    color: _isDarkMode ? Colors.grey[isBypassed ? 700 : 600] : Colors.grey[isBypassed ? 600 : 700], 
-                    size: 20
-                  ),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: accentColor,
-                        inactiveTrackColor: _isDarkMode ? Colors.grey[850] : Colors.grey[300],
-                        trackHeight: 12.0,
-                        thumbColor: isBypassed ? Colors.grey[400] : (_isDarkMode ? Colors.white : Colors.grey[100]),
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 15.0),
-                        overlayColor: accentColor.withOpacity(0.2),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 28.0),
-                      ),
-                      child: Slider(
-                        value: clampedValue,
-                        min: minRange,
-                        max: maxRange,
-                        onChanged: (newValue) {
-                          // Interrupt and cancel any active fade immediately if user moves thumb
-                          _fadeTimers[pedal.instance]?.cancel();
-                          setState(() {
-                            _fadeTimers[pedal.instance] = null;
-                            _localVolumes[pedal.instance] = newValue;
-                          });
-                          
-                          if (pedal.gainPortSymbol != null) {
-                            _webSocketService.setParamValue(
-                              instance: pedal.instance,
-                              port: pedal.gainPortSymbol!,
-                              value: double.parse(newValue.toStringAsFixed(2)),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.volume_up, color: accentColor, size: 20),
-                ],
-              ),
-              
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${minRange.toStringAsFixed(1)} dB',
-                    style: TextStyle(
-                      fontSize: 10, 
-                      color: _isDarkMode 
-                          ? Colors.grey[isBypassed ? 750 : 650] 
-                          : Colors.grey[isBypassed ? 600 : 700]
-                    ),
-                  ),
-                  Text(
-                    '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB (Max)',
-                    style: TextStyle(
-                      fontSize: 10, 
-                      color: _isDarkMode 
-                          ? Colors.grey[isBypassed ? 750 : 650] 
-                          : Colors.grey[isBypassed ? 600 : 700]
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              
-              // Fade Action Row
-              Row(
-                children: [
-                  _buildFadeButton(
-                    label: 'FADE IN',
-                    icon: Icons.trending_up,
-                    isBypassed: isBypassed,
-                    onTap: () => _triggerFade(pedal, fadeIn: true),
-                    accentColor: accentColor,
-                    isFading: isFadingIn,
-                  ),
-                  _buildFadeButton(
-                    label: 'FADE OUT',
-                    icon: Icons.trending_down,
-                    isBypassed: isBypassed,
-                    onTap: () => _triggerFade(pedal, fadeIn: false),
-                    accentColor: accentColor,
-                    isFading: isFadingOut,
-                  ),
-                ],
-              ),
-            ],
           ),
         ),
       ),
-     ),
     );
   }
 
@@ -1648,7 +1794,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       });
     }
 
-    final String jsCode = '''
+    final String jsCode =
+        '''
       (function() {
         const configs = ${jsonEncode(configs)};
         console.log("TamperMod: Synchronous board-wide blink pulse", configs);
@@ -1718,10 +1865,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         content: const Text(
           '⚡ SYNCHRONIZED BOARD-WIDE NEON IDENTIFICATION PULSE',
           style: TextStyle(
-            color: Color(0xFF00FFCC), 
-            fontWeight: FontWeight.bold, 
+            color: Color(0xFF00FFCC),
+            fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
-            fontSize: 12
+            fontSize: 12,
           ),
         ),
         backgroundColor: const Color(0xFF161B22),
@@ -1740,11 +1887,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _highlightPedalInWebView(PluginInstance pedal) {
     final String instId = pedal.instance;
-    final String colorHex = _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
+    final String colorHex =
+        _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
     final bool isGlowEnabled = _pedalGlowEnabled[instId] ?? true;
-    
+
     // Construct robust JavaScript to blink the pedal element in the Web GUI for 2 seconds
-    final String jsCode = '''
+    final String jsCode =
+        '''
       (function() {
         const instId = "$instId";
         const color = "$colorHex";
@@ -1814,10 +1963,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         content: Text(
           '⚡ BLINK IDENTIFYING: ${pedal.title.toUpperCase()}',
           style: const TextStyle(
-            color: Color(0xFF00FFCC), 
-            fontWeight: FontWeight.bold, 
+            color: Color(0xFF00FFCC),
+            fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
-            fontSize: 12
+            fontSize: 12,
           ),
         ),
         backgroundColor: const Color(0xFF161B22),
@@ -1837,7 +1986,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   void _showRenameDialog(PluginInstance pedal) {
     final currentTitle = _customTitles[pedal.instance] ?? pedal.title;
     final controller = TextEditingController(text: currentTitle);
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1846,21 +1995,29 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           title: Text(
             'RENAME PEDAL',
             style: TextStyle(
-              color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
-              fontWeight: FontWeight.bold, 
-              letterSpacing: 1.2, 
-              fontSize: 16
+              color: _isDarkMode
+                  ? const Color(0xFF00FFCC)
+                  : const Color(0xFF00B3FF),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              fontSize: 16,
             ),
           ),
           content: TextField(
             controller: controller,
             decoration: InputDecoration(
               labelText: 'Custom Display Name',
-              labelStyle: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[700]),
-              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+              labelStyle: TextStyle(
+                color: _isDarkMode ? Colors.grey : Colors.grey[700],
+              ),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey),
+              ),
               focusedBorder: UnderlineInputBorder(
                 borderSide: BorderSide(
-                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  color: _isDarkMode
+                      ? const Color(0xFF00FFCC)
+                      : const Color(0xFF00B3FF),
                 ),
               ),
             ),
@@ -1871,13 +2028,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'CANCEL', 
-                style: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[600])
+                'CANCEL',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                ),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF), 
+                backgroundColor: _isDarkMode
+                    ? const Color(0xFF00FFCC)
+                    : const Color(0xFF00B3FF),
                 foregroundColor: _isDarkMode ? Colors.black : Colors.white,
               ),
               onPressed: () {
@@ -1888,7 +2049,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 }
                 Navigator.pop(context);
               },
-              child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'SAVE',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -1898,14 +2062,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
 
   void _showColorPickerDialog(PluginInstance pedal) {
     final String instId = pedal.instance;
-    final String currentColorHex = _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
+    final String currentColorHex =
+        _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: _isDarkMode ? const Color(0xFF161B22) : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             'CHOOSE GLOW COLOR',
             style: TextStyle(
@@ -1922,23 +2089,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               runSpacing: 12,
               children: kNeonColors.map((hex) {
                 final Color dotColor = _hexToColor(hex);
-                final bool isSelected = hex.toUpperCase() == currentColorHex.toUpperCase();
-                
+                final bool isSelected =
+                    hex.toUpperCase() == currentColorHex.toUpperCase();
+
                 int usageCount = 0;
                 for (var p in _webSocketService.allPlugins.value) {
                   final String pId = p.instance;
-                  final String pColor = _pedalGlowColors[pId] ?? _getDefaultColorForPedal(p);
+                  final String pColor =
+                      _pedalGlowColors[pId] ?? _getDefaultColorForPedal(p);
                   if (pColor.toUpperCase() == hex.toUpperCase()) {
                     usageCount++;
                   }
                 }
                 // Check looper as well
                 if (_looperController.activeLooper != null) {
-                  final String looperId = _looperController.activeLooper!.instance;
+                  final String looperId =
+                      _looperController.activeLooper!.instance;
                   final String looperColor = _pedalGlowColors[looperId] ?? '';
-                  if (looperColor.isNotEmpty && looperColor.toUpperCase() == hex.toUpperCase()) {
+                  if (looperColor.isNotEmpty &&
+                      looperColor.toUpperCase() == hex.toUpperCase()) {
                     usageCount++;
-                  } else if (looperColor.isEmpty && hex.toUpperCase() == '#FF0055') {
+                  } else if (looperColor.isEmpty &&
+                      hex.toUpperCase() == '#FF0055') {
                     usageCount++;
                   }
                 }
@@ -1959,8 +2131,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       color: dotColor,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: isSelected 
-                            ? (_isDarkMode ? Colors.white : Colors.black) 
+                        color: isSelected
+                            ? (_isDarkMode ? Colors.white : Colors.black)
                             : Colors.transparent,
                         width: 3,
                       ),
@@ -1969,7 +2141,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           color: dotColor.withOpacity(isSelected ? 0.6 : 0.2),
                           blurRadius: isSelected ? 12 : 6,
                           spreadRadius: isSelected ? 2 : 1,
-                        )
+                        ),
                       ],
                     ),
                     child: usageCount > 0
@@ -1977,8 +2149,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: dotColor.computeLuminance() > 0.5 
-                                    ? Colors.black.withOpacity(0.15) 
+                                color: dotColor.computeLuminance() > 0.5
+                                    ? Colors.black.withOpacity(0.15)
                                     : Colors.white.withOpacity(0.2),
                                 shape: BoxShape.circle,
                               ),
@@ -1987,7 +2159,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: dotColor.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+                                  color: dotColor.computeLuminance() > 0.5
+                                      ? Colors.black
+                                      : Colors.white,
                                 ),
                               ),
                             ),
@@ -2004,7 +2178,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               child: Text(
                 'CANCEL',
                 style: TextStyle(
-                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  color: _isDarkMode
+                      ? const Color(0xFF00FFCC)
+                      : const Color(0xFF00B3FF),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -2018,10 +2194,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String? _getSwitchPortSymbol(PluginInstance pedal) {
     for (final symbol in pedal.parameters.keys) {
       final s = symbol.toLowerCase();
-      if (s.contains('select') || 
-          s.contains('out') || 
-          s.contains('route') || 
-          s.contains('switch') || 
+      if (s.contains('select') ||
+          s.contains('out') ||
+          s.contains('route') ||
+          s.contains('switch') ||
           s.contains('channel') ||
           s.contains('param')) {
         return symbol;
@@ -2044,25 +2220,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   Widget _buildSwitchCard(PluginInstance pedal, String size) {
     final bool isBypassed = pedal.isBypassed;
     final String displayName = _customTitles[pedal.instance] ?? pedal.title;
-    
+
     // Detect the routing parameter and its value
     final String? switchPort = _getSwitchPortSymbol(pedal);
-    final double currentValue = switchPort != null ? (pedal.parameters[switchPort] ?? 0.0) : 0.0;
-    
+    final double currentValue = switchPort != null
+        ? (pedal.parameters[switchPort] ?? 0.0)
+        : 0.0;
+
     // Typically: 0 = Path A, 1 = Path B
     final bool isPathB = currentValue >= 0.5;
 
     // Read the custom glow configuration
-    final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
+    final String colorHex =
+        _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
 
     // Design states based on active status and chosen neon color
-    final Color accentColor = isBypassed 
-        ? Colors.grey[600]! 
-        : glowColor;
-        
-    final Color powerIconColor = isBypassed 
-        ? const Color(0xFFFF007F) 
+    final Color accentColor = isBypassed ? Colors.grey[600]! : glowColor;
+
+    final Color powerIconColor = isBypassed
+        ? const Color(0xFFFF007F)
         : glowColor;
 
     return GestureDetector(
@@ -2086,7 +2263,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
               // 2. Softer glow that goes further away
               BoxShadow(
-                color: glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35)),
+                color: glowColor.withOpacity(
+                  isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35),
+                ),
                 blurRadius: 80,
                 spreadRadius: 2,
               ),
@@ -2117,17 +2296,28 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.edit, size: 12, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+                            icon: Icon(
+                              Icons.edit,
+                              size: 12,
+                              color: _isDarkMode
+                                  ? Colors.grey[500]
+                                  : Colors.grey[600],
+                            ),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () => _showRenameDialog(pedal),
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: Icon(Icons.help_outline, size: 12, color: accentColor.withOpacity(0.8)),
+                            icon: Icon(
+                              Icons.help_outline,
+                              size: 12,
+                              color: accentColor.withOpacity(0.8),
+                            ),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _showModuleHelpSheet(context, 'switch'),
+                            onPressed: () =>
+                                _showModuleHelpSheet(context, 'switch'),
                           ),
                           const SizedBox(width: 8),
                           // Compact Power Switch
@@ -2151,9 +2341,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       Row(
                         children: [
                           Icon(
-                            Icons.alt_route, 
-                            color: _isDarkMode ? Colors.grey[isBypassed ? 700 : 600] : Colors.grey[isBypassed ? 600 : 700], 
-                            size: 14
+                            Icons.alt_route,
+                            color: _isDarkMode
+                                ? Colors.grey[isBypassed ? 700 : 600]
+                                : Colors.grey[isBypassed ? 600 : 700],
+                            size: 14,
                           ),
                           const SizedBox(width: 6),
                           Expanded(
@@ -2161,28 +2353,45 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               'Switch: ${switchPort ?? "None"}',
                               style: TextStyle(
                                 fontSize: 9.5,
-                                color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                                color: _isDarkMode
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
                                 fontFamily: 'monospace',
                               ),
                             ),
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: isBypassed 
-                                  ? Colors.grey[800] 
-                                  : (isPathB ? const Color(0xFFFF007F).withOpacity(0.12) : const Color(0xFF00FFCC).withOpacity(0.12)),
+                              backgroundColor: isBypassed
+                                  ? Colors.grey[800]
+                                  : (isPathB
+                                        ? const Color(
+                                            0xFFFF007F,
+                                          ).withOpacity(0.12)
+                                        : const Color(
+                                            0xFF00FFCC,
+                                          ).withOpacity(0.12)),
                               foregroundColor: isBypassed
                                   ? Colors.grey
-                                  : (isPathB ? const Color(0xFFFF007F) : const Color(0xFF00FFCC)),
+                                  : (isPathB
+                                        ? const Color(0xFFFF007F)
+                                        : const Color(0xFF00FFCC)),
                               side: BorderSide(
-                                color: isBypassed 
-                                    ? Colors.grey[700]! 
-                                    : (isPathB ? const Color(0xFFFF007F) : const Color(0xFF00FFCC)),
+                                color: isBypassed
+                                    ? Colors.grey[700]!
+                                    : (isPathB
+                                          ? const Color(0xFFFF007F)
+                                          : const Color(0xFF00FFCC)),
                                 width: 1.0,
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               minimumSize: const Size(60, 24),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
                             ),
                             onPressed: isBypassed || switchPort == null
                                 ? null
@@ -2195,7 +2404,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   },
                             child: Text(
                               isPathB ? 'PATH B' : 'PATH A',
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -2205,175 +2417,217 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _highlightPedalInWebView(pedal),
-                      child: Tooltip(
-                        message: 'Tap to locate in Web interface',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    displayName.toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.w900,
-                                      color: accentColor,
-                                      overflow: TextOverflow.ellipsis,
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _highlightPedalInWebView(pedal),
+                              child: Tooltip(
+                                message: 'Tap to locate in Web interface',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            displayName.toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w900,
+                                              color: accentColor,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.edit,
+                                            size: 14,
+                                            color: _isDarkMode
+                                                ? Colors.grey[500]
+                                                : Colors.grey[600],
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () =>
+                                              _showRenameDialog(pedal),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.help_outline,
+                                            size: 14,
+                                            color: accentColor.withOpacity(0.8),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: () => _showModuleHelpSheet(
+                                            context,
+                                            'switch',
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.edit, size: 14, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _showRenameDialog(pedal),
-                                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: Icon(Icons.help_outline, size: 14, color: accentColor.withOpacity(0.8)),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () => _showModuleHelpSheet(context, 'switch'),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => _openPluginUri(pedal.uri),
-                                    child: Text(
-                                      pedal.uri,
-                                      style: TextStyle(
-                                        fontSize: 8.5,
-                                        color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
-                                        decoration: TextDecoration.underline,
-                                        fontFamily: 'monospace',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () =>
+                                                _openPluginUri(pedal.uri),
+                                            child: Text(
+                                              pedal.uri,
+                                              style: TextStyle(
+                                                fontSize: 8.5,
+                                                color: _isDarkMode
+                                                    ? const Color(0xFF00FFCC)
+                                                    : const Color(0xFF00B3FF),
+                                                decoration:
+                                                    TextDecoration.underline,
+                                                fontFamily: 'monospace',
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Switch: ${switchPort ?? "None"}',
+                                          style: TextStyle(
+                                            fontSize: 8.5,
+                                            color: _isDarkMode
+                                                ? Colors.grey[500]
+                                                : Colors.grey[750],
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
+                                  ],
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Switch: ${switchPort ?? "None"}',
-                                  style: TextStyle(
-                                    fontSize: 8.5,
-                                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[750],
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.power_settings_new,
+                              color: powerIconColor,
+                              size: 26,
+                            ),
+                            onPressed: () {
+                              _webSocketService.toggleBypass(
+                                instance: pedal.instance,
+                                bypass: !isBypassed,
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                    ),
+                      const Spacer(),
+
+                      // Custom A / B Switch Control
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // PATH A Button
+                          GestureDetector(
+                            onTap: isBypassed || switchPort == null
+                                ? null
+                                : () => _setSwitchPath(pedal, switchPort, 0.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (!isPathB && !isBypassed)
+                                    ? const Color(0xFF00FFCC).withOpacity(0.12)
+                                    : (_isDarkMode
+                                          ? Colors.black.withOpacity(0.3)
+                                          : Colors.grey[200]),
+                                borderRadius: const BorderRadius.horizontal(
+                                  left: Radius.circular(8),
+                                ),
+                                border: Border.all(
+                                  color: (!isPathB && !isBypassed)
+                                      ? const Color(0xFF00FFCC)
+                                      : (_isDarkMode
+                                            ? Colors.grey[800]!
+                                            : Colors.grey[400]!),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                'PATH A (CLEAN)',
+                                style: TextStyle(
+                                  color: (!isPathB && !isBypassed)
+                                      ? const Color(0xFF00FFCC)
+                                      : (_isDarkMode
+                                            ? Colors.grey[600]
+                                            : Colors.grey[700]),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // PATH B Button
+                          GestureDetector(
+                            onTap: isBypassed || switchPort == null
+                                ? null
+                                : () => _setSwitchPath(pedal, switchPort, 1.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: (isPathB && !isBypassed)
+                                    ? const Color(0xFFFF007F).withOpacity(0.12)
+                                    : (_isDarkMode
+                                          ? Colors.black.withOpacity(0.3)
+                                          : Colors.grey[200]),
+                                borderRadius: const BorderRadius.horizontal(
+                                  right: Radius.circular(8),
+                                ),
+                                border: Border.all(
+                                  color: (isPathB && !isBypassed)
+                                      ? const Color(0xFFFF007F)
+                                      : (_isDarkMode
+                                            ? Colors.grey[800]!
+                                            : Colors.grey[400]!),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                'PATH B (HEAVY)',
+                                style: TextStyle(
+                                  color: (isPathB && !isBypassed)
+                                      ? const Color(0xFFFF007F)
+                                      : (_isDarkMode
+                                            ? Colors.grey[600]
+                                            : Colors.grey[700]),
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                  letterSpacing: 1.0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                    ],
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.power_settings_new,
-                      color: powerIconColor,
-                      size: 26,
-                    ),
-                    onPressed: () {
-                      _webSocketService.toggleBypass(
-                        instance: pedal.instance,
-                        bypass: !isBypassed,
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const Spacer(),
-              
-              // Custom A / B Switch Control
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // PATH A Button
-                  GestureDetector(
-                    onTap: isBypassed || switchPort == null
-                        ? null
-                        : () => _setSwitchPath(pedal, switchPort, 0.0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: (!isPathB && !isBypassed) 
-                            ? const Color(0xFF00FFCC).withOpacity(0.12)
-                            : (_isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[200]),
-                        borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
-                        border: Border.all(
-                          color: (!isPathB && !isBypassed)
-                              ? const Color(0xFF00FFCC)
-                              : (_isDarkMode ? Colors.grey[800]! : Colors.grey[400]!),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Text(
-                        'PATH A (CLEAN)',
-                        style: TextStyle(
-                          color: (!isPathB && !isBypassed) 
-                              ? const Color(0xFF00FFCC) 
-                              : (_isDarkMode ? Colors.grey[600] : Colors.grey[700]),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // PATH B Button
-                  GestureDetector(
-                    onTap: isBypassed || switchPort == null
-                        ? null
-                        : () => _setSwitchPath(pedal, switchPort, 1.0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: (isPathB && !isBypassed) 
-                            ? const Color(0xFFFF007F).withOpacity(0.12)
-                            : (_isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[200]),
-                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
-                        border: Border.all(
-                          color: (isPathB && !isBypassed)
-                              ? const Color(0xFFFF007F)
-                              : (_isDarkMode ? Colors.grey[800]! : Colors.grey[400]!),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Text(
-                        'PATH B (HEAVY)',
-                        style: TextStyle(
-                          color: (isPathB && !isBypassed) 
-                              ? const Color(0xFFFF007F) 
-                              : (_isDarkMode ? Colors.grey[600] : Colors.grey[700]),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 12,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-            ],
           ),
         ),
       ),
-     ),
     );
   }
 
@@ -2391,9 +2645,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         child: ElevatedButton.icon(
           onPressed: isBypassed ? null : onTap,
           icon: Icon(
-            icon, 
-            size: 13, 
-            color: isFading ? const Color(0xFFFF007F) : Colors.black
+            icon,
+            size: 13,
+            color: isFading ? const Color(0xFFFF007F) : Colors.black,
           ),
           label: Text(
             label,
@@ -2405,7 +2659,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             ),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: isFading 
+            backgroundColor: isFading
                 ? const Color(0xFFFF007F).withOpacity(0.12)
                 : accentColor,
             disabledBackgroundColor: Colors.grey[800],
@@ -2413,7 +2667,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             elevation: isFading ? 4 : 1,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: isFading 
+              side: isFading
                   ? const BorderSide(color: Color(0xFFFF007F), width: 1.5)
                   : BorderSide.none,
             ),
@@ -2427,18 +2681,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final bool isBypassed = pedal.isBypassed;
 
     // Read the custom glow configuration
-    final String colorHex = _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
+    final String colorHex =
+        _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
 
     // Design states based on active status and chosen neon color
-    final Color accentColor = isBypassed 
-        ? Colors.grey[600]! 
+    final Color accentColor = isBypassed ? Colors.grey[600]! : glowColor;
+
+    final Color powerIconColor = isBypassed
+        ? const Color(0xFFFF007F)
         : glowColor;
-        
-    final Color powerIconColor = isBypassed 
-        ? const Color(0xFFFF007F) 
-        : glowColor;
-    
+
     return GestureDetector(
       onLongPress: () => _showColorPickerDialog(pedal),
       child: Container(
@@ -2450,19 +2703,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             width: 1.5,
           ),
           boxShadow: [
-              // 1. Very bright glow just around the device (small spread/blur)
-              BoxShadow(
-                color: glowColor.withOpacity(isBypassed ? 0.0 : 0.85),
-                blurRadius: 8,
-                spreadRadius: 2,
+            // 1. Very bright glow just around the device (small spread/blur)
+            BoxShadow(
+              color: glowColor.withOpacity(isBypassed ? 0.0 : 0.85),
+              blurRadius: 8,
+              spreadRadius: 2,
+            ),
+            // 2. Softer glow that goes further away
+            BoxShadow(
+              color: glowColor.withOpacity(
+                isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35),
               ),
-              // 2. Softer glow that goes further away
-              BoxShadow(
-                color: glowColor.withOpacity(isBypassed ? 0.0 : (_isDarkMode ? 0.20 : 0.35)),
-                blurRadius: 80,
-                spreadRadius: 2,
-              ),
-            ],
+              blurRadius: 80,
+              spreadRadius: 2,
+            ),
+          ],
         ),
         child: Padding(
           padding: EdgeInsets.all(size == 'compact' ? 10.0 : 16.0),
@@ -2478,7 +2733,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                             behavior: HitTestBehavior.opaque,
                             onTap: () => _highlightPedalInWebView(pedal),
                             child: Text(
-                              (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                              (_customTitles[pedal.instance] ?? pedal.title)
+                                  .toUpperCase(),
                               style: TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w900,
@@ -2489,7 +2745,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           ),
                         ),
                         IconButton(
-                          icon: Icon(Icons.edit, size: 12, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+                          icon: Icon(
+                            Icons.edit,
+                            size: 12,
+                            color: _isDarkMode
+                                ? Colors.grey[500]
+                                : Colors.grey[600],
+                          ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () => _showRenameDialog(pedal),
@@ -2514,14 +2776,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     const Spacer(),
                     Row(
                       children: [
-                        Icon(Icons.info_outline, color: _isDarkMode ? Colors.grey[600] : Colors.grey[750], size: 14),
+                        Icon(
+                          Icons.info_outline,
+                          color: _isDarkMode
+                              ? Colors.grey[600]
+                              : Colors.grey[750],
+                          size: 14,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Generic module',
                           style: TextStyle(
-                            fontSize: 10, 
-                            color: _isDarkMode ? Colors.grey[500] : Colors.grey[750], 
-                            fontStyle: FontStyle.italic
+                            fontSize: 10,
+                            color: _isDarkMode
+                                ? Colors.grey[500]
+                                : Colors.grey[750],
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
@@ -2532,92 +2802,111 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _highlightPedalInWebView(pedal),
-                    child: Tooltip(
-                      message: 'Tap to locate in Web interface',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    color: accentColor,
-                                    overflow: TextOverflow.ellipsis,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _highlightPedalInWebView(pedal),
+                            child: Tooltip(
+                              message: 'Tap to locate in Web interface',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          (_customTitles[pedal.instance] ??
+                                                  pedal.title)
+                                              .toUpperCase(),
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w900,
+                                            color: accentColor,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.edit,
+                                          size: 14,
+                                          color: _isDarkMode
+                                              ? Colors.grey[500]
+                                              : Colors.grey[600],
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () =>
+                                            _showRenameDialog(pedal),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.edit, size: 14, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                  onPressed: () => _showRenameDialog(pedal),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          GestureDetector(
-                            onTap: () => _openPluginUri(pedal.uri),
-                            child: Text(
-                              pedal.uri,
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
-                                decoration: TextDecoration.underline,
-                                fontFamily: 'monospace',
-                                overflow: TextOverflow.ellipsis,
+                                  const SizedBox(height: 2),
+                                  GestureDetector(
+                                    onTap: () => _openPluginUri(pedal.uri),
+                                    child: Text(
+                                      pedal.uri,
+                                      style: TextStyle(
+                                        fontSize: 8.5,
+                                        color: _isDarkMode
+                                            ? const Color(0xFF00FFCC)
+                                            : const Color(0xFF00B3FF),
+                                        decoration: TextDecoration.underline,
+                                        fontFamily: 'monospace',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.power_settings_new,
+                            color: powerIconColor,
+                            size: 24,
+                          ),
+                          onPressed: () {
+                            _webSocketService.toggleBypass(
+                              instance: pedal.instance,
+                              bypass: !isBypassed,
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                  ),
+                    const Divider(color: Colors.grey, height: 1),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: _isDarkMode
+                              ? Colors.grey[600]
+                              : Colors.grey[750],
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Custom card layout coming soon.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _isDarkMode
+                                ? Colors.grey[500]
+                                : Colors.grey[750],
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: Icon(
-                    Icons.power_settings_new,
-                    color: powerIconColor,
-                    size: 24,
-                  ),
-                  onPressed: () {
-                    _webSocketService.toggleBypass(
-                      instance: pedal.instance,
-                      bypass: !isBypassed,
-                    );
-                  },
-                ),
-              ],
-            ),
-            const Divider(color: Colors.grey, height: 1),
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: _isDarkMode ? Colors.grey[600] : Colors.grey[750], size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  'Custom card layout coming soon.',
-                  style: TextStyle(
-                    fontSize: 11, 
-                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[750], 
-                    fontStyle: FontStyle.italic
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
-     ),
     );
   }
 
@@ -2641,9 +2930,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF00FFCC).withOpacity(0.12) : Colors.transparent,
+            color: isActive
+                ? const Color(0xFF00FFCC).withOpacity(0.12)
+                : Colors.transparent,
             border: Border.all(
-              color: isActive ? const Color(0xFF00FFCC).withOpacity(0.4) : Colors.transparent,
+              color: isActive
+                  ? const Color(0xFF00FFCC).withOpacity(0.4)
+                  : Colors.transparent,
               width: 1,
             ),
             borderRadius: BorderRadius.circular(8),
@@ -2659,7 +2952,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Widget _buildConnectionPanel() {
-    final bool isDisconnected = _webSocketService.status == ConnectionStatus.disconnected;
+    final bool isDisconnected =
+        _webSocketService.status == ConnectionStatus.disconnected;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -2670,13 +2964,15 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           color: _getStatusColor(_webSocketService.status).withOpacity(0.2),
           width: 1,
         ),
-        boxShadow: _isDarkMode ? null : [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            spreadRadius: 2,
-          )
-        ],
+        boxShadow: _isDarkMode
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -2686,20 +2982,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               decoration: InputDecoration(
                 labelText: 'MOD Dwarf IP',
                 labelStyle: TextStyle(
-                  color: _isDarkMode ? Colors.grey : Colors.grey[700], 
-                  fontSize: 11
+                  color: _isDarkMode ? Colors.grey : Colors.grey[700],
+                  fontSize: 11,
                 ),
                 border: InputBorder.none,
                 prefixIcon: Icon(
-                  Icons.lan, 
-                  color: _isDarkMode ? Colors.grey : Colors.grey[600], 
-                  size: 18
+                  Icons.lan,
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                  size: 18,
                 ),
               ),
               style: TextStyle(
-                color: _isDarkMode ? Colors.white : Colors.black, 
-                fontFamily: 'monospace', 
-                fontSize: 13
+                color: _isDarkMode ? Colors.white : Colors.black,
+                fontFamily: 'monospace',
+                fontSize: 13,
               ),
               enabled: isDisconnected,
             ),
@@ -2707,8 +3003,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           const SizedBox(width: 16),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDisconnected 
-                  ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+              backgroundColor: isDisconnected
+                  ? (_isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF))
                   : const Color(0xFFFF007F),
               foregroundColor: isDisconnected ? Colors.black : Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -2716,14 +3014,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 borderRadius: BorderRadius.circular(8),
               ),
               elevation: 4,
-              shadowColor: (isDisconnected 
-                  ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
-                  : const Color(0xFFFF007F)).withOpacity(0.5),
+              shadowColor:
+                  (isDisconnected
+                          ? (_isDarkMode
+                                ? const Color(0xFF00FFCC)
+                                : const Color(0xFF00B3FF))
+                          : const Color(0xFFFF007F))
+                      .withOpacity(0.5),
             ),
             onPressed: () {
               if (isDisconnected) {
                 _webSocketService.connect(ip: _ipController.text);
-                _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
+                _webViewController.loadRequest(
+                  Uri.parse('http://${_ipController.text}'),
+                );
               } else {
                 _webSocketService.disconnect();
               }
@@ -2738,7 +3042,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           IconButton(
             icon: Icon(
               Icons.open_in_browser,
-              color: _isDarkMode ? const Color(0xFFFF7700) : const Color(0xFFFF5500),
+              color: _isDarkMode
+                  ? const Color(0xFFFF7700)
+                  : const Color(0xFFFF5500),
               size: 20,
             ),
             tooltip: 'Open in Chrome / Browser',
@@ -2773,7 +3079,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }
 
   Widget _buildBottomToolbar() {
-    final primaryColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
+    final primaryColor = _isDarkMode
+        ? const Color(0xFF00FFCC)
+        : const Color(0xFF00B3FF);
     final accentColor = const Color(0xFFFF007F);
     final isConnected = _webSocketService.status == ConnectionStatus.connected;
 
@@ -2782,10 +3090,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       decoration: BoxDecoration(
         color: _isDarkMode ? const Color(0xFF0F141C) : const Color(0xFFE4E6EB),
         border: Border(
-          top: BorderSide(
-            color: primaryColor.withOpacity(0.3),
-            width: 1.5,
-          ),
+          top: BorderSide(color: primaryColor.withOpacity(0.3), width: 1.5),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -2832,23 +3137,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ],
           ),
-          
+
           // Center: Radar locate & Reload pedalboard
           Row(
             children: [
               IconButton(
                 icon: Icon(Icons.radar, color: accentColor, size: 20),
                 tooltip: 'Glow all Workspace Pedals in Web GUI',
-                onPressed: isConnected
-                    ? _highlightAllPedalsInWebView
-                    : null,
+                onPressed: isConnected ? _highlightAllPedalsInWebView : null,
               ),
               const SizedBox(width: 12),
               IconButton(
                 icon: Icon(
-                  Icons.refresh, 
-                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF009977), 
-                  size: 20
+                  Icons.refresh,
+                  color: _isDarkMode
+                      ? const Color(0xFF00FFCC)
+                      : const Color(0xFF009977),
+                  size: 20,
                 ),
                 tooltip: 'Refresh Pedalboard',
                 onPressed: isConnected
@@ -2857,17 +3162,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ],
           ),
-          
+
           // Right: Theme Toggler & Version Label
           Row(
             children: [
               IconButton(
                 icon: Icon(
-                  _isDarkMode ? Icons.wb_sunny_outlined : Icons.nightlight_round,
-                  color: _isDarkMode ? const Color(0xFFFF7700) : const Color(0xFF9D00FF),
+                  _isDarkMode
+                      ? Icons.wb_sunny_outlined
+                      : Icons.nightlight_round,
+                  color: _isDarkMode
+                      ? const Color(0xFFFF7700)
+                      : const Color(0xFF9D00FF),
                   size: 20,
                 ),
-                tooltip: _isDarkMode ? 'Switch to Daylight Theme' : 'Switch to Midnight Theme',
+                tooltip: _isDarkMode
+                    ? 'Switch to Daylight Theme'
+                    : 'Switch to Midnight Theme',
                 onPressed: () {
                   setState(() {
                     _isDarkMode = !_isDarkMode;
@@ -2895,7 +3206,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _getPedalboardKey() {
     final plugins = _webSocketService.allPlugins.value;
     if (plugins.isEmpty) return 'default_pedalboard';
-    final List<String> instances = plugins.map((p) => p.instance).toList()..sort();
+    final List<String> instances = plugins.map((p) => p.instance).toList()
+      ..sort();
     return 'pedalboard_${instances.join(',').hashCode}';
   }
 
@@ -2937,6 +3249,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   String _getDefaultColorForPedal(PluginInstance pedal) {
     return _getDefaultColorForInstanceId(pedal.instance);
   }
+
   void _cyclePedalSize(String instanceId) {
     PluginInstance? pedal;
     for (var p in _webSocketService.allPlugins.value) {
@@ -2971,23 +3284,27 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   void _scrollToCard(String instanceId) {
     final int index = _enabledPluginInstances.indexOf(instanceId);
     if (index == -1) return;
-    
+
     final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final bool isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final bool isSplit = _showControls && _showWeb;
-    
+
     double controlsWidth = screenWidth;
     if (isSplit) {
       controlsWidth = isLandscape ? (screenWidth * 5 / 11) : screenWidth;
     }
-    
+
     final int crossAxisCount = controlsWidth > 600 ? 2 : 1;
     final int rowIndex = index ~/ crossAxisCount;
     final double scrollOffset = rowIndex * (225.0 + 16.0);
-    
+
     if (_cardsScrollController.hasClients) {
       _cardsScrollController.animateTo(
-        scrollOffset.clamp(0.0, _cardsScrollController.position.maxScrollExtent),
+        scrollOffset.clamp(
+          0.0,
+          _cardsScrollController.position.maxScrollExtent,
+        ),
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOutCubic,
       );
@@ -3070,7 +3387,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
               border: Border(
                 bottom: BorderSide(
-                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  color: _isDarkMode
+                      ? const Color(0xFF00FFCC)
+                      : const Color(0xFF00B3FF),
                   width: 1.5,
                 ),
               ),
@@ -3089,18 +3408,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)).withOpacity(0.4),
+                        color:
+                            (_isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF))
+                                .withOpacity(0.4),
                         blurRadius: 10,
                         spreadRadius: 2,
-                      )
+                      ),
                     ],
                   ),
                   child: const Center(
-                    child: Icon(
-                      Icons.tune,
-                      size: 20,
-                      color: Colors.white,
-                    ),
+                    child: Icon(Icons.tune, size: 20, color: Colors.white),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -3122,7 +3441,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                          color: _isDarkMode
+                              ? const Color(0xFF00FFCC)
+                              : const Color(0xFF00B3FF),
                           letterSpacing: 1.0,
                         ),
                       ),
@@ -3132,7 +3453,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ],
             ),
           ),
-          
+
           // Drawer Navigation / Info Items
           Expanded(
             child: ListView(
@@ -3143,7 +3464,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   icon: Icons.grid_view,
                   title: 'Active Controls',
                   trailingText: '$activeCount / $totalCount',
-                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  color: _isDarkMode
+                      ? const Color(0xFF00FFCC)
+                      : const Color(0xFF00B3FF),
                 ),
                 _buildLeftDrawerTile(
                   icon: Icons.speed,
@@ -3157,10 +3480,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   trailingText: isConnected ? 'CONNECTED' : 'DISCONNECTED',
                   color: _getStatusColor(status),
                 ),
-                
+
                 const Divider(height: 24, thickness: 1, color: Colors.grey),
                 _buildLeftDrawerHeader('QUICK UTILITIES'),
-                
+
                 ListTile(
                   leading: const Icon(
                     Icons.radar,
@@ -3175,7 +3498,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       color: _isDarkMode ? Colors.white : Colors.black,
                     ),
                   ),
-                  subtitle: const Text('strobe pulses on the web canvas', style: TextStyle(fontSize: 10)),
+                  subtitle: const Text(
+                    'strobe pulses on the web canvas',
+                    style: TextStyle(fontSize: 10),
+                  ),
                   onTap: isConnected
                       ? () {
                           Navigator.pop(context);
@@ -3197,7 +3523,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       color: _isDarkMode ? Colors.white : Colors.black,
                     ),
                   ),
-                  subtitle: const Text('query parameters from mod dwarf', style: TextStyle(fontSize: 10)),
+                  subtitle: const Text(
+                    'query parameters from mod dwarf',
+                    style: TextStyle(fontSize: 10),
+                  ),
                   onTap: isConnected
                       ? () {
                           Navigator.pop(context);
@@ -3219,7 +3548,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       color: _isDarkMode ? Colors.white : Colors.black,
                     ),
                   ),
-                  subtitle: const Text('launch Web interface in Chrome', style: TextStyle(fontSize: 10)),
+                  subtitle: const Text(
+                    'launch Web interface in Chrome',
+                    style: TextStyle(fontSize: 10),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     _openWebInterface();
@@ -3228,7 +3560,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ListTile(
                   leading: Icon(
                     _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                    color: _isDarkMode ? const Color(0xFFFF7700) : const Color(0xFF9D00FF),
+                    color: _isDarkMode
+                        ? const Color(0xFFFF7700)
+                        : const Color(0xFF9D00FF),
                     size: 20,
                   ),
                   title: Text(
@@ -3239,7 +3573,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                       color: _isDarkMode ? Colors.white : Colors.black,
                     ),
                   ),
-                  subtitle: const Text('optimize display for direct sunlight', style: TextStyle(fontSize: 10)),
+                  subtitle: const Text(
+                    'optimize display for direct sunlight',
+                    style: TextStyle(fontSize: 10),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     setState(() {
@@ -3250,7 +3587,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ],
             ),
           ),
-          
+
           // Drawer Footer Version Tracking
           Container(
             width: double.infinity,
@@ -3258,7 +3595,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
-                  color: _isDarkMode ? const Color(0xFF161B22) : const Color(0xFFE4E6EB),
+                  color: _isDarkMode
+                      ? const Color(0xFF161B22)
+                      : const Color(0xFFE4E6EB),
                   width: 1,
                 ),
               ),
@@ -3269,7 +3608,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
-                color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                color: _isDarkMode
+                    ? const Color(0xFF00FFCC)
+                    : const Color(0xFF00B3FF),
               ),
               textAlign: TextAlign.center,
             ),
@@ -3295,7 +3636,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   Text(
                     'WORKSPACE SETTINGS',
                     style: TextStyle(
-                      color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                      color: _isDarkMode
+                          ? const Color(0xFF00FFCC)
+                          : const Color(0xFF00B3FF),
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 1.2,
@@ -3314,7 +3657,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ],
               ),
               IconButton(
-                icon: Icon(Icons.close, color: _isDarkMode ? Colors.grey : Colors.grey[600]),
+                icon: Icon(
+                  Icons.close,
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -3322,7 +3668,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           const SizedBox(height: 12),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isDarkMode ? const Color(0xFF1F2937) : Colors.grey[300],
+              backgroundColor: _isDarkMode
+                  ? const Color(0xFF1F2937)
+                  : Colors.grey[300],
               foregroundColor: _isDarkMode ? Colors.white : Colors.black,
               minimumSize: const Size(double.infinity, 38),
               shape: RoundedRectangleBorder(
@@ -3333,7 +3681,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             icon: const Icon(Icons.open_in_browser, size: 16),
             label: const Text(
               'OPEN PEDALBOARD IN BROWSER',
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
             ),
             onPressed: () {
               Navigator.pop(context);
@@ -3353,13 +3705,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         final double spacing = 6.0;
         // Account for container margin (10px each side) + container padding (6px each side)
         // so that two regularWidth tiles actually fit in a Wrap row.
-        final double tileAreaWidth = drawerWidth - horizontalPadding * 2 - 10 * 2 - 6 * 2;
+        final double tileAreaWidth =
+            drawerWidth - horizontalPadding * 2 - 10 * 2 - 6 * 2;
         final double gridWidth = tileAreaWidth;
-        
+
         // 4 Columns available width calculation
         final double totalColumnWidth = gridWidth - (spacing * 3);
         final double colWidth = totalColumnWidth / 4;
-        
+
         final double compactWidth = colWidth;
         final double regularWidth = (colWidth * 2) + spacing;
         final double expandedWidth = gridWidth;
@@ -3371,7 +3724,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             final List<PluginInstance> activePedals = [];
             for (final id in _orderedPluginInstances) {
               if (_enabledPluginInstances.contains(id)) {
-                final pedal = allPlugins.firstWhere((p) => p.instance == id, orElse: () => PluginInstance(instance: '', title: '', uri: ''));
+                final pedal = allPlugins.firstWhere(
+                  (p) => p.instance == id,
+                  orElse: () =>
+                      PluginInstance(instance: '', title: '', uri: ''),
+                );
                 if (pedal.instance.isNotEmpty) {
                   activePedals.add(pedal);
                 }
@@ -3382,7 +3739,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             final List<PluginInstance> inactivePedals = [];
             for (final id in _orderedPluginInstances) {
               if (!_enabledPluginInstances.contains(id)) {
-                final pedal = allPlugins.firstWhere((p) => p.instance == id, orElse: () => PluginInstance(instance: '', title: '', uri: ''));
+                final pedal = allPlugins.firstWhere(
+                  (p) => p.instance == id,
+                  orElse: () =>
+                      PluginInstance(instance: '', title: '', uri: ''),
+                );
                 if (pedal.instance.isNotEmpty) {
                   inactivePedals.add(pedal);
                 }
@@ -3392,31 +3753,36 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             return Column(
               children: [
                 _buildDrawerHeader(),
-                
+
                 // ACTIVE PUZZLE CANVAS
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Icon(
-                        Icons.extension, 
-                        size: 15, 
-                        color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)
+                        Icons.extension,
+                        size: 15,
+                        color: _isDarkMode
+                            ? const Color(0xFF00FFCC)
+                            : const Color(0xFF00B3FF),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'PUZZLE CANVAS (ACTIVE)',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          fontSize: 10.5, 
-                          color: _isDarkMode ? Colors.grey : Colors.grey[750], 
-                          letterSpacing: 1.0
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10.5,
+                          color: _isDarkMode ? Colors.grey : Colors.grey[750],
+                          letterSpacing: 1.0,
                         ),
                       ),
                     ],
                   ),
                 ),
-                
+
                 Expanded(
                   flex: 3,
                   child: DragTarget<String>(
@@ -3432,13 +3798,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     },
                     builder: (context, _, __) {
                       return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 2,
+                        ),
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: _isDarkMode ? const Color(0xFF0F141C).withOpacity(0.5) : Colors.grey[100],
+                          color: _isDarkMode
+                              ? const Color(0xFF0F141C).withOpacity(0.5)
+                              : Colors.grey[100],
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])!,
+                            color: (_isDarkMode
+                                ? Colors.grey[850]
+                                : Colors.grey[300])!,
                             width: 1.5,
                           ),
                         ),
@@ -3448,8 +3821,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   'Drag cards here or toggle below to activate.',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: _isDarkMode ? Colors.grey[650] : Colors.grey[500],
-                                    fontStyle: FontStyle.italic
+                                    color: _isDarkMode
+                                        ? Colors.grey[650]
+                                        : Colors.grey[500],
+                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
                               )
@@ -3457,6 +3832,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 child: Wrap(
                                   spacing: spacing,
                                   runSpacing: spacing,
+                                  alignment: WrapAlignment.start,
+                                  runAlignment: WrapAlignment.start,
+                                  crossAxisAlignment: WrapCrossAlignment.start,
                                   children: activePedals.map((pedal) {
                                     return _buildMiniPuzzleTile(
                                       pedal: pedal,
@@ -3472,33 +3850,38 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     },
                   ),
                 ),
-                
+
                 // INACTIVE / AVAILABLE POOL
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Icon(
-                        Icons.inventory_2_outlined, 
-                        size: 15, 
-                        color: inactivePedals.isEmpty 
-                            ? Colors.grey 
-                            : (_isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055))
+                        Icons.inventory_2_outlined,
+                        size: 15,
+                        color: inactivePedals.isEmpty
+                            ? Colors.grey
+                            : (_isDarkMode
+                                  ? const Color(0xFFFF007F)
+                                  : const Color(0xFFFF0055)),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'AVAILABLE POOL (INACTIVE)',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          fontSize: 10.5, 
-                          color: _isDarkMode ? Colors.grey : Colors.grey[750], 
-                          letterSpacing: 1.0
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10.5,
+                          color: _isDarkMode ? Colors.grey : Colors.grey[750],
+                          letterSpacing: 1.0,
                         ),
                       ),
                     ],
                   ),
                 ),
-                
+
                 Expanded(
                   flex: 2,
                   child: DragTarget<String>(
@@ -3514,13 +3897,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     },
                     builder: (context, _, __) {
                       return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 2,
+                        ),
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: _isDarkMode ? const Color(0xFF0F141C).withOpacity(0.3) : Colors.grey[50],
+                          color: _isDarkMode
+                              ? const Color(0xFF0F141C).withOpacity(0.3)
+                              : Colors.grey[50],
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: (_isDarkMode ? Colors.grey[900] : Colors.grey[200])!,
+                            color: (_isDarkMode
+                                ? Colors.grey[900]
+                                : Colors.grey[200])!,
                             style: BorderStyle.solid,
                           ),
                         ),
@@ -3530,8 +3920,10 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   'All components are active.',
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: _isDarkMode ? Colors.grey[650] : Colors.grey[500],
-                                    fontStyle: FontStyle.italic
+                                    color: _isDarkMode
+                                        ? Colors.grey[650]
+                                        : Colors.grey[500],
+                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
                               )
@@ -3554,17 +3946,21 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     },
                   ),
                 ),
-                
+
                 // Bottom version banner
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  color: _isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey[100],
+                  color: _isDarkMode
+                      ? Colors.black.withOpacity(0.4)
+                      : Colors.grey[100],
                   child: Center(
                     child: Text(
                       'TAMPERMOD LIVE v$kAppVersion',
                       style: TextStyle(
-                        color: _isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055),
+                        color: _isDarkMode
+                            ? const Color(0xFFFF007F)
+                            : const Color(0xFFFF0055),
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.w900,
                         fontSize: 11,
@@ -3590,7 +3986,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
   }) {
     final String instanceId = pedal.instance;
     final size = _pedalSizes[instanceId] ?? 'regular';
-    
+
     double width = rWidth;
     double height = 46.0;
     if (isActive) {
@@ -3610,15 +4006,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       height = 46.0;
     }
 
-    final String colorHex = _pedalGlowColors[instanceId] ?? _getDefaultColorForPedal(pedal);
+    final String colorHex =
+        _pedalGlowColors[instanceId] ?? _getDefaultColorForPedal(pedal);
     final Color glowColor = _hexToColor(colorHex);
 
     final uriLower = pedal.uri.toLowerCase();
     final titleLower = pedal.title.toLowerCase();
-    
+
     final isLooper = uriLower.contains('alo') || titleLower.contains('alo');
-    final isSwitch = uriLower.contains('switch') || titleLower.contains('switch');
-    
+    final isSwitch =
+        uriLower.contains('switch') || titleLower.contains('switch');
+
     IconData typeIcon = Icons.help_outline;
     if (isLooper) {
       typeIcon = Icons.fiber_manual_record; // red looper dot
@@ -3633,8 +4031,8 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive 
-            ? glowColor.withOpacity(_isDarkMode ? 0.12 : 0.18) 
+        color: isActive
+            ? glowColor.withOpacity(_isDarkMode ? 0.12 : 0.18)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
@@ -3642,31 +4040,33 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           width: isActive ? 1.5 : 1.0,
           style: isActive ? BorderStyle.solid : BorderStyle.solid,
         ),
-        boxShadow: isActive ? [
-          BoxShadow(
-            color: glowColor.withOpacity(0.3),
-            blurRadius: 4,
-            spreadRadius: 0.5,
-          )
-        ] : null,
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: glowColor.withOpacity(0.3),
+                  blurRadius: 4,
+                  spreadRadius: 0.5,
+                ),
+              ]
+            : null,
       ),
       child: Row(
         children: [
           // Device Type Icon
           Icon(
-            typeIcon, 
-            size: size == 'compact' && isActive ? 11 : 13, 
-            color: isLooper && isActive ? const Color(0xFFFF0055) : glowColor
+            typeIcon,
+            size: size == 'compact' && isActive ? 11 : 13,
+            color: isLooper && isActive ? const Color(0xFFFF0055) : glowColor,
           ),
           const SizedBox(width: 4),
-          
+
           // Title
           Expanded(
             child: Text(
               (_customTitles[instanceId] ?? pedal.title).toUpperCase(),
               style: TextStyle(
-                color: isActive 
-                    ? (_isDarkMode ? Colors.white : Colors.black) 
+                color: isActive
+                    ? (_isDarkMode ? Colors.white : Colors.black)
                     : (_isDarkMode ? Colors.grey[400] : Colors.grey[750]),
                 fontWeight: FontWeight.bold,
                 fontSize: size == 'compact' && isActive ? 8 : 9.5,
@@ -3674,11 +4074,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ),
           ),
-          
+
           // Right panel options
           if (isActive) ...[
             // Size Toggle C/R/E (non-loopers only)
-            if (!isLooper) 
+            if (!isLooper)
               GestureDetector(
                 onTap: () => _cyclePedalSize(instanceId),
                 child: Container(
@@ -3691,17 +4091,14 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                   child: Text(
                     size[0].toUpperCase(),
                     style: TextStyle(
-                      fontSize: 8, 
-                      fontWeight: FontWeight.w900, 
-                      color: _isDarkMode ? Colors.white : Colors.black
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      color: _isDarkMode ? Colors.white : Colors.black,
                     ),
                   ),
                 ),
               ),
           ],
-
-          
-
         ],
       ),
     );
@@ -3718,12 +4115,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             final item = _orderedPluginInstances.removeAt(idxA);
             _orderedPluginInstances.insert(idxB, item);
           }
-          
+
           // If dragged item was inactive, activate it at target index
           if (!_enabledPluginInstances.contains(draggedId)) {
             _enabledPluginInstances.add(draggedId);
           }
-          
+
           // Also sync reorder inside active visibility list
           final activeA = _enabledPluginInstances.indexOf(draggedId);
           final activeB = _enabledPluginInstances.indexOf(instanceId);
@@ -3753,7 +4150,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 child: Center(
                   child: Text(
                     (_customTitles[instanceId] ?? pedal.title).toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
                   ),
                 ),
               ),
@@ -3789,7 +4190,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final help = ModuleHelpData.registry[moduleKey];
     if (help == null) return;
 
-    final primaryThemeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
+    final primaryThemeColor = _isDarkMode
+        ? const Color(0xFF00FFCC)
+        : const Color(0xFF00B3FF);
     final accentThemeColor = const Color(0xFFFF007F);
 
     showModalBottomSheet(
@@ -3839,11 +4242,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               colors: [primaryThemeColor, accentThemeColor],
                             ),
                           ),
-                          child: Icon(
-                            help.icon,
-                            color: Colors.white,
-                            size: 24,
-                          ),
+                          child: Icon(help.icon, color: Colors.white, size: 24),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -3856,7 +4255,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                   fontSize: 16,
                                   fontWeight: FontWeight.w900,
                                   letterSpacing: 1.0,
-                                  color: _isDarkMode ? Colors.white : Colors.black,
+                                  color: _isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -3864,51 +4265,82 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 'TamperMod Companion Documentation',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                                  color: _isDarkMode
+                                      ? Colors.grey[500]
+                                      : Colors.grey[600],
                                 ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: Icon(Icons.close, color: _isDarkMode ? Colors.grey[500] : Colors.grey[750]),
+                          icon: Icon(
+                            Icons.close,
+                            color: _isDarkMode
+                                ? Colors.grey[500]
+                                : Colors.grey[750],
+                          ),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Divider(color: _isDarkMode ? Colors.grey[900] : Colors.grey[300]),
+                  Divider(
+                    color: _isDarkMode ? Colors.grey[900] : Colors.grey[300],
+                  ),
                   Expanded(
                     child: ListView(
                       controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       children: [
-                        _buildHelpSectionHeader('Overview', Icons.info_outline, primaryThemeColor),
+                        _buildHelpSectionHeader(
+                          'Overview',
+                          Icons.info_outline,
+                          primaryThemeColor,
+                        ),
                         const SizedBox(height: 8),
                         Text(
                           help.overview,
                           style: TextStyle(
                             fontSize: 13,
                             height: 1.5,
-                            color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                            color: _isDarkMode
+                                ? Colors.grey[300]
+                                : Colors.grey[800],
                           ),
                         ),
                         const SizedBox(height: 20),
-                        _buildHelpSectionHeader('Parameters', Icons.settings, primaryThemeColor),
+                        _buildHelpSectionHeader(
+                          'Parameters',
+                          Icons.settings,
+                          primaryThemeColor,
+                        ),
                         const SizedBox(height: 8),
                         ...help.parameters.map((param) {
                           final parts = param.split(':');
                           final label = parts[0];
-                          final desc = parts.length > 1 ? parts.sublist(1).join(':') : '';
+                          final desc = parts.length > 1
+                              ? parts.sublist(1).join(':')
+                              : '';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 6, right: 12),
-                                  child: Icon(Icons.radio_button_checked, size: 8, color: primaryThemeColor),
+                                  padding: const EdgeInsets.only(
+                                    top: 6,
+                                    right: 12,
+                                  ),
+                                  child: Icon(
+                                    Icons.radio_button_checked,
+                                    size: 8,
+                                    color: primaryThemeColor,
+                                  ),
                                 ),
                                 Expanded(
                                   child: RichText(
@@ -3916,12 +4348,16 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                       style: TextStyle(
                                         fontSize: 13,
                                         height: 1.4,
-                                        color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                                        color: _isDarkMode
+                                            ? Colors.grey[300]
+                                            : Colors.grey[800],
                                       ),
                                       children: [
                                         TextSpan(
                                           text: '$label:',
-                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                         TextSpan(text: desc),
                                       ],
@@ -3933,24 +4369,37 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           );
                         }).toList(),
                         const SizedBox(height: 20),
-                        _buildHelpSectionHeader('Keyboard Hotkeys', Icons.keyboard, primaryThemeColor),
+                        _buildHelpSectionHeader(
+                          'Keyboard Hotkeys',
+                          Icons.keyboard,
+                          primaryThemeColor,
+                        ),
                         const SizedBox(height: 8),
                         ...help.hotkeys.map((hotkey) {
                           final parts = hotkey.split(':');
                           final label = parts[0];
-                          final desc = parts.length > 1 ? parts.sublist(1).join(':') : '';
+                          final desc = parts.length > 1
+                              ? parts.sublist(1).join(':')
+                              : '';
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: _isDarkMode ? Colors.black : Colors.grey[200],
+                                    color: _isDarkMode
+                                        ? Colors.black
+                                        : Colors.grey[200],
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(
-                                      color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                                      color: _isDarkMode
+                                          ? Colors.grey[800]!
+                                          : Colors.grey[400]!,
                                     ),
                                   ),
                                   child: Text(
@@ -3969,7 +4418,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                     desc,
                                     style: TextStyle(
                                       fontSize: 13,
-                                      color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                                      color: _isDarkMode
+                                          ? Colors.grey[300]
+                                          : Colors.grey[800],
                                     ),
                                   ),
                                 ),
@@ -3978,15 +4429,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           );
                         }).toList(),
                         const SizedBox(height: 20),
-                        _buildHelpSectionHeader('Mod Dwarf Under-The-Hood', Icons.settings_ethernet, primaryThemeColor),
+                        _buildHelpSectionHeader(
+                          'Mod Dwarf Under-The-Hood',
+                          Icons.settings_ethernet,
+                          primaryThemeColor,
+                        ),
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: _isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[100],
+                            color: _isDarkMode
+                                ? Colors.black.withOpacity(0.3)
+                                : Colors.grey[100],
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: _isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+                              color: _isDarkMode
+                                  ? Colors.grey[900]!
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           child: Text(
@@ -3995,7 +4454,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                               fontSize: 12,
                               height: 1.5,
                               fontFamily: 'monospace',
-                              color: _isDarkMode ? Colors.grey[400] : Colors.grey[750],
+                              color: _isDarkMode
+                                  ? Colors.grey[400]
+                                  : Colors.grey[750],
                             ),
                           ),
                         ),
@@ -4045,16 +4506,26 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
       animation: _looperController,
       builder: (context, _) {
         final String looperId = pedal.instance;
-        final String colorHex = _pedalGlowColors[looperId] ?? _getDefaultColorForPedal(pedal);
+        final String colorHex =
+            _pedalGlowColors[looperId] ?? _getDefaultColorForPedal(pedal);
         final Color glowColor = _hexToColor(colorHex);
 
-        final primaryThemeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
+        final primaryThemeColor = _isDarkMode
+            ? const Color(0xFF00FFCC)
+            : const Color(0xFF00B3FF);
         final Color looperAccentColor = glowColor;
 
         // Find symbols dynamically
-        final String thresholdPort = _findPortSymbol(pedal, 'threshold') ?? 'threshold';
-        final String clickPort = _findPortSymbol(pedal, 'click') ?? _findPortSymbol(pedal, 'metronome') ?? 'click';
-        final String mixPort = _findPortSymbol(pedal, 'mix') ?? _findPortSymbol(pedal, 'dry') ?? 'mix';
+        final String thresholdPort =
+            _findPortSymbol(pedal, 'threshold') ?? 'threshold';
+        final String clickPort =
+            _findPortSymbol(pedal, 'click') ??
+            _findPortSymbol(pedal, 'metronome') ??
+            'click';
+        final String mixPort =
+            _findPortSymbol(pedal, 'mix') ??
+            _findPortSymbol(pedal, 'dry') ??
+            'mix';
 
         final double thresholdValue = pedal.parameters[thresholdPort] ?? -30.0;
         final double clickValue = pedal.parameters[clickPort] ?? 0.5;
@@ -4098,42 +4569,63 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           onTap: () => _highlightPedalInWebView(pedal),
                           child: Row(
                             children: [
-                              Icon(Icons.music_video, color: looperAccentColor, size: 20),
+                              Icon(
+                                Icons.music_video,
+                                color: looperAccentColor,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  (_customTitles[pedal.instance] ?? pedal.title).toUpperCase(),
+                                  (_customTitles[pedal.instance] ?? pedal.title)
+                                      .toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.0,
-                                    color: _isDarkMode ? Colors.white : Colors.black,
+                                    color: _isDarkMode
+                                        ? Colors.white
+                                        : Colors.black,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 4),
                               IconButton(
-                                icon: Icon(Icons.edit, size: 13, color: _isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+                                icon: Icon(
+                                  Icons.edit,
+                                  size: 13,
+                                  color: _isDarkMode
+                                      ? Colors.grey[500]
+                                      : Colors.grey[600],
+                                ),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () => _showRenameDialog(pedal),
                               ),
                               const SizedBox(width: 4),
                               IconButton(
-                                icon: Icon(Icons.help_outline, size: 14, color: primaryThemeColor.withOpacity(0.8)),
+                                icon: Icon(
+                                  Icons.help_outline,
+                                  size: 14,
+                                  color: primaryThemeColor.withOpacity(0.8),
+                                ),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
-                                onPressed: () => _showModuleHelpSheet(context, 'looper'),
+                                onPressed: () =>
+                                    _showModuleHelpSheet(context, 'looper'),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      
+
                       // Metronome BPM indicator/badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: _isDarkMode ? Colors.black : Colors.grey[200],
                           borderRadius: BorderRadius.circular(6),
@@ -4144,7 +4636,11 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.query_builder, size: 12, color: primaryThemeColor),
+                            Icon(
+                              Icons.query_builder,
+                              size: 12,
+                              color: primaryThemeColor,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '${_bpm.toStringAsFixed(1)} BPM',
@@ -4161,83 +4657,113 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Divider(color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])?.withOpacity(0.5), height: 1),
+                  Divider(
+                    color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])
+                        ?.withOpacity(0.5),
+                    height: 1,
+                  ),
                   const SizedBox(height: 8),
 
-                  // Track 1
+                  // Scrollable tracks and sliders to prevent overflow
                   Expanded(
-                    child: _buildLooperTrackSegment(1, looperAccentColor, pedal),
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Track 2
-                  Expanded(
-                    child: _buildLooperTrackSegment(2, looperAccentColor, pedal),
-                  ),
-                  const SizedBox(height: 12),
-                  Divider(color: (_isDarkMode ? Colors.grey[850] : Colors.grey[300])?.withOpacity(0.5), height: 1),
-                  const SizedBox(height: 12),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          // Track 1
+                          SizedBox(
+                            height: 140,
+                            child: _buildLooperTrackSegment(
+                              1,
+                              looperAccentColor,
+                              pedal,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
 
-                  // Sliders Column at bottom
-                  Column(
-                    children: [
-                      _buildLooperSlider(
-                        label: 'Threshold',
-                        value: thresholdValue,
-                        min: -60.0,
-                        max: 0.0,
-                        valueSuffix: ' dB',
-                        accentColor: looperAccentColor,
-                        onChanged: (val) {
-                          setState(() {
-                            pedal.parameters[thresholdPort] = val;
-                          });
-                          _webSocketService.setParamValue(
-                            instance: pedal.instance,
-                            port: thresholdPort,
-                            value: double.parse(val.toStringAsFixed(2)),
-                          );
-                        },
+                          // Track 2
+                          SizedBox(
+                            height: 140,
+                            child: _buildLooperTrackSegment(
+                              2,
+                              looperAccentColor,
+                              pedal,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Divider(
+                            color:
+                                (_isDarkMode
+                                        ? Colors.grey[850]
+                                        : Colors.grey[300])
+                                    ?.withOpacity(0.5),
+                            height: 1,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Sliders Column at bottom
+                          Column(
+                            children: [
+                              _buildLooperSlider(
+                                label: 'Threshold',
+                                value: thresholdValue,
+                                min: -60.0,
+                                max: 0.0,
+                                valueSuffix: ' dB',
+                                accentColor: looperAccentColor,
+                                onChanged: (val) {
+                                  setState(() {
+                                    pedal.parameters[thresholdPort] = val;
+                                  });
+                                  _webSocketService.setParamValue(
+                                    instance: pedal.instance,
+                                    port: thresholdPort,
+                                    value: double.parse(val.toStringAsFixed(2)),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 6),
+                              _buildLooperSlider(
+                                label: 'Mix Setting',
+                                value: mixValue,
+                                min: 0.0,
+                                max: 1.0,
+                                isPercentage: true,
+                                accentColor: looperAccentColor,
+                                onChanged: (val) {
+                                  setState(() {
+                                    pedal.parameters[mixPort] = val;
+                                  });
+                                  _webSocketService.setParamValue(
+                                    instance: pedal.instance,
+                                    port: mixPort,
+                                    value: double.parse(val.toStringAsFixed(2)),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 6),
+                              _buildLooperSlider(
+                                label: 'Click Volume',
+                                value: clickValue,
+                                min: 0.0,
+                                max: 1.0,
+                                isPercentage: true,
+                                accentColor: looperAccentColor,
+                                onChanged: (val) {
+                                  setState(() {
+                                    pedal.parameters[clickPort] = val;
+                                  });
+                                  _webSocketService.setParamValue(
+                                    instance: pedal.instance,
+                                    port: clickPort,
+                                    value: double.parse(val.toStringAsFixed(2)),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
-                      _buildLooperSlider(
-                        label: 'Mix Setting',
-                        value: mixValue,
-                        min: 0.0,
-                        max: 1.0,
-                        isPercentage: true,
-                        accentColor: looperAccentColor,
-                        onChanged: (val) {
-                          setState(() {
-                            pedal.parameters[mixPort] = val;
-                          });
-                          _webSocketService.setParamValue(
-                            instance: pedal.instance,
-                            port: mixPort,
-                            value: double.parse(val.toStringAsFixed(2)),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      _buildLooperSlider(
-                        label: 'Click Volume',
-                        value: clickValue,
-                        min: 0.0,
-                        max: 1.0,
-                        isPercentage: true,
-                        accentColor: looperAccentColor,
-                        onChanged: (val) {
-                          setState(() {
-                            pedal.parameters[clickPort] = val;
-                          });
-                          _webSocketService.setParamValue(
-                            instance: pedal.instance,
-                            port: clickPort,
-                            value: double.parse(val.toStringAsFixed(2)),
-                          );
-                        },
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -4248,9 +4774,13 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _buildLooperTrackSegment(int loopNum, Color glowColor, PluginInstance pedal) {
+  Widget _buildLooperTrackSegment(
+    int loopNum,
+    Color glowColor,
+    PluginInstance pedal,
+  ) {
     final state = _looperController.getState(loopNum);
-    
+
     Color stateColor;
     String stateText = '';
     IconData stateIcon;
@@ -4264,19 +4794,22 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
         break;
       case LooperState.countIn:
         stateColor = Colors.orange;
-        stateText = 'COUNT-IN (Rec in ${((16 - _looperController.getCurrentBeatIndex(loopNum)) * _looperController.beatDurationMs / 1000).toStringAsFixed(1)}s)';
+        stateText =
+            'COUNT-IN (Rec in ${((16 - _looperController.getCurrentBeatIndex(loopNum)) * _looperController.beatDurationMs / 1000).toStringAsFixed(1)}s)';
         stateIcon = Icons.hourglass_top;
         isPulsing = true;
         break;
       case LooperState.recording:
         stateColor = const Color(0xFFFF0055);
-        stateText = 'RECORDING (Beat ${_looperController.getCurrentBeatIndex(loopNum) + 1}/16)';
+        stateText =
+            'RECORDING (Beat ${_looperController.getCurrentBeatIndex(loopNum) + 1}/16)';
         stateIcon = Icons.fiber_manual_record;
         isPulsing = true;
         break;
       case LooperState.playing:
         stateColor = glowColor;
-        stateText = 'PLAYING LOOP (Bar ${_looperController.getCurrentBar(loopNum)}, Beat ${_looperController.getCurrentBeatInBar(loopNum)})';
+        stateText =
+            'PLAYING LOOP (Bar ${_looperController.getCurrentBar(loopNum)}, Beat ${_looperController.getCurrentBeatInBar(loopNum)})';
         stateIcon = Icons.play_arrow;
         break;
       case LooperState.paused:
@@ -4302,7 +4835,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,
-                color: state == LooperState.empty ? Colors.grey[500] : glowColor,
+                color: state == LooperState.empty
+                    ? Colors.grey[500]
+                    : glowColor,
                 letterSpacing: 0.8,
               ),
             ),
@@ -4324,38 +4859,48 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           ],
         ),
         const SizedBox(height: 4),
-        
+
         // Track timeline
         _build4BarTimeline(loopNum, stateColor),
         const SizedBox(height: 6),
-        
+
         // Track actions row
         Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: (state == LooperState.countIn || state == LooperState.recording)
+                  backgroundColor:
+                      (state == LooperState.countIn ||
+                          state == LooperState.recording)
                       ? Colors.grey[800]
                       : const Color(0xFFFF0055),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
                 icon: Icon(
-                  (state == LooperState.countIn || state == LooperState.recording)
+                  (state == LooperState.countIn ||
+                          state == LooperState.recording)
                       ? Icons.cancel
                       : Icons.fiber_manual_record,
                   size: 12,
                 ),
                 label: Text(
-                  (state == LooperState.countIn || state == LooperState.recording)
+                  (state == LooperState.countIn ||
+                          state == LooperState.recording)
                       ? 'CANCEL'
                       : 'RECORD 4-BAR',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
                 ),
                 onPressed: () {
-                  if (state == LooperState.countIn || state == LooperState.recording) {
+                  if (state == LooperState.countIn ||
+                      state == LooperState.recording) {
                     _looperController.clearLoop(loopNum);
                   } else {
                     _looperController.recordSequence(loopNum);
@@ -4364,12 +4909,17 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               ),
             ),
             const SizedBox(width: 6),
-            
+
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _isDarkMode ? Colors.black.withOpacity(0.4) : Colors.grey[200],
+                backgroundColor: _isDarkMode
+                    ? Colors.black.withOpacity(0.4)
+                    : Colors.grey[200],
                 foregroundColor: _isDarkMode ? Colors.white : Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 minimumSize: const Size(40, 28),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
@@ -4381,20 +4931,23 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               onPressed: (state == LooperState.playing)
                   ? () => _looperController.pauseLoop(loopNum)
                   : (state == LooperState.paused)
-                      ? () => _looperController.playLoop(loopNum)
-                      : null,
+                  ? () => _looperController.playLoop(loopNum)
+                  : null,
               child: Icon(
                 (state == LooperState.paused) ? Icons.play_arrow : Icons.pause,
                 size: 14,
               ),
             ),
             const SizedBox(width: 6),
-            
+
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.amber.withOpacity(0.12),
                 foregroundColor: Colors.amber,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 minimumSize: const Size(40, 28),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
@@ -4422,7 +4975,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     String valueSuffix = '',
     bool isPercentage = false,
   }) {
-    final displayValue = isPercentage ? (value * 100).toStringAsFixed(0) + '%' : value.toStringAsFixed(1) + valueSuffix;
+    final displayValue = isPercentage
+        ? (value * 100).toStringAsFixed(0) + '%'
+        : value.toStringAsFixed(1) + valueSuffix;
     return Row(
       children: [
         SizedBox(
@@ -4440,7 +4995,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: accentColor,
-              inactiveTrackColor: _isDarkMode ? Colors.grey[850] : Colors.grey[300],
+              inactiveTrackColor: _isDarkMode
+                  ? Colors.grey[850]
+                  : Colors.grey[300],
               trackHeight: 4.0,
               thumbColor: _isDarkMode ? Colors.white : Colors.grey[100],
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
@@ -4477,7 +5034,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     final progress = _looperController.getSweepProgress(loopNum);
     final currentBar = _looperController.getCurrentBar(loopNum);
     final currentBeatIndex = _looperController.getCurrentBeatIndex(loopNum);
-    
+
     return Container(
       height: 48,
       decoration: BoxDecoration(
@@ -4506,18 +5063,20 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                 ),
               ),
             ),
-            
+
           Row(
             children: List.generate(4, (barIndex) {
-              final isCurrentBar = (state != LooperState.empty) && 
-                                   (currentBar == barIndex + 1);
+              final isCurrentBar =
+                  (state != LooperState.empty) && (currentBar == barIndex + 1);
               return Expanded(
                 child: Container(
                   decoration: BoxDecoration(
                     border: Border(
                       right: barIndex < 3
                           ? BorderSide(
-                              color: _isDarkMode ? Colors.grey[900]! : Colors.grey[350]!,
+                              color: _isDarkMode
+                                  ? Colors.grey[900]!
+                                  : Colors.grey[350]!,
                               width: 1,
                             )
                           : BorderSide.none,
@@ -4530,14 +5089,18 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           'BAR ${barIndex + 1}',
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: isCurrentBar ? FontWeight.w900 : FontWeight.bold,
-                            color: isCurrentBar 
-                                ? stateColor 
-                                : (_isDarkMode ? Colors.grey[700] : Colors.grey[400]),
+                            fontWeight: isCurrentBar
+                                ? FontWeight.w900
+                                : FontWeight.bold,
+                            color: isCurrentBar
+                                ? stateColor
+                                : (_isDarkMode
+                                      ? Colors.grey[700]
+                                      : Colors.grey[400]),
                           ),
                         ),
                       ),
-                      
+
                       Positioned(
                         left: 0,
                         right: 0,
@@ -4546,8 +5109,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: List.generate(4, (beatIndex) {
                             final globalBeatIndex = barIndex * 4 + beatIndex;
-                            final isCurrentBeat = (state != LooperState.empty) &&
-                                                  (currentBeatIndex == globalBeatIndex);
+                            final isCurrentBeat =
+                                (state != LooperState.empty) &&
+                                (currentBeatIndex == globalBeatIndex);
                             return Container(
                               width: isCurrentBeat ? 6 : 4,
                               height: isCurrentBeat ? 6 : 4,
@@ -4555,7 +5119,9 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                                 shape: BoxShape.circle,
                                 color: isCurrentBeat
                                     ? stateColor
-                                    : (_isDarkMode ? Colors.grey[850] : Colors.grey[300]),
+                                    : (_isDarkMode
+                                          ? Colors.grey[850]
+                                          : Colors.grey[300]),
                               ),
                             );
                           }),
@@ -4567,7 +5133,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
               );
             }),
           ),
-          
+
           if (state != LooperState.empty)
             Positioned.fill(
               child: Align(
@@ -4581,7 +5147,7 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
                         color: stateColor.withOpacity(0.8),
                         blurRadius: 6,
                         spreadRadius: 1.5,
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -4603,7 +5169,8 @@ class _PulsingIndicator extends StatefulWidget {
   State<_PulsingIndicator> createState() => _PulsingIndicatorState();
 }
 
-class _PulsingIndicatorState extends State<_PulsingIndicator> with SingleTickerProviderStateMixin {
+class _PulsingIndicatorState extends State<_PulsingIndicator>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _animation;
 
