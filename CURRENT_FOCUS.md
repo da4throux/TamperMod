@@ -4,10 +4,11 @@
 - **Phase 0.1 - ALO Looper Card Header Standardization**: Added greyed-out, non-functional size toggle button to ALO looper card header (left side, before title) using `Icons.aspect_ratio` icon. Matches visual design of Gain/Switch card size toggles.
 - **Phase 0.2 - ALO Looper Single-Controller Treatment**: Verified ALO looper is correctly treated as single controller in `_enabledPluginInstances`, uses single glow color assignment via `_pedalGlowColors` map, appears once in puzzle organizer drawer, and single glow color persists via SharedPreferences.
 - **Phase 0.3 - ALO Looper Auto-Expand Fix**: Removed internal scrolling from ALO looper card by replacing `Expanded` + `SingleChildScrollView` with `Column(mainAxisSize: MainAxisSize.min)`. Card now auto-expands to fit content without scrolling, matching behavior of other controllers.
-- Updated `kAppVersion` → `1.2.8`, `pubspec.yaml`, and committed at `1816222`.
+- **Phase 0.4 - ALO Looper Overflow Fix**: Changed `cardHeight = 450.0` to `cardHeight = null` to allow ALO looper card to auto-expand to fit all content without overflow. Card now expands to required height like other extended controllers.
+- Updated `kAppVersion` → `1.2.8`, `pubspec.yaml`, and committed at `afe9150`.
 
 ## 🔧 Currently In Progress
-Phase 0 (ALO Looper Refactoring) complete. Committed at v1.2.8, `flutter analyze` passed with pre-existing warnings (no new errors).
+Phase 0 (ALO Looper Refactoring) complete. All overflow issues resolved. Committed at v1.2.8, `flutter analyze` passed with pre-existing warnings (no new errors).
 
 ## ➡️ Recommended Next Step
 First unchecked item in `SPECIFICATION.md` §4 Todo:
