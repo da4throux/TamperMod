@@ -7,13 +7,22 @@
 - **Phase 0.4 - ALO Looper Overflow Fix**: Changed `cardHeight = 450.0` to `cardHeight = null` to allow ALO looper card to auto-expand to fit all content without overflow. Card now expands to required height like other extended controllers.
 - Updated `kAppVersion` → `1.2.8`, `pubspec.yaml`, and committed at `afe9150`.
 
+## ✅ Phase 1: Directory Structure Setup (Complete)
+- Created complete modular directory tree under `mod_controller/lib/`
+- Created 19 placeholder files with TODO comments for future extraction
+- All files organized by component type (screens, widgets, utils, services, models)
+- Compilation verified: `flutter analyze` passed with no new errors
+- Committed at `f3a5ae3`
+
 ## 🔧 Currently In Progress
-Phase 0 (ALO Looper Refactoring) complete. All overflow issues resolved. Committed at v1.2.8, `flutter analyze` passed with pre-existing warnings (no new errors).
+Phase 1 (Directory Structure) complete. Ready to begin Phase 2 (Extract Utilities & Painters).
 
 ## ➡️ Recommended Next Step
-First unchecked item in `SPECIFICATION.md` §4 Todo:
-> Fix fadeout issues when running under `fade` mode in the Tampermonkey script.
-> (`TamperMod.user.js` — fade target landing precision, transition errors from -40dB.)
+Phase 2: Extract Utilities & Painters (low-risk extraction)
+- Extract `_CustomSCurve` to `lib/utils/curves.dart`
+- Extract color utilities to `lib/utils/color_utils.dart`
+- Extract painter classes to `lib/widgets/painters/*.dart`
+- Test compilation after each extraction
 
 ## 📋 Quick Context
 - **App:** Flutter (`mod_controller/`) — Pixel Tablet controller for MOD Dwarf pedalboard.
