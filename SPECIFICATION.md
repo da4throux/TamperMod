@@ -125,6 +125,8 @@ Please read and apply .agenrules
 * [x] ALO Looper extended: three extra buttons — On (send 1), Off (send 0), Click (send 1, wait 50ms, send 0).
 * [x] Drawer icon changed to puzzle piece; tapping it again closes the drawer (no separate close button needed).
 * [x] Complete modular refactoring (v1.3.0): main.dart < 60 lines; all cards, drawers, toolbars, painters, and utilities in dedicated files.
+* [x] Color system: drawer tile colors always match workspace card colors; palette expanded to 10 neon colors; new plugins auto-assigned the least-used color; ALO looper treated identically to other plugins.
+* [x] WiFi warning on connect: if WiFi is active when tapping Connect, an amber SnackBar warns that WiFi blocks the USB Ethernet route to MOD Dwarf and instructs the user to turn off WiFi.
 
 ### Todo Tasks
 * [ ] Please add a button to reload the web view.

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import '../services/websocket_service.dart';
 import '../models/plugin_instance.dart';
@@ -715,6 +716,64 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  /// Checks for active WiFi before connecting.
+  ///
+  /// WiFi prevents the system from routing traffic to the USB Ethernet
+  /// interface used to reach the MOD Dwarf (192.168.51.x). If WiFi is
+  /// detected as the active connection type, a warning is shown before
+  /// proceeding. The user should disable WiFi and reconnect.
+  Future<void> _connectWithWifiCheck() async {
+    final List<ConnectivityResult> results =
+        await Connectivity().checkConnectivity();
+    final bool wifiActive = results.contains(ConnectivityResult.wifi);
+
+    if (wifiActive && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 8),
+          backgroundColor: const Color(0xFFCC6600),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: const BorderSide(color: Color(0xFFFF9900), width: 1.5),
+          ),
+          content: const Row(
+            children: [
+              Icon(Icons.wifi_off, color: Colors.white, size: 22),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '⚠️ WiFi is ON — the MOD Dwarf connects via USB Ethernet. '
+                  'WiFi blocks the route. Turn off WiFi, then reconnect.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () =>
+                ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+          ),
+        ),
+      );
+    }
+
+    // Proceed with connection regardless — user may have WiFi on for other
+    // reasons and still wants to try (e.g. WiFi on but already disabled
+    // for routing before this check ran).
+    _webSocketService.connect(ip: _ipController.text);
+    _webViewController.loadRequest(
+      Uri.parse('http://${_ipController.text}'),
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -1061,10 +1120,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     final bool isDisconnected =
                         _webSocketService.status == ConnectionStatus.disconnected;
                     if (isDisconnected) {
-                      _webSocketService.connect(ip: _ipController.text);
-                      _webViewController.loadRequest(
-                        Uri.parse('http://${_ipController.text}'),
-                      );
+                      _connectWithWifiCheck();
                     } else {
                       _webSocketService.disconnect();
                     }
