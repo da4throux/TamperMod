@@ -5416,9 +5416,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             _findPortSymbol(pedal, 'dry') ??
             'mix';
 
-        final double thresholdValue = pedal.parameters[thresholdPort] ?? -30.0;
+        final double thresholdValue = pedal.parameters[thresholdPort] ?? -40.0;
         final double clickValue = pedal.parameters[clickPort] ?? 0;
-        final double mixValue = pedal.parameters[mixPort] ?? 1.0;
+        final double mixValue = pedal.parameters[mixPort] ?? 50;
 
         return GestureDetector(
           onLongPress: () => _showColorPickerDialog(pedal),
@@ -5637,9 +5637,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           _buildLooperSlider(
                             label: 'Mix Setting',
                             value: mixValue,
-                            min: 0.0,
-                            max: 1.0,
-                            isPercentage: true,
+                            min: 0,
+                            max: 100,
                             accentColor: looperAccentColor,
                             onChanged: (val) {
                               setState(() {
