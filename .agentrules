@@ -34,7 +34,7 @@ Both files MUST be included in the same commit as the feature work. Not updating
 
 ## 3. Versioning & Deployment Synchronization (Strict)
 * **Atomic Version Rule (MANDATORY on every micro-save):** Before running any `git commit -m "agentName(vX.Y.Z): ..."` command
-* **in the commit name start with the agent name, i.e. replace agentName with your name: Haiku4.5, GeminiPro3.1, Tencent, Claude3.5Sonnet ...
+* **in the commit name start with your name (the agent name), i.e. replace agentName with your name: Haiku4.5, GeminiPro3.1, Tencent, Claude3.5Sonnet ... Nothing, antigravity, cline are not acceptable names.
 you MUST FIRST update BOTH of the following to exactly `X.Y.Z`:
 1. `mod_controller/lib/main.dart` → `const String kAppVersion = 'X.Y.Z';`
 2. `mod_controller/pubspec.yaml` → `version: X.Y.Z`
@@ -42,6 +42,7 @@ These two files MUST be included in the same commit. The commit tag, `kAppVersio
 * **UI & Configuration Alignment:** Every time you publish, deploy, or prepare a stable version (e.g., deploying to Firebase, updating configuration files, building for local devices), you MUST verify that the version string reflected in the Flutter Application UI dynamically matches the target release version.
 * **Mandatory Chat Confirmation:** In your final response to the user after a successful deployment/build, you MUST include a dedicated line that reads exactly:
 `🚀 Deployment Complete: Version X.Y.Z is now live and updated in the application UI.`
+Please state your name at the end of your prompt answer.
 
 ---
 

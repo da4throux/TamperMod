@@ -41,7 +41,6 @@ class SettingsDrawer extends StatefulWidget {
 }
 
 class _SettingsDrawerState extends State<SettingsDrawer> {
-
   Widget _buildMiniPuzzleTile({
     required PluginInstance pedal,
     required bool isActive,
@@ -84,7 +83,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     }
 
     final String colorHex =
-        widget.pedalGlowColors[instanceId] ?? getLeastUsedColor(widget.pedalGlowColors);
+        widget.pedalGlowColors[instanceId] ??
+        getLeastUsedColor(widget.pedalGlowColors);
     final Color glowColor = hexToColor(colorHex);
 
     IconData typeIcon = Icons.help_outline;
@@ -155,7 +155,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.all(2.5),
                   decoration: BoxDecoration(
-                    color: widget.isDarkMode ? Colors.grey[900] : Colors.grey[300],
+                    color: widget.isDarkMode
+                        ? Colors.grey[900]
+                        : Colors.grey[300],
                     shape: BoxShape.circle,
                   ),
                   child: Text(
@@ -218,7 +220,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 ),
                 child: Center(
                   child: Text(
-                    (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+                    (widget.customTitles[instanceId] ?? pedal.title)
+                        .toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -247,7 +250,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 widget.onScrollToCard(instanceId);
               }
             },
-            onDoubleTap: () => widget.onShowColorPicker(pedal),
+            onDoubleTap: () {
+              // Double-tap cycles through sizes (C→R→E→C) for non-loopers
+              if (!isLooper && isActive) {
+                widget.onCyclePedalSize(instanceId);
+              } else {
+                // For loopers or inactive tiles, open color picker
+                widget.onShowColorPicker(pedal);
+              }
+            },
             child: tileContent,
           ),
         );
@@ -331,7 +342,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 10.5,
-                          color: widget.isDarkMode ? Colors.grey : Colors.grey[700],
+                          color: widget.isDarkMode
+                              ? Colors.grey
+                              : Colors.grey[700],
                           letterSpacing: 1.0,
                         ),
                       ),
@@ -345,12 +358,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     onAccept: (draggedId) {
                       // Drag from Inactive or general drop to activate/reorder to the end
                       setState(() {
-                        if (!widget.enabledPluginInstances.contains(draggedId)) {
+                        if (!widget.enabledPluginInstances.contains(
+                          draggedId,
+                        )) {
                           widget.enabledPluginInstances.add(draggedId);
                         }
 
                         // Move to end of active list in widget.orderedPluginInstances
-                        final List<String> actives = widget.orderedPluginInstances
+                        final List<String> actives = widget
+                            .orderedPluginInstances
                             .where(
                               (id) =>
                                   widget.enabledPluginInstances.contains(id) &&
@@ -361,9 +377,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                         widget.orderedPluginInstances.remove(draggedId);
                         if (actives.isNotEmpty) {
                           final lastActiveId = actives.last;
-                          final targetIdx = widget.orderedPluginInstances.indexOf(
-                            lastActiveId,
-                          );
+                          final targetIdx = widget.orderedPluginInstances
+                              .indexOf(lastActiveId);
                           if (targetIdx != -1) {
                             widget.orderedPluginInstances.insert(
                               targetIdx + 1,
@@ -460,7 +475,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 10.5,
-                          color: widget.isDarkMode ? Colors.grey : Colors.grey[700],
+                          color: widget.isDarkMode
+                              ? Colors.grey
+                              : Colors.grey[700],
                           letterSpacing: 1.0,
                         ),
                       ),
@@ -564,10 +581,11 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: (widget.isDarkMode
-                          ? const Color(0xFF00FFCC)
-                          : const Color(0xFF00B3FF))
-                      .withOpacity(0.3),
+                  color:
+                      (widget.isDarkMode
+                              ? const Color(0xFF00FFCC)
+                              : const Color(0xFF00B3FF))
+                          .withOpacity(0.3),
                   width: 1.5,
                 ),
               ),
@@ -591,11 +609,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               ],
             ),
           ),
-          
+
           // Drawer content
-          Expanded(
-            child: _buildDrawerContent(),
-          ),
+          Expanded(child: _buildDrawerContent()),
         ],
       ),
     );

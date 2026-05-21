@@ -723,14 +723,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   /// detected as the active connection type, a warning is shown before
   /// proceeding. The user should disable WiFi and reconnect.
   Future<void> _connectWithWifiCheck() async {
-    final List<ConnectivityResult> results =
-        await Connectivity().checkConnectivity();
+    final List<ConnectivityResult> results = await Connectivity()
+        .checkConnectivity();
     final bool wifiActive = results.contains(ConnectivityResult.wifi);
 
     if (wifiActive && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          duration: const Duration(seconds: 8),
+          duration: const Duration(seconds: 10),
           backgroundColor: const Color(0xFFCC6600),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(12),
@@ -756,10 +756,13 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
           action: SnackBarAction(
-            label: 'OK',
+            label: 'SETTINGS',
             textColor: Colors.white,
-            onPressed: () =>
-                ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+            onPressed: () {
+              // Open WiFi settings
+              _openWiFiSettings();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
           ),
         ),
       );
@@ -769,9 +772,20 @@ class _DashboardScreenState extends State<DashboardScreen>
     // reasons and still wants to try (e.g. WiFi on but already disabled
     // for routing before this check ran).
     _webSocketService.connect(ip: _ipController.text);
-    _webViewController.loadRequest(
-      Uri.parse('http://${_ipController.text}'),
-    );
+    _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
+  }
+
+  /// Opens WiFi settings on Android
+  Future<void> _openWiFiSettings() async {
+    try {
+      if (Platform.isAndroid) {
+        await const MethodChannel(
+          'com.example.mod_controller/wifi',
+        ).invokeMethod('openWiFiSettings');
+      }
+    } catch (e) {
+      debugPrint('Error opening WiFi settings: $e');
+    }
   }
 
   @override
@@ -1075,7 +1089,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   isDarkMode: _isDarkMode,
                   showControls: _showControls,
                   showWeb: _showWeb,
-                  isConnected: _webSocketService.status == ConnectionStatus.connected,
+                  isConnected:
+                      _webSocketService.status == ConnectionStatus.connected,
                   onToggleControls: () {
                     if (_showControls && !_showWeb) return;
                     setState(() {
@@ -1118,7 +1133,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   connectionStatus: _webSocketService.status,
                   onConnectDisconnect: () {
                     final bool isDisconnected =
-                        _webSocketService.status == ConnectionStatus.disconnected;
+                        _webSocketService.status ==
+                        ConnectionStatus.disconnected;
                     if (isDisconnected) {
                       _connectWithWifiCheck();
                     } else {
@@ -1380,9 +1396,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                   }
 
                   final String colorHex =
-                      _pedalGlowColors[pedal.instance] ?? _getDefaultColorForPedal(pedal);
+                      _pedalGlowColors[pedal.instance] ??
+                      _getDefaultColorForPedal(pedal);
                   final Color glowColor = _hexToColor(colorHex);
-                  final String displayName = _customTitles[pedal.instance] ?? pedal.title;
+                  final String displayName =
+                      _customTitles[pedal.instance] ?? pedal.title;
 
                   Widget cardWidget;
                   final isSwitch =
@@ -1423,11 +1441,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onHighlightPressed: () => _highlightPedalInWebView(pedal),
                       onColorPickerPressed: () => _showColorPickerDialog(pedal),
                       onOpenUri: _openPluginUri,
-                      onSwitchPathChanged: (port, val) => _webSocketService.setParamValue(
-                        instance: pedal.instance,
-                        port: port,
-                        value: val,
-                      ),
+                      onSwitchPathChanged: (port, val) =>
+                          _webSocketService.setParamValue(
+                            instance: pedal.instance,
+                            port: port,
+                            value: val,
+                          ),
                     );
                   } else if (isGainOrVolume) {
                     final double currentValue =
@@ -1441,8 +1460,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                         isFading && (_fadeDirections[pedal.instance] == true);
                     final bool isFadingOut =
                         isFading && (_fadeDirections[pedal.instance] == false);
-                    final double rangeStart = _fadeRangeStart[pedal.instance] ?? 0.0;
-                    final double rangeEnd = _fadeRangeEnd[pedal.instance] ?? 1.0;
+                    final double rangeStart =
+                        _fadeRangeStart[pedal.instance] ?? 0.0;
+                    final double rangeEnd =
+                        _fadeRangeEnd[pedal.instance] ?? 1.0;
 
                     cardWidget = GainCard(
                       pedal: pedal,
@@ -1459,12 +1480,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       rangeStart: rangeStart,
                       rangeEnd: rangeEnd,
                       fadeShape: _fadeShapes[pedal.instance] ?? 'Linear',
-                      customParams: _fadeCustomParams[pedal.instance] ??
-                          {
-                            'cx': 0.5,
-                            'cy': 0.5,
-                            'slope': 1.0,
-                          },
+                      customParams:
+                          _fadeCustomParams[pedal.instance] ??
+                          {'cx': 0.5, 'cy': 0.5, 'slope': 1.0},
                       fadeBars: _fadeBars,
                       onVolumeChanged: (newValue) {
                         _fadeTimers[pedal.instance]?.cancel();
@@ -1490,7 +1508,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onHighlightPressed: () => _highlightPedalInWebView(pedal),
                       onSizeToggled: () {
                         setState(() {
-                          final current = _pedalSizes[pedal.instance] ?? 'regular';
+                          final current =
+                              _pedalSizes[pedal.instance] ?? 'regular';
                           if (current == 'compact') {
                             _pedalSizes[pedal.instance] = 'regular';
                           } else if (current == 'regular') {
@@ -1524,7 +1543,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         });
                         _saveLayoutSettings();
                       },
-                      onTriggerFade: (fadeIn) => _triggerFade(pedal, fadeIn: fadeIn),
+                      onTriggerFade: (fadeIn) =>
+                          _triggerFade(pedal, fadeIn: fadeIn),
                       onOpenUri: _openPluginUri,
                     );
                   } else {
@@ -1773,75 +1793,192 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _showRenameDialog(PluginInstance pedal) {
     final currentTitle = _customTitles[pedal.instance] ?? pedal.title;
     final controller = TextEditingController(text: currentTitle);
+    final String instId = pedal.instance;
+    final String currentColorHex =
+        _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
-          title: Text(
-            'RENAME PEDAL',
-            style: TextStyle(
-              color: _isDarkMode
-                  ? const Color(0xFF00FFCC)
-                  : const Color(0xFF00B3FF),
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-              fontSize: 16,
-            ),
-          ),
-          content: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: 'Custom Display Name',
-              labelStyle: TextStyle(
-                color: _isDarkMode ? Colors.grey : Colors.grey[700],
-              ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String selectedColorHex = currentColorHex;
+
+            return AlertDialog(
+              backgroundColor: _isDarkMode
+                  ? const Color(0xFF0F141C)
+                  : Colors.white,
+              title: Text(
+                'RENAME & CUSTOMIZE PEDAL',
+                style: TextStyle(
                   color: _isDarkMode
                       ? const Color(0xFF00FFCC)
                       : const Color(0xFF00B3FF),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  fontSize: 16,
                 ),
               ),
-            ),
-            style: TextStyle(color: _isDarkMode ? Colors.white : Colors.black),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'CANCEL',
-                style: TextStyle(
-                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Name input
+                    TextField(
+                      controller: controller,
+                      decoration: InputDecoration(
+                        labelText: 'Custom Display Name',
+                        labelStyle: TextStyle(
+                          color: _isDarkMode ? Colors.grey : Colors.grey[700],
+                        ),
+                        enabledBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: _isDarkMode
+                                ? const Color(0xFF00FFCC)
+                                : const Color(0xFF00B3FF),
+                          ),
+                        ),
+                      ),
+                      style: TextStyle(
+                        color: _isDarkMode ? Colors.white : Colors.black,
+                      ),
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 20),
+                    // Color picker section
+                    Text(
+                      'GLOW COLOR',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _isDarkMode
+                            ? Colors.grey[400]
+                            : Colors.grey[600],
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      alignment: WrapAlignment.start,
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: kNeonColors.map((hex) {
+                        final Color dotColor = _hexToColor(hex);
+                        final bool isSelected =
+                            hex.toUpperCase() == selectedColorHex.toUpperCase();
+
+                        int usageCount = 0;
+                        for (var p in _webSocketService.allPlugins.value) {
+                          final String pId = p.instance;
+                          final String pColor =
+                              _pedalGlowColors[pId] ??
+                              _getDefaultColorForPedal(p);
+                          if (pColor.toUpperCase() == hex.toUpperCase()) {
+                            usageCount++;
+                          }
+                        }
+
+                        return GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              selectedColorHex = hex;
+                            });
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: dotColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? (_isDarkMode
+                                          ? Colors.white
+                                          : Colors.black)
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: dotColor.withOpacity(
+                                    isSelected ? 0.6 : 0.2,
+                                  ),
+                                  blurRadius: isSelected ? 12 : 6,
+                                  spreadRadius: isSelected ? 2 : 1,
+                                ),
+                              ],
+                            ),
+                            child: usageCount > 0
+                                ? Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        color: dotColor.computeLuminance() > 0.5
+                                            ? Colors.black.withOpacity(0.15)
+                                            : Colors.white.withOpacity(0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '$usageCount',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color:
+                                              dotColor.computeLuminance() > 0.5
+                                              ? Colors.black
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isDarkMode
-                    ? const Color(0xFF00FFCC)
-                    : const Color(0xFF00B3FF),
-                foregroundColor: _isDarkMode ? Colors.black : Colors.white,
-              ),
-              onPressed: () {
-                if (controller.text.trim().isNotEmpty) {
-                  setState(() {
-                    _customTitles[pedal.instance] = controller.text.trim();
-                  });
-                }
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'SAVE',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'CANCEL',
+                    style: TextStyle(
+                      color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF),
+                    foregroundColor: _isDarkMode ? Colors.black : Colors.white,
+                  ),
+                  onPressed: () {
+                    if (controller.text.trim().isNotEmpty) {
+                      setState(() {
+                        _customTitles[pedal.instance] = controller.text.trim();
+                        _pedalGlowColors[instId] = selectedColorHex;
+                      });
+                      _updateAllGlowsInWebView();
+                      _saveLayoutSettings();
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    'SAVE',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -2086,16 +2223,41 @@ class _DashboardScreenState extends State<DashboardScreen>
       controlsWidth = isLandscape ? (screenWidth * 5 / 11) : screenWidth;
     }
 
-    final int crossAxisCount = controlsWidth > 600 ? 2 : 1;
+    // Calculate card dimensions based on screen width
+    final double sidePadding = 8.0;
+    final double availableWidth = controlsWidth - sidePadding * 2;
+    final double spacing = 16.0;
+
+    double cardHeight = 240.0;
+    int crossAxisCount = 1;
+
+    if (controlsWidth >= 600) {
+      final double netWidth = availableWidth - (spacing * 3);
+      final double colWidth = netWidth / 4;
+      crossAxisCount = 2;
+      // Average card height (some may be compact, regular, or expanded)
+      cardHeight = 240.0;
+    } else {
+      crossAxisCount = 1;
+      cardHeight = 240.0;
+    }
+
+    // Calculate which row the card is in
     final int rowIndex = index ~/ crossAxisCount;
-    final double scrollOffset = rowIndex * (225.0 + 16.0);
+
+    // Calculate scroll offset to position the card
+    // Account for padding and spacing
+    final double scrollOffset = (rowIndex * (cardHeight + spacing)) - spacing;
 
     if (_cardsScrollController.hasClients) {
+      // Scroll to position with some margin to ensure full visibility
+      final double targetOffset = scrollOffset.clamp(
+        0.0,
+        _cardsScrollController.position.maxScrollExtent,
+      );
+
       _cardsScrollController.animateTo(
-        scrollOffset.clamp(
-          0.0,
-          _cardsScrollController.position.maxScrollExtent,
-        ),
+        targetOffset,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOutCubic,
       );

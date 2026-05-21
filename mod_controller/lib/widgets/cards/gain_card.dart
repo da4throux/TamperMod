@@ -95,7 +95,9 @@ class _GainCardState extends State<GainCard> {
       return SliderTheme(
         data: SliderTheme.of(context).copyWith(
           activeTrackColor: accentColor,
-          inactiveTrackColor: widget.isDarkMode ? Colors.grey[850] : Colors.grey[300],
+          inactiveTrackColor: widget.isDarkMode
+              ? Colors.grey[850]
+              : Colors.grey[300],
           trackHeight: compact ? 4.0 : 12.0,
           thumbColor: isBypassed
               ? Colors.grey[400]
@@ -166,7 +168,10 @@ class _GainCardState extends State<GainCard> {
                     behavior: HitTestBehavior.translucent,
                     onHorizontalDragUpdate: (details) {
                       final double delta = details.primaryDelta! / trackW;
-                      final double newStart = (widget.rangeStart + delta).clamp(0.0, widget.rangeEnd - 0.05);
+                      final double newStart = (widget.rangeStart + delta).clamp(
+                        0.0,
+                        widget.rangeEnd - 0.05,
+                      );
                       widget.onFadeRangeChanged(newStart, widget.rangeEnd);
                     },
                     child: Container(color: Colors.transparent),
@@ -182,7 +187,10 @@ class _GainCardState extends State<GainCard> {
                     behavior: HitTestBehavior.translucent,
                     onHorizontalDragUpdate: (details) {
                       final double delta = details.primaryDelta! / trackW;
-                      final double newEnd = (widget.rangeEnd + delta).clamp(widget.rangeStart + 0.05, 1.0);
+                      final double newEnd = (widget.rangeEnd + delta).clamp(
+                        widget.rangeStart + 0.05,
+                        1.0,
+                      );
                       widget.onFadeRangeChanged(widget.rangeStart, newEnd);
                     },
                     child: Container(color: Colors.transparent),
@@ -305,7 +313,9 @@ class _GainCardState extends State<GainCard> {
                             : Colors.grey[isBypassed ? 600 : 700],
                         size: 18,
                       ),
-                      Expanded(child: buildSliderWithRangeOverlay(compact: true)),
+                      Expanded(
+                        child: buildSliderWithRangeOverlay(compact: true),
+                      ),
                       Icon(Icons.volume_up, color: accentColor, size: 18),
                     ],
                   ),
@@ -315,10 +325,7 @@ class _GainCardState extends State<GainCard> {
                     children: [
                       Text(
                         '${minRange.toStringAsFixed(1)} dB',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 9, color: Colors.grey[600]),
                       ),
                       Text(
                         '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
@@ -330,10 +337,7 @@ class _GainCardState extends State<GainCard> {
                       ),
                       Text(
                         '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 9, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -362,150 +366,156 @@ class _GainCardState extends State<GainCard> {
                 ],
               )
             : widget.size == 'regular'
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Row 1 header
+                  Row(
                     children: [
-                      // Row 1 header
-                      Row(
-                        children: [
-                          buildSizeToggle(),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: widget.onHighlightPressed,
-                              onLongPress: widget.onRenamePressed,
-                              child: Text(
-                                widget.displayName.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                  color: accentColor,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                      buildSizeToggle(),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: widget.onHighlightPressed,
+                          onLongPress: widget.onRenamePressed,
+                          child: Text(
+                            widget.displayName.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: accentColor,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          GestureDetector(
-                            onTap: () => ModuleHelpSheet.show(context, 'gain', widget.isDarkMode),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Icon(
-                                Icons.help_outline,
-                                size: 14,
-                                color: accentColor.withOpacity(0.7),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          buildDbBox(),
-                          const SizedBox(width: 4),
-                          buildMuteIcon(),
-                        ],
-                      ),
-                      const Spacer(),
-                      // URI
-                      GestureDetector(
-                        onTap: () => widget.onOpenUri(widget.pedal.uri),
-                        child: Text(
-                          widget.pedal.uri,
-                          style: TextStyle(
-                            fontSize: 8.5,
-                            color: widget.isDarkMode
-                                ? const Color(0xFF00FFCC)
-                                : const Color(0xFF00B3FF),
-                            decoration: TextDecoration.underline,
-                            fontFamily: 'monospace',
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      // Slider Row
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.volume_mute,
-                            color: widget.isDarkMode
-                                ? Colors.grey[isBypassed ? 700 : 600]
-                                : Colors.grey[isBypassed ? 600 : 700],
-                            size: 20,
+                      GestureDetector(
+                        onTap: () => ModuleHelpSheet.show(
+                          context,
+                          'gain',
+                          widget.isDarkMode,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            Icons.help_outline,
+                            size: 14,
+                            color: accentColor.withOpacity(0.7),
                           ),
-                          Expanded(child: buildSliderWithRangeOverlay(compact: false)),
-                          Icon(Icons.volume_up, color: accentColor, size: 20),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 2),
-                      // Labels
-                      Row(
-                        children: [
-                          Text(
-                            '${minRange.toStringAsFixed(1)} dB',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: widget.isDarkMode
-                                  ? Colors.grey[isBypassed ? 700 : 600]
-                                  : Colors.grey[isBypassed ? 600 : 700],
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: accentColor.withOpacity(0.7),
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: widget.isDarkMode
-                                  ? Colors.grey[isBypassed ? 700 : 600]
-                                  : Colors.grey[isBypassed ? 600 : 700],
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 4),
+                      buildDbBox(),
+                      const SizedBox(width: 4),
+                      buildMuteIcon(),
+                    ],
+                  ),
+                  const Spacer(),
+                  // URI
+                  GestureDetector(
+                    onTap: () => widget.onOpenUri(widget.pedal.uri),
+                    child: Text(
+                      widget.pedal.uri,
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        color: widget.isDarkMode
+                            ? const Color(0xFF00FFCC)
+                            : const Color(0xFF00B3FF),
+                        decoration: TextDecoration.underline,
+                        fontFamily: 'monospace',
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8),
-                      // Fade buttons
-                      Row(
-                        children: [
-                          FadeButton(
-                            label: 'FADE IN',
-                            icon: Icons.trending_up,
-                            isBypassed: isBypassed,
-                            onTap: () => widget.onTriggerFade(true),
-                            accentColor: accentColor,
-                            isFading: widget.isFadingIn,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Slider Row
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.volume_mute,
+                        color: widget.isDarkMode
+                            ? Colors.grey[isBypassed ? 700 : 600]
+                            : Colors.grey[isBypassed ? 600 : 700],
+                        size: 20,
+                      ),
+                      Expanded(
+                        child: buildSliderWithRangeOverlay(compact: false),
+                      ),
+                      Icon(Icons.volume_up, color: accentColor, size: 20),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  // Labels
+                  Row(
+                    children: [
+                      Text(
+                        '${minRange.toStringAsFixed(1)} dB',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: widget.isDarkMode
+                              ? Colors.grey[isBypassed ? 700 : 600]
+                              : Colors.grey[isBypassed ? 600 : 700],
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: accentColor.withOpacity(0.7),
+                            fontFamily: 'monospace',
                           ),
-                          FadeButton(
-                            label: 'FADE OUT',
-                            icon: Icons.trending_down,
-                            isBypassed: isBypassed,
-                            onTap: () => widget.onTriggerFade(false),
-                            accentColor: accentColor,
-                            isFading: widget.isFadingOut,
-                          ),
-                        ],
+                        ),
+                      ),
+                      Text(
+                        '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: widget.isDarkMode
+                              ? Colors.grey[isBypassed ? 700 : 600]
+                              : Colors.grey[isBypassed ? 600 : 700],
+                        ),
                       ),
                     ],
-                  )
-                : _buildExpandedView(
-                    minRange: minRange,
-                    maxRange: maxRange,
-                    clampedValue: clampedValue,
-                    isBypassed: isBypassed,
-                    accentColor: accentColor,
-                    buildVolumeSlider: buildVolumeSlider,
-                    buildSliderWithRangeOverlay: buildSliderWithRangeOverlay,
-                    buildMuteIcon: buildMuteIcon,
-                    buildDbBox: buildDbBox,
-                    buildSizeToggle: buildSizeToggle,
                   ),
+                  const SizedBox(height: 8),
+                  // Fade buttons
+                  Row(
+                    children: [
+                      FadeButton(
+                        label: 'FADE IN',
+                        icon: Icons.trending_up,
+                        isBypassed: isBypassed,
+                        onTap: () => widget.onTriggerFade(true),
+                        accentColor: accentColor,
+                        isFading: widget.isFadingIn,
+                      ),
+                      FadeButton(
+                        label: 'FADE OUT',
+                        icon: Icons.trending_down,
+                        isBypassed: isBypassed,
+                        onTap: () => widget.onTriggerFade(false),
+                        accentColor: accentColor,
+                        isFading: widget.isFadingOut,
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : _buildExpandedView(
+                minRange: minRange,
+                maxRange: maxRange,
+                clampedValue: clampedValue,
+                isBypassed: isBypassed,
+                accentColor: accentColor,
+                buildVolumeSlider: buildVolumeSlider,
+                buildSliderWithRangeOverlay: buildSliderWithRangeOverlay,
+                buildMuteIcon: buildMuteIcon,
+                buildDbBox: buildDbBox,
+                buildSizeToggle: buildSizeToggle,
+              ),
       ),
     );
   }
@@ -583,7 +593,8 @@ class _GainCardState extends State<GainCard> {
               ),
             ),
             GestureDetector(
-              onTap: () => ModuleHelpSheet.show(context, 'gain', widget.isDarkMode),
+              onTap: () =>
+                  ModuleHelpSheet.show(context, 'gain', widget.isDarkMode),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Icon(
@@ -637,7 +648,11 @@ class _GainCardState extends State<GainCard> {
           children: [
             Text(
               '${minRange.toStringAsFixed(1)} dB (Start: ${startDb.toStringAsFixed(1)} dB)',
-              style: TextStyle(fontSize: 9, color: Colors.grey[600], fontFamily: 'monospace'),
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey[600],
+                fontFamily: 'monospace',
+              ),
             ),
             Text(
               '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
@@ -649,7 +664,11 @@ class _GainCardState extends State<GainCard> {
             ),
             Text(
               '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB (End: ${endDb.toStringAsFixed(1)} dB)',
-              style: TextStyle(fontSize: 9, color: Colors.grey[600], fontFamily: 'monospace'),
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.grey[600],
+                fontFamily: 'monospace',
+              ),
             ),
           ],
         ),
@@ -676,7 +695,9 @@ class _GainCardState extends State<GainCard> {
                   margin: const EdgeInsets.symmetric(horizontal: 2),
                   padding: const EdgeInsets.symmetric(vertical: 5),
                   decoration: BoxDecoration(
-                    color: isSelected ? accentColor.withOpacity(0.2) : Colors.transparent,
+                    color: isSelected
+                        ? accentColor.withOpacity(0.2)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
                       color: isSelected ? accentColor : Colors.grey[700]!,
@@ -709,7 +730,7 @@ class _GainCardState extends State<GainCard> {
               fontWeight: FontWeight.w700,
               color: accentColor.withOpacity(0.7),
               letterSpacing: 1.2,
-          ),
+            ),
           ),
           const SizedBox(height: 4),
           ...['cx', 'cy', 'slope'].map((param) {
@@ -774,7 +795,10 @@ class _GainCardState extends State<GainCard> {
             alignment: Alignment.centerRight,
             child: GestureDetector(
               onTap: () {
-                final String json = jsonEncode({'shape': 'custom', ...widget.customParams});
+                final String json = jsonEncode({
+                  'shape': 'custom',
+                  ...widget.customParams,
+                });
                 Clipboard.setData(ClipboardData(text: json));
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -784,7 +808,10 @@ class _GainCardState extends State<GainCard> {
                 );
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   border: Border.all(color: accentColor.withOpacity(0.5)),
                   borderRadius: BorderRadius.circular(6),
