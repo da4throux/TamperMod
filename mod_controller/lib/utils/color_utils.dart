@@ -5,18 +5,53 @@
 
 import 'package:flutter/material.dart';
 
-/// Neon colors palette for permanent visual cues
+/// Neon colors palette — 10 colors for plugin glow assignment.
+/// All plugins (including ALO Looper) use this palette equally.
 const List<String> kNeonColors = [
   '#00FFCC', // Turquoise
-  '#FF0055', // Pink
+  '#FF0055', // Hot Red
   '#9D00FF', // Purple
   '#00FF66', // Green
   '#FF7700', // Orange
+  '#00FFFF', // Cyan
+  '#FF00CC', // Hot Pink
+  '#AAFF00', // Lime
+  '#007FFF', // Sky Blue
+  '#FF4D4D', // Coral
 ];
 
-/// Convert hex color string to Flutter Color
+/// Returns the color from [kNeonColors] that is least represented
+/// in [assignedColors] (a map of instanceId → hex color string).
 ///
-/// Extracted from main.dart for reusability across the app.
+/// Ties are broken by palette order (earlier colors preferred).
+/// If [assignedColors] is empty, returns the first color in the palette.
+String getLeastUsedColor(Map<String, String> assignedColors) {
+  final Map<String, int> counts = {for (final c in kNeonColors) c: 0};
+
+  for (final hex in assignedColors.values) {
+    final normalized = hex.toUpperCase();
+    for (final key in counts.keys) {
+      if (key.toUpperCase() == normalized) {
+        counts[key] = (counts[key] ?? 0) + 1;
+        break;
+      }
+    }
+  }
+
+  String best = kNeonColors[0];
+  int bestCount = counts[best] ?? 0;
+  for (final color in kNeonColors) {
+    final count = counts[color] ?? 0;
+    if (count < bestCount) {
+      best = color;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+/// Convert hex color string to Flutter Color.
+///
 /// Handles both 6-digit and 3-digit hex color codes.
 Color hexToColor(String hex) {
   final String cleanHex = hex.replaceAll('#', '');
@@ -26,10 +61,9 @@ Color hexToColor(String hex) {
   return const Color(0xFF00FFCC); // Default to turquoise
 }
 
-/// Convert hex color to RGBA string for JavaScript
+/// Convert hex color to RGBA string for JavaScript.
 ///
 /// Used for WebView glow effects and dynamic styling.
-/// Converts hex color codes to CSS rgba() format.
 String hexToRgba(String hex, double alpha) {
   String c = hex.substring(1);
   if (c.length == 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];

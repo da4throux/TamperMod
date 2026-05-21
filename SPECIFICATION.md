@@ -58,6 +58,7 @@ Please read and apply .agenrules
   * **Single Tap:** Scrolls main view to and pulses the target card.
   * **Double Tap:** Opens a color picker to adjust the neon glow color of the card.
   * **Long Press:** Initiates Drag-and-Drop to rearrange cards or change active/inactive status.
+* **Color consistency rule:** Drawer tile colors MUST always match the workspace card color. All plugins use the same color assignment logic — no type-specific default overrides.
 
 ### 3.3 Bottom Toolbar
 * Positioned **inside the body Column**, above the IP connection bar (connection panel) at the top of the body Column.
@@ -73,6 +74,11 @@ Please read and apply .agenrules
   * A tight, very bright neon glow directly surrounding the device boundary (`0 0 20px 8px <color>`).
   * A wider, far-reaching soft ambient halo spreading light outward (`0 0 180px 4px <color>`).
   * Inset glow to highlight control knobs (`inset 0 0 15px <color>`).
+
+### 3.5 Neon Color Palette
+* A shared palette of 10 neon colors is used for plugin glow assignment.
+* **Auto-assignment rule:** When a new plugin appears with no saved color, it is automatically assigned the color currently **least used** across all active plugins.
+* The color picker shows all 10 colors with a usage-count badge.
 
 ---
 
@@ -102,36 +108,37 @@ Please read and apply .agenrules
 * [x] Expanded Gain card: RangeSlider for fade start/end cursors, shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders + clipboard EXPORT, live CustomPainter fade visualizer with moving dot (height 520px).
 * [x] Fade engine: uses per-pedal range cursors and selected curve shape (linear/easeInOut/easeIn/easeOut/custom); tracks _fadeProgress for visualizer.
 * [x] Increase card size toggle button size for better finger tap accessibility.
-* [x] Reposition card size toggle button to left of card name in compact view.
-* [x] Reposition card size toggle button to left of card name in regular view.
-* [x] Reposition card size toggle button to left of card name in expanded view.
-* [x] Ensure card size toggle button position remains stable during card size changes.
+* [x] Reposition card size toggle button to left of card name in compact/regular/expanded views; position is stable during size changes.
+* [x] Right drawer (puzzle icon) takes whole vertical height so icon is always reachable; tapping puzzle icon again closes the drawer.
+* [x] Tapping reload on the UI bar resyncs all controller cards with the pedalboard (fetches current volume from server).
+* [x] Fix Play Transport icon: was reversed (showing play when stop was active).
+* [x] Gain card fade triangles: outline in different color; lower point on top edge of volume slider.
+* [x] Expanded Gain card: fade range defined with triangles directly on the curve, no separate interface.
+* [x] Fade-in and Fade-out curves reversed (Fade Out starts at 100%).
+* [x] ALO Looper: pausing keeps beat in sync; pause icon changed to mute-style icon.
+* [x] ALO Looper: buttons have more balanced size.
+* [x] ALO Looper: tapping Click Volume toggles between 0 and current volume (mute toggle).
+* [x] ALO Looper: tapping Click Mix Setting cycles 0 → 50 → 100%.
+* [x] ALO Looper: tapping Threshold cycles between minimum, -40 dB, and maximum.
+* [x] ALO Looper: Clear button always available to press.
+* [x] Bug fix: ALO Looper Mute button caused grey screen.
+* [x] ALO Looper extended: three extra buttons — On (send 1), Off (send 0), Click (send 1, wait 50ms, send 0).
+* [x] Drawer icon changed to puzzle piece; tapping it again closes the drawer (no separate close button needed).
+* [x] Complete modular refactoring (v1.3.0): main.dart < 60 lines; all cards, drawers, toolbars, painters, and utilities in dedicated files.
 
 ### Todo Tasks
-* [x] While clicking on the top right puzzle icon opens the controler layout drawer on the right side, I should be able to tap on it again to close the drawer, however, it appears fade in the background, and cannot be reached... Can you make this right drawer take the whole vertical, on the puzzle icon is always visible in this way.
-* [x] Tapping reload on the UI bar (next to radar) should resync all the controler cards with the pedal board. If I change the volume of a gain directly on the pedalboard, it does not update on its control card, while having a regular polling could be a solution, as first step the reload should resync and fetch the new volume.
-* [x] The Play Transport is not well fetched (shown as play when is stop in the pedalboard* [x] The Play Transport is well fetched and updated but the icon is reversed (showing play when it is actually stop that was selected)
-* [x] For Gain controller, the fade triangles should have an outline (different color than the glow), the lower point of the triangle should be on the top edge of the volume slider (not in the middle of the slider)
-* [x] For Gain Controler, in extended mode, the fade range should be defined with triangles, no need for a separate interface
-* [x] The Fade-in and Fade-out curves should be reversed (starting at 100% for a Fade Out)
-* [x] In Alo Looper, when pausing, the beat should continue, and stay in sync. Change Pausing icon to something closer to muting.
-* [x] In ALO looper, the buttons should have more balanced size
-* [x] In Alo looper, tapping Click Volume toggles to 0 and the current volume (kind of a mute)
-* [x] In Alo looper, tapping Click Mix Setting toggles between 0, 50, and 100%
-* [x] In Alo looper, tapping Threshold toggles betwen the minimu, -40dB and the maximum
-* [ ] Please add a button to reload the web view
-* [x] In Alo looper, the clear button should always be available to press
-* [x] Bug: In Alo looper, pressing Mute made a grey screen.
-* [x] In Alo looper extended, add three buttons: on (send a 1), off (send a 0), click (send a 1, wait 50ms and send a 0)
-* [ ] tapping on a controler from the right drawer does not always bring the effect in view by scrolling accurately.
-* [ ] Editting a controler s name by long pressing its name should also allow to change its glow. Then in the right drawer, double tapping a small type toggle its size (available: compact, regular, extended). ALO Looper glow is counted twice.
-* [x] changing the icon to open the drawer to a puzzle (better than setting), remove "workspace settings, from the top. Re-taping the new puzzle icon close the drawer.
-* [x] The same puzzle icon which is used to open the drawer, can be tap again when the drawer is open to clos it, no need for the cross in the top right corner of the drawer. the drawer.
-* [ ] bug: the fader scope triangle, do not move as fast the finger dragging it (it runs half the length, which is unpleasant)
-* [ ] double tapping on a fader scope triangle, set the gain to that level
-* [ ] Add vertical Beat bar on the fading curve, and the alo play to make it more visible
-* [ ] In Alo extended, there was a misunderstanding for on/off/click buttons, They should be focused on the active looper. (turn the looper button 1, off, and on / off). There should be only one timeline and buttons set (6 buttons) displayed, and above a tab for each Looper (from 1 to 6), to display the timeline and the concerned buttons. A tab should display a specific icon if is playing, or on pause.
-* [ ] Alo in Regular Mode: quick selector of the current looper, small playing bar (for recording or playing), and record / mute / clear buttons
+* [ ] Please add a button to reload the web view.
+* [ ] Tapping on a controller from the right drawer does not always bring the effect in view by scrolling accurately.
+* [ ] Editing a controller's name by long pressing its name should also allow to change its glow color. In the right drawer, double tapping a tile should toggle its size (compact, regular, expanded).
+* [ ] bug: the fader scope triangle does not move as fast as the dragging finger (it runs half the length — unpleasant).
+* [ ] Double tapping on a fader scope triangle sets the gain to that level.
+* [ ] Add vertical Beat bar on the fading curve and the ALO play bar to make timing more visible.
+* [ ] In Alo extended, on/off/click buttons should target the active looper. One timeline + 6 buttons; tabs above (one per Looper 1–6) showing play/pause state icon.
+* [ ] ALO Regular Mode: quick selector of current looper, small playing bar (recording or playing), and Record / Mute / Clear buttons.
+* [ ] In ALO Regular: threshold label should stay on one line at fixed size (currently jumps between 1 and 2 lines depending on dB value).
+* [x] Fix drawer tile color: must always match the workspace card color (all plugins treated equally — no type-specific default overrides).
+* [x] Expand neon color palette from 5 to 10 colors for more variety.
+* [x] When a new plugin is added with no saved color, auto-assign the least-used color from the palette.
 * [ ] Resolve target value landing issues when switching automation effects.
 * [ ] Address fade transition errors where fade does not land exactly on 0 starting from -40dB.
 * [ ] Store setInterval IDs in an external array for clean automation cancellation.

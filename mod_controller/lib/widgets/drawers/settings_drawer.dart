@@ -41,11 +41,6 @@ class SettingsDrawer extends StatefulWidget {
 }
 
 class _SettingsDrawerState extends State<SettingsDrawer> {
-  String _getDefaultColorForPedal(PluginInstance pedal) {
-    final String instanceId = pedal.instance;
-    final int hash = instanceId.hashCode.abs();
-    return kNeonColors[hash % kNeonColors.length];
-  }
 
   Widget _buildMiniPuzzleTile({
     required PluginInstance pedal,
@@ -89,7 +84,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     }
 
     final String colorHex =
-        widget.pedalGlowColors[instanceId] ?? _getDefaultColorForPedal(pedal);
+        widget.pedalGlowColors[instanceId] ?? getLeastUsedColor(widget.pedalGlowColors);
     final Color glowColor = hexToColor(colorHex);
 
     IconData typeIcon = Icons.help_outline;

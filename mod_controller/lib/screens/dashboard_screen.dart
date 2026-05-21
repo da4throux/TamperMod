@@ -23,6 +23,7 @@ import '../widgets/cards/gain_card.dart';
 import '../widgets/cards/switch_card.dart';
 import '../widgets/cards/looper_card.dart';
 import '../widgets/cards/placeholder_card.dart';
+import '../utils/color_utils.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String appVersion;
@@ -66,27 +67,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Custom User Ordering and Visibility List
   List<String> _enabledPluginInstances = [];
 
-  // Neon Colors Palette for permanent visual cues
-  static const List<String> kNeonColors = [
-    '#00FFCC', // Turquoise
-    '#FF0055', // Pink
-    '#9D00FF', // Purple
-    '#00FF66', // Green
-    '#FF7700', // Orange
-  ];
-
   final ScrollController _cardsScrollController = ScrollController();
   final Map<String, String> _pedalGlowColors = {};
   final Map<String, bool> _pedalGlowEnabled = {};
   final Map<String, String> _pedalSizes = {};
 
-  Color _hexToColor(String hex) {
-    final String cleanHex = hex.replaceAll('#', '');
-    if (cleanHex.length == 6) {
-      return Color(int.parse('FF$cleanHex', radix: 16));
-    }
-    return const Color(0xFF00FFCC);
-  }
+  Color _hexToColor(String hex) => hexToColor(hex);
 
   void _updateAllGlowsInWebView() {
     // Safety check: ensure we're mounted and looper controller is initialized
@@ -1846,19 +1832,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                     usageCount++;
                   }
                 }
-                // Check looper as well
-                if (_looperController.activeLooper != null) {
-                  final String looperId =
-                      _looperController.activeLooper!.instance;
-                  final String looperColor = _pedalGlowColors[looperId] ?? '';
-                  if (looperColor.isNotEmpty &&
-                      looperColor.toUpperCase() == hex.toUpperCase()) {
-                    usageCount++;
-                  } else if (looperColor.isEmpty &&
-                      hex.toUpperCase() == '#FF0055') {
-                    usageCount++;
-                  }
-                }
 
                 return GestureDetector(
                   onTap: () {
@@ -2003,22 +1976,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   String _getDefaultColorForInstanceId(String instanceId) {
-    if (instanceId.toLowerCase().contains('alo')) {
-      return '#FF0055';
-    }
-    final plugins = _webSocketService.allPlugins.value;
-    for (final p in plugins) {
-      if (p.instance == instanceId) {
-        final uriLower = p.uri.toLowerCase();
-        final titleLower = p.title.toLowerCase();
-        if (uriLower.contains('alo') || titleLower.contains('alo')) {
-          return '#FF0055';
-        }
-        break;
-      }
-    }
-    final int hash = instanceId.hashCode.abs();
-    return kNeonColors[hash % kNeonColors.length];
+    // All plugins use the same least-used color assignment — no type overrides.
+    return getLeastUsedColor(_pedalGlowColors);
   }
 
   String _getDefaultColorForPedal(PluginInstance pedal) {
