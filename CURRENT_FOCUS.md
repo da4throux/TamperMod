@@ -14,15 +14,26 @@
 - Compilation verified: `flutter analyze` passed with no new errors
 - Committed at `f3a5ae3`
 
+## ✅ Phase 2: Extract Utilities & Painters (Complete)
+- **Phase 2.1:** Extracted `_CustomSCurve` → `lib/utils/curves.dart` (CustomSCurve class)
+- **Phase 2.2:** Extracted color utilities → `lib/utils/color_utils.dart` (hexToColor, hexToRgba, kNeonColors)
+- **Phase 2.3:** Extracted painters → `lib/widgets/painters/*.dart`:
+  - `FadeCurvePainter` (live fade curve visualizer with grid, range lines, moving dot)
+  - `MiniRangePainter` (vertical range indicator with triangle handles)
+  - `RangeOverlayPainter` (range cursor overlay on volume slider)
+- Compilation verified: `flutter analyze` passed (112 pre-existing issues, no new errors)
+- Updated version: `1.2.9` in both `main.dart` and `pubspec.yaml`
+- Committed at `dae3c9b` (Haiku4.5)
+
 ## 🔧 Currently In Progress
-Phase 1 (Directory Structure) complete. Ready to begin Phase 2 (Extract Utilities & Painters).
+Phase 2 (Utilities & Painters Extraction) complete. Ready to begin Phase 3 (Extract Common Widgets).
 
 ## ➡️ Recommended Next Step
-Phase 2: Extract Utilities & Painters (low-risk extraction)
-- Extract `_CustomSCurve` to `lib/utils/curves.dart`
-- Extract color utilities to `lib/utils/color_utils.dart`
-- Extract painter classes to `lib/widgets/painters/*.dart`
-- Test compilation after each extraction
+Phase 3: Extract Common Widgets (medium-risk extraction)
+- Extract `FadeButton` widget to `lib/widgets/common/fade_button.dart`
+- Extract `SizeToggleButton` widget to `lib/widgets/common/size_toggle_button.dart`
+- Extract `ModuleHelpSheet` to `lib/widgets/common/module_help_sheet.dart`
+- Test compilation and UI rendering after each extraction
 
 ## 📋 Quick Context
 - **App:** Flutter (`mod_controller/`) — Pixel Tablet controller for MOD Dwarf pedalboard.
