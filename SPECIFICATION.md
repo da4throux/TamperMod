@@ -124,6 +124,7 @@ Please read and apply .agenrules
 * [x] Bug fix: ALO Looper Mute button caused grey screen.
 * [x] ALO Looper extended: three extra buttons — On (send 1), Off (send 0), Click (send 1, wait 50ms, send 0).
 * [x] ALO Looper On/Off/Click buttons: proper state management and visual feedback (v1.3.12) — ON sets to playing with green highlight, OFF pauses with grey highlight, CLICK triggers manual switch.
+* [x] ALO Looper size toggle fixed (v1.3.13): wired onSizeToggled callback to enable switching between extended and regular modes.
 * [x] Drawer icon changed to puzzle piece; tapping it again closes the drawer (no separate close button needed).
 * [x] Complete modular refactoring (v1.3.0): main.dart < 60 lines; all cards, drawers, toolbars, painters, and utilities in dedicated files.
 * [x] Color system: drawer tile colors always match workspace card colors; palette expanded to 10 neon colors; new plugins auto-assigned the least-used color; ALO looper treated identically to other plugins.
