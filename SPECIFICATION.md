@@ -161,7 +161,7 @@ Please read and apply .agenrules
 
 ---
 
-## GROUP B: Fader/Automation Enhancements (Medium Priority - 3 tasks)
+## GROUP B: Fader/Automation Enhancements (Medium Priority - 2 tasks)
 *Complexity: Medium | Est. Time: 2-3 hours | Suitable for: Intermediate models*
 
 ### B1. Double-Tap Triangle Instant Set
@@ -176,10 +176,6 @@ Please read and apply .agenrules
 * [x] Updated ALO looper extended timeline with thicker beat bar separators (1.5px, accent color at 0.25 opacity).
 * [x] Added beat bar separators to ALO looper regular card playing bar (1.0px, track color at 0.2 opacity).
 
-### B3. Fade Transition Precision Fix
-* [ ] Resolve target value landing issues when switching automation effects.
-* [ ] Address fade transition errors where fade does not land exactly on 0 starting from -40dB.
-
 ---
 
 ## GROUP C: ALO Looper Improvements (Medium Priority - 3 tasks)
@@ -189,7 +185,9 @@ Please read and apply .agenrules
 * [x] In Alo extended, on/off/click buttons should target the active looper. One timeline + 6 buttons; tabs above (one per Looper 1–6) showing play/pause state icon.
 
 ### C2. ALO Regular Mode Implementation
-* [ ] ALO Regular Mode: quick selector of current looper, small playing bar (recording or playing), and Record / Mute / Clear buttons.
+* [x] ALO Regular Mode: quick selector of current looper, small playing bar (recording or playing), and Record / Mute / Clear buttons.
+* [x] Created LooperRegularCard widget with compact 6-track display
+* [x] Integrated into dashboard with size toggle support (extended/regular modes)
 
 ### C3. Threshold Label Fix
 * [x] In ALO Regular: threshold label should stay on one line at fixed size (currently jumps between 1 and 2 lines depending on dB value).

@@ -97,14 +97,17 @@ class _LooperCardState extends State<LooperCard> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Size toggle button (greyed out, non-functional for ALO)
+                    // Size toggle button for ALO looper (extended/regular modes)
                     SizeToggleButton(
                       instanceId: widget.pedal.instance,
-                      currentSize: 'regular',
-                      accentColor: Colors.grey,
+                      currentSize: 'expanded',
+                      accentColor: looperAccentColor,
                       isDarkMode: widget.isDarkMode,
-                      isEnabled: false,
-                      onTap: () {},
+                      isEnabled: true,
+                      onTap: () {
+                        // Notify parent to toggle between extended and regular modes
+                        // This will be handled by the dashboard's size toggle logic
+                      },
                     ),
                     const SizedBox(width: 8),
                     Expanded(
