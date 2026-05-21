@@ -165,7 +165,10 @@ Please read and apply .agenrules
 *Complexity: Medium | Est. Time: 2-3 hours | Suitable for: Intermediate models*
 
 ### B1. Double-Tap Triangle Instant Set
-* [ ] Double tapping on a fader scope triangle sets the gain to that level.
+* [x] Double tapping on a fader scope triangle sets the gain to that level.
+* [x] Added onDoubleTap handlers to both left and right triangle drag handles.
+* [x] Left triangle double-tap sets gain to fade range start value.
+* [x] Right triangle double-tap sets gain to fade range end value.
 
 ### B2. Beat Bar Visualization
 * [ ] Add vertical Beat bar on the fading curve and the ALO play bar to make timing more visible.
