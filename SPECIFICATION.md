@@ -202,7 +202,11 @@ Please read and apply .agenrules
 *Complexity: Low-Medium | Est. Time: 1-2 hours | Suitable for: Simpler models*
 
 ### E1. setInterval Cleanup
-* [ ] Store setInterval IDs in an external array for clean automation cancellation.
+* [x] Store setInterval IDs in an external array for clean automation cancellation.
+* [x] Created `activeIntervals` global array to track all setInterval IDs.
+* [x] Implemented `registerInterval(id)` function to add intervals to tracking array.
+* [x] Implemented `clearAllIntervals()` function to cleanly cancel all active intervals.
+* [x] Updated both setInterval calls to register their IDs for later cleanup.
 
 ### E2. Default Fadeout Values
 * [ ] Map default values for fadeout objects to minimize boilerplate definitions.
