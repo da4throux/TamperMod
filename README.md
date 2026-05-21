@@ -10,7 +10,7 @@ A native Flutter application for controlling the MOD Dwarf guitar pedal board in
 - **Hardware Target:** Pixel Tablet (portrait & landscape)
 - **Connection:** WiFi to MOD Dwarf (`192.168.51.1`)
 - **Protocol:** WebSocket JSON-RPC 2.0
-- **Current Version:** `1.2.14`
+- **Current Version:** `1.3.0`
 
 ## 🏗 Architecture
 
@@ -185,4 +185,4 @@ Personal project. For more information, see the original repository.
 
 ---
 
-**Last Updated:** v1.2.14 (May 2026)
+**Last Updated:** v1.3.0 (May 2026)

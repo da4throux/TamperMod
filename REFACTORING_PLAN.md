@@ -387,11 +387,10 @@ mod_controller/lib/                     ✅ FINAL STATE (v1.2.14)
 - [x] Update `CURRENT_FOCUS.md` with completion status
 - [x] Add inline documentation to new files (MIT headers on all new files)
 
-### 9.2 Version & Milestone Commit — ⚠️ AWAITING USER AUTHORIZATION
-> Per `.agentrules` Rule 1: bumping the `Y` version index (from `1.2.x` → `1.3.0`) is a **Milestone** and requires explicit user authorization. An agent must NOT do this autonomously.
-- [ ] **[USER MUST AUTHORIZE]** Bump `kAppVersion` in `main.dart` to `1.3.0`
-- [ ] **[USER MUST AUTHORIZE]** Update `pubspec.yaml` version to `1.3.0`
-- [ ] **[USER MUST AUTHORIZE]** Commit: `git commit -m "Antigravity(v1.3.0): Complete modular refactoring — all components extracted to dedicated files"`
+### 9.2 Version & Milestone Commit — ✅ USER AUTHORIZED
+- [x] Bump `kAppVersion` in `main.dart` to `1.3.0`
+- [x] Update `pubspec.yaml` version to `1.3.0`
+- [x] Commit: `git commit -m "Antigravity(v1.3.0): Complete modular refactoring — all components extracted to dedicated files"`
 
 ---
 
@@ -410,7 +409,7 @@ mod_controller/lib/                     ✅ FINAL STATE (v1.2.14)
 | Phase 8.1 — Compilation Tests | v1.2.14 | Antigravity | ✅ Done |
 | Phase 8.2/8.3 — Device Tests | — | User | ⏳ Pending |
 | Phase 9.1 — Documentation | v1.2.14 | Antigravity | ✅ Done |
-| Phase 9.2 — v1.3.0 Milestone | — | **User auth needed** | 🔒 Blocked |
+| Phase 9.2 — v1.3.0 Milestone | v1.3.0 | Antigravity (user auth'd) | ✅ Done |
 
 ---
 
@@ -424,5 +423,5 @@ mod_controller/lib/                     ✅ FINAL STATE (v1.2.14)
 ✅ ALO looper standardized with other cards
 ✅ No compilation errors (0 errors, 0 blocking warnings)
 ✅ Documentation updated (README, SPECIFICATION, CURRENT_FOCUS)
-🔒 Version 1.3.0 milestone — awaiting user authorization
+✅ Version 1.3.0 milestone committed and tagged
 ⏳ Device functional tests — to be validated by the user on Pixel Tablet

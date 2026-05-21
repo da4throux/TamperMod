@@ -6,7 +6,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'screens/dashboard_screen.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.14';
+const String kAppVersion = '1.3.0';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
