@@ -1,26 +1,25 @@
 # TamperMod — Current Focus
 
-## ✅ Last Completed (v1.3.1)
-- **SPECIFICATION.md cleanup**: All `[x]` done items moved from Todo to Done section; new §3.5 color palette rules added.
-- **Color system fix**: Drawer tile colors now always match workspace card colors — all plugins (including ALO) use the same `getLeastUsedColor()` logic.
-- **Palette expanded**: `kNeonColors` in `color_utils.dart` expanded from 5 to 10 colors. Duplicate in `dashboard_screen.dart` removed.
-- **ALO override removed**: `#FF0055` hardcoded default for ALO loopers is gone; ALO is treated as a regular card like any other.
-- **Least-used auto-assignment**: New plugins without a saved color automatically get the least-represented color from the palette.
-- **Color picker counts fixed**: Removed stale ALO-specific count override from the color picker dialog.
+## ✅ Last Completed (v1.3.4)
+- **Group A UI/UX Improvements** (5 of 6 tasks completed):
+  - **A1. WiFi Auto-Disable on Connect**: Added "SETTINGS" button to WiFi warning snackbar that opens Android WiFi settings via MethodChannel
+  - **A3. Drawer Scroll Accuracy Fix**: Improved `_scrollToCard()` to calculate accurate scroll offsets based on card dimensions and spacing
+  - **A4. Edit Dialog Enhancement**: Renamed dialog now includes integrated color picker in the same dialog (StatefulBuilder for local state)
+  - **A5. Drawer Double-Tap Size Toggle**: Double-tap on drawer tiles now cycles through sizes (C→R→E→C) for non-loopers; loopers/inactive tiles open color picker
+  - **A6. Fader Triangle Drag Speed Fix**: Triangle drag now uses correct delta calculation for responsive 1:1 finger tracking
 
 ## 🔧 Currently In Progress
-- Nothing — v1.3.1 committed.
+- Nothing — v1.3.4 committed.
 
 ## ➡️ Recommended Next Step
-- **SPECIFICATION.md Reorganized**: All 24 pending tasks now grouped into 6 categories (A-F) for easier assignment to different AI models.
-- **Next Feature** (from `SPECIFICATION.md` §4 Todo):
-  - **GROUP A** (UI/UX - 6 tasks): Best for simpler models - WebView controls, drawer fixes, dialog enhancements
-  - **GROUP B** (Fader - 3 tasks): Medium complexity - triangle drag fix, beat bars, precision fixes
-  - **GROUP C** (ALO - 3 tasks): Medium-high complexity - extended mode, regular mode, label fixes
-  - **GROUP D** (Database - 1 task): High complexity - local database for pedalboard configs
-  - **GROUP E** (Tech Debt - 2 tasks): Low complexity - setInterval cleanup, default values
-  - **GROUP F** (Future - 9 tasks): Varies - BPM linking, MIDI, presets, cross-fader
+- **A2. WebView Controls Enhancement** (remaining from Group A):
+  - Add fullscreen toggle button for WebView (pinch-zoom/pan without controls overlay)
+  - Add separation slider between workspace and web view
+  - Requires UI refactoring to support dynamic layout adjustments
+- **GROUP B** (Fader/Automation - 3 tasks): Medium complexity - triangle double-tap, beat bars, precision fixes
+- **GROUP C** (ALO Looper - 3 tasks): Medium-high complexity - extended/regular mode redesign
 
 ## 📋 Quick Context
 - **Connected device:** Pixel Tablet via ADB
-- **App Version:** v1.3.1 (matches `main.dart` and `pubspec.yaml`)
+- **App Version:** v1.3.4 (matches `main.dart` and `pubspec.yaml`)
+- **Last commit:** Cline(v1.3.4) - Group A improvements

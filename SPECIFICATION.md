@@ -136,24 +136,28 @@ Please read and apply .agenrules
 *Complexity: Low-Medium | Est. Time: 1-2 hours | Suitable for: Simpler models*
 
 ### A1. WiFi Auto-Disable on Connect
-* [ ] If WiFi is on, offer to turn it off when showing the alert snackbar on connect.
-* [ ] The connect button could show a wifi icon as a warning.
+* [x] If WiFi is on, offer to turn it off when showing the alert snackbar on connect.
+* [x] Added "SETTINGS" button to WiFi warning snackbar that opens Android WiFi settings via MethodChannel.
 
 ### A2. WebView Controls Enhancement
 * [ ] Add a button to reload the web view, and resize to full screen.
 * [ ] Add ability to adjust the separation between the workspace and the web view.
 
 ### A3. Drawer Scroll Accuracy Fix
-* [ ] Tapping on a controller from the right drawer does not always bring the effect in view by scrolling accurately.
+* [x] Tapping on a controller from the right drawer now brings the effect in view by scrolling accurately.
+* [x] Improved `_scrollToCard()` to calculate accurate scroll offsets based on card dimensions and spacing.
 
 ### A4. Edit Dialog Enhancement
-* [ ] Editing a controller's name by long pressing its name should also allow to change its glow color.
+* [x] Editing a controller's name by long pressing its name now also allows changing its glow color.
+* [x] Integrated color picker in the same rename dialog using StatefulBuilder for local state management.
 
 ### A5. Drawer Double-Tap Size Toggle
-* [ ] In the right drawer, double tapping a tile should toggle its size (compact, regular, expanded).
+* [x] In the right drawer, double tapping a tile now cycles through sizes (compact, regular, expanded).
+* [x] Non-loopers cycle C→R→E→C; loopers and inactive tiles open color picker on double-tap.
 
 ### A6. Fader Triangle Drag Speed Fix (Critical UX Bug)
-* [ ] bug: the fader scope triangle does not move as fast as the dragging finger (it runs half the length — unpleasant).
+* [x] Fixed: the fader scope triangle now moves at 1:1 speed with the dragging finger.
+* [x] Corrected delta calculation in triangle drag handlers for responsive tracking.
 
 ---
 
