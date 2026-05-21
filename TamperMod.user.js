@@ -57,6 +57,26 @@ const logMods = ['FocusOnFilter', 'FilterOrLevel', 'FilterAndLevel', 'FocusOnSea
 const logMod = 2;
 let bpmTimeoutID;
 
+// E1: setInterval Cleanup - Store all setInterval IDs for clean automation cancellation
+const activeIntervals = [];
+
+/**
+ * Register a setInterval ID for later cleanup
+ * @param {number} intervalId - The ID returned by setInterval
+ */
+function registerInterval(intervalId) {
+    activeIntervals.push(intervalId);
+}
+
+/**
+ * Clear all registered intervals
+ */
+function clearAllIntervals() {
+    activeIntervals.forEach(id => clearInterval(id));
+    activeIntervals.length = 0;
+    log('All automation intervals cleared', 'clearAllIntervals');
+}
+
 function log(message, levelOrOrigin, level) {
     let origin, log;
     //10 = Debug, 20 = Info, 40 = Error // https://docs.python.org/2.4/lib/module-logging.html
@@ -600,7 +620,9 @@ function buildConfigAndActions() {
     config = JSON.parse(GM_getValue('config'));
     config.engaged = false; //by default no auto regulation
     log('buildConfigAndAction loaded');
-    setInterval(actionLoop, continuoStep);
+    // E1: Register the main action loop interval
+    const actionLoopId = setInterval(actionLoop, continuoStep);
+    registerInterval(actionLoopId);
 }
 
 function actionLoop() { //separate calculating the target Volume from setting them. Several ways to calculate the target volumes
@@ -1340,6 +1362,8 @@ function getPedalboardInfo() {
     var si_id = setInterval(function () { //only loadConfiguration once the pedalboard is fully loaded
         if (document.getElementsByClassName('screen-loading blocker')[0].style.display == 'none') {
             clearInterval(si_id);
+            // E1: Remove from active intervals when cleared
+            activeIntervals = activeIntervals.filter(id => id !== si_id);
             setTimeout(function () {
                 getPedalboardInfo();
                 buildConfigAndActions();
@@ -1347,6 +1371,8 @@ function getPedalboardInfo() {
             }, 3000);
         }
     }, 2000);
+    // E1: Register the initialization interval
+    registerInterval(si_id);
 })();
 
 //
