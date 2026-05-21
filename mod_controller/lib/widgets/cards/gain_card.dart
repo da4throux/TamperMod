@@ -283,7 +283,7 @@ class _GainCardState extends State<GainCard> {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1: size-toggle | Name | dB | mute
+                  // Row 1: size-toggle | Full Name
                   Row(
                     children: [
                       buildSizeToggle(),
@@ -296,7 +296,7 @@ class _GainCardState extends State<GainCard> {
                           child: Text(
                             widget.displayName.toUpperCase(),
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w900,
                               color: accentColor,
                               overflow: TextOverflow.ellipsis,
@@ -304,21 +304,9 @@ class _GainCardState extends State<GainCard> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: accentColor,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      buildMuteIcon(size: 18),
                     ],
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 8),
                   // Row 2: Slider with overlay
                   Row(
                     children: [
@@ -358,25 +346,50 @@ class _GainCardState extends State<GainCard> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  // Row 3: FADE IN | FADE OUT (stacked vertically)
+                  // Row 3: Gain dB value and Mute button
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: accentColor,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      buildMuteIcon(size: 20),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Row 4: FADE IN | FADE OUT (stacked vertically, full width)
                   Column(
                     children: [
-                      FadeButton(
-                        label: 'FADE IN',
-                        icon: Icons.trending_up,
-                        isBypassed: isBypassed,
-                        onTap: () => widget.onTriggerFade(true),
-                        accentColor: accentColor,
-                        isFading: widget.isFadingIn,
+                      SizedBox(
+                        width: double.infinity,
+                        child: FadeButton(
+                          label: 'FADE IN',
+                          icon: Icons.trending_up,
+                          isBypassed: isBypassed,
+                          onTap: () => widget.onTriggerFade(true),
+                          accentColor: accentColor,
+                          isFading: widget.isFadingIn,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      FadeButton(
-                        label: 'FADE OUT',
-                        icon: Icons.trending_down,
-                        isBypassed: isBypassed,
-                        onTap: () => widget.onTriggerFade(false),
-                        accentColor: accentColor,
-                        isFading: widget.isFadingOut,
+                      SizedBox(
+                        width: double.infinity,
+                        child: FadeButton(
+                          label: 'FADE OUT',
+                          icon: Icons.trending_down,
+                          isBypassed: isBypassed,
+                          onTap: () => widget.onTriggerFade(false),
+                          accentColor: accentColor,
+                          isFading: widget.isFadingOut,
+                        ),
                       ),
                     ],
                   ),
