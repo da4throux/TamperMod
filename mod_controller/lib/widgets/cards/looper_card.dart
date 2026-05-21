@@ -627,24 +627,41 @@ class _LooperCardState extends State<LooperCard> {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.isDarkMode
-                      ? Colors.black.withOpacity(0.4)
-                      : Colors.grey[200],
-                  foregroundColor: widget.isDarkMode
-                      ? Colors.white
-                      : Colors.black,
+                  backgroundColor: (state == LooperState.playing)
+                      ? glowColor.withOpacity(0.2)
+                      : (widget.isDarkMode
+                            ? Colors.black.withOpacity(0.4)
+                            : Colors.grey[200]),
+                  foregroundColor: (state == LooperState.playing)
+                      ? glowColor
+                      : (widget.isDarkMode ? Colors.white : Colors.black),
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
-                    side: BorderSide(color: stateColor.withOpacity(0.4)),
+                    side: BorderSide(
+                      color: (state == LooperState.playing)
+                          ? glowColor
+                          : stateColor.withOpacity(0.4),
+                      width: (state == LooperState.playing) ? 2 : 1,
+                    ),
                   ),
                 ),
                 onPressed: () {
-                  widget.webSocketService.setParamValue(
-                    instance: widget.pedal.instance,
-                    port: 'loop$loopNum',
-                    value: 1.0,
-                  );
+                  // ON: Set loop to playing state (if it has content)
+                  if (state == LooperState.paused) {
+                    widget.looperController.playLoop(loopNum);
+                  } else if (state == LooperState.playing ||
+                      state == LooperState.recording ||
+                      state == LooperState.countIn) {
+                    // Already on, do nothing or could toggle to pause
+                  } else {
+                    // Empty loop - send raw 1.0 to hardware
+                    widget.webSocketService.setParamValue(
+                      instance: widget.pedal.instance,
+                      port: 'loop$loopNum',
+                      value: 1.0,
+                    );
+                  }
                 },
                 child: const Text(
                   'ON',
@@ -656,24 +673,39 @@ class _LooperCardState extends State<LooperCard> {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.isDarkMode
-                      ? Colors.black.withOpacity(0.4)
-                      : Colors.grey[200],
+                  backgroundColor: (state == LooperState.paused)
+                      ? Colors.grey[700]
+                      : (widget.isDarkMode
+                            ? Colors.black.withOpacity(0.4)
+                            : Colors.grey[200]),
                   foregroundColor: widget.isDarkMode
                       ? Colors.white
                       : Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
-                    side: BorderSide(color: stateColor.withOpacity(0.4)),
+                    side: BorderSide(
+                      color: (state == LooperState.paused)
+                          ? Colors.grey[600]!
+                          : stateColor.withOpacity(0.4),
+                      width: (state == LooperState.paused) ? 2 : 1,
+                    ),
                   ),
                 ),
                 onPressed: () {
-                  widget.webSocketService.setParamValue(
-                    instance: widget.pedal.instance,
-                    port: 'loop$loopNum',
-                    value: 0.0,
-                  );
+                  // OFF: Pause/mute the loop
+                  if (state == LooperState.playing) {
+                    widget.looperController.pauseLoop(loopNum);
+                  } else if (state == LooperState.paused) {
+                    // Already off, do nothing
+                  } else {
+                    // Send raw 0.0 to hardware
+                    widget.webSocketService.setParamValue(
+                      instance: widget.pedal.instance,
+                      port: 'loop$loopNum',
+                      value: 0.0,
+                    );
+                  }
                 },
                 child: const Text(
                   'OFF',
@@ -698,18 +730,8 @@ class _LooperCardState extends State<LooperCard> {
                   ),
                 ),
                 onPressed: () {
-                  widget.webSocketService.setParamValue(
-                    instance: widget.pedal.instance,
-                    port: 'loop$loopNum',
-                    value: 1.0,
-                  );
-                  Future.delayed(const Duration(milliseconds: 50), () {
-                    widget.webSocketService.setParamValue(
-                      instance: widget.pedal.instance,
-                      port: 'loop$loopNum',
-                      value: 0.0,
-                    );
-                  });
+                  // CLICK: Trigger a single switch press (like a foot switch tap)
+                  widget.looperController.manualTrigger(loopNum);
                 },
                 child: const Text(
                   'CLICK',
