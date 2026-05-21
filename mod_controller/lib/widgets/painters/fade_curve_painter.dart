@@ -16,6 +16,7 @@ class FadeCurvePainter extends CustomPainter {
   final int bars;
   final double rangeStart; // 0.0–1.0 fractional
   final double rangeEnd; // 0.0–1.0 fractional
+  final bool isFadeOut;
 
   FadeCurvePainter({
     required this.accentColor,
@@ -24,6 +25,7 @@ class FadeCurvePainter extends CustomPainter {
     required this.bars,
     required this.rangeStart,
     required this.rangeEnd,
+    this.isFadeOut = false,
   });
 
   @override
@@ -79,7 +81,7 @@ class FadeCurvePainter extends CustomPainter {
     const int steps = 120;
     for (int i = 0; i <= steps; i++) {
       final double t = i / steps;
-      final double ct = curve.transform(t);
+      final double ct = isFadeOut ? 1.0 - curve.transform(t) : curve.transform(t);
       // ct=0 → bottom (muted), ct=1 → top (full)
       final double px = padL + t * w;
       final double py = padT + (1.0 - ct) * h;
@@ -93,7 +95,7 @@ class FadeCurvePainter extends CustomPainter {
 
     // Moving dot
     if (progress > 0.0 && progress < 1.0) {
-      final double ct = curve.transform(progress);
+      final double ct = isFadeOut ? 1.0 - curve.transform(progress) : curve.transform(progress);
       final double dotX = padL + progress * w;
       final double dotY = padT + (1.0 - ct) * h;
       // Glow
@@ -155,6 +157,7 @@ class FadeCurvePainter extends CustomPainter {
         oldDelegate.rangeStart != rangeStart ||
         oldDelegate.rangeEnd != rangeEnd ||
         oldDelegate.curve != curve ||
-        oldDelegate.accentColor != accentColor;
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.isFadeOut != isFadeOut;
   }
 }

@@ -202,7 +202,9 @@ class ModWebSocketService extends ChangeNotifier {
           }
         }
       } else if (cmd == 'transport_rolling' || cmd == 'transport-rolling') {
-        final val = int.tryParse(data) == 1;
+        final double? valDouble = double.tryParse(data);
+        final int? valInt = int.tryParse(data);
+        final bool val = (valDouble == 1.0) || (valInt == 1);
         isTransportRolling.value = val;
         isRolling.value = val;
         debugPrint('TRANSPORT ROLLING UPDATED: $val');
@@ -315,6 +317,7 @@ class ModWebSocketService extends ChangeNotifier {
     debugPrint('SENDING COMMAND: $rawPayload');
     _channel!.sink.add(rawPayload);
     isRolling.value = value; // Optimistic update
+    isTransportRolling.value = value; // Optimistic update
   }
 
   // Sends a raw parameter set command

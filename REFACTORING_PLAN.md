@@ -1,4 +1,7 @@
 # TamperMod Refactoring Plan v1.3.0
+- follow .agentrules as you should
+- Mark as done [x], tasks that are achieved
+- update Specification.md, readme.md as they should
 
 ## Phase 0: Pre-Refactoring Fixes (MUST DO FIRST)
 

@@ -124,7 +124,7 @@ class LooperController extends ChangeNotifier {
             _currentBar1 = (_currentBeatIndex1 / 4).floor() + 1;
             _currentBeatInBar1 = (_currentBeatIndex1 % 4) + 1;
           }
-        } else if (_state1 == LooperState.playing) {
+        } else if (_state1 == LooperState.playing || _state1 == LooperState.paused) {
           final double loopElapsed1 = elapsed1 % total;
           _sweepProgress1 = loopElapsed1 / total;
           _currentBeatIndex1 = (loopElapsed1 / beatDurationMs).floor().clamp(0, 15);
@@ -157,7 +157,7 @@ class LooperController extends ChangeNotifier {
             _currentBar2 = (_currentBeatIndex2 / 4).floor() + 1;
             _currentBeatInBar2 = (_currentBeatIndex2 % 4) + 1;
           }
-        } else if (_state2 == LooperState.playing) {
+        } else if (_state2 == LooperState.playing || _state2 == LooperState.paused) {
           final double loopElapsed2 = elapsed2 % total;
           _sweepProgress2 = loopElapsed2 / total;
           _currentBeatIndex2 = (loopElapsed2 / beatDurationMs).floor().clamp(0, 15);
@@ -246,10 +246,8 @@ class LooperController extends ChangeNotifier {
     
     _sendLooperValue(loopNum, 0.0);
     if (loopNum == 1) {
-      _stopwatch1.stop();
       _state1 = LooperState.paused;
     } else {
-      _stopwatch2.stop();
       _state2 = LooperState.paused;
     }
     notifyListeners();

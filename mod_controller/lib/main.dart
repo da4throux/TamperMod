@@ -11,9 +11,12 @@ import 'services/websocket_service.dart';
 import 'models/plugin_instance.dart';
 import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
+import 'widgets/common/fade_button.dart';
+import 'widgets/common/size_toggle_button.dart';
+import 'widgets/common/module_help_sheet.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.9';
+const String kAppVersion = '1.2.10';
 
 // ─── Custom S-Curve for fade interpolation ────────────────────────────────
 /// A [Curve] defined by a midpoint (cx, cy) and a blend factor [slope].
@@ -46,6 +49,7 @@ class _FadeCurvePainter extends CustomPainter {
   final int bars;
   final double rangeStart; // 0.0–1.0 fractional
   final double rangeEnd; // 0.0–1.0 fractional
+  final bool isFadeOut;
 
   _FadeCurvePainter({
     required this.accentColor,
@@ -54,6 +58,7 @@ class _FadeCurvePainter extends CustomPainter {
     required this.bars,
     required this.rangeStart,
     required this.rangeEnd,
+    this.isFadeOut = false,
   });
 
   @override
@@ -109,7 +114,7 @@ class _FadeCurvePainter extends CustomPainter {
     const int steps = 120;
     for (int i = 0; i <= steps; i++) {
       final double t = i / steps;
-      final double ct = curve.transform(t);
+      final double ct = isFadeOut ? 1.0 - curve.transform(t) : curve.transform(t);
       // ct=0 → bottom (muted), ct=1 → top (full)
       final double px = padL + t * w;
       final double py = padT + (1.0 - ct) * h;
@@ -123,7 +128,7 @@ class _FadeCurvePainter extends CustomPainter {
 
     // Moving dot
     if (progress > 0.0 && progress < 1.0) {
-      final double ct = curve.transform(progress);
+      final double ct = isFadeOut ? 1.0 - curve.transform(progress) : curve.transform(progress);
       final double dotX = padL + progress * w;
       final double dotY = padT + (1.0 - ct) * h;
       // Glow
@@ -185,7 +190,8 @@ class _FadeCurvePainter extends CustomPainter {
       old.rangeStart != rangeStart ||
       old.rangeEnd != rangeEnd ||
       old.curve != curve ||
-      old.accentColor != accentColor;
+      old.accentColor != accentColor ||
+      old.isFadeOut != isFadeOut;
 }
 
 // ─── Mini range indicator painter (compact/regular cards) ─────────────────
@@ -389,6 +395,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Track volume slider values locally to make the slider extremely responsive
   final Map<String, double> _localVolumes = {};
   final Map<String, double> _mutedVolumes = {};
+  final Map<String, double> _lastNonZeroClickVolumes = {};
 
   // Fade range cursors: fractional [0.0–1.0] position within min..max gain range
   final Map<String, double> _fadeRangeStart = {};
@@ -1321,17 +1328,24 @@ class _DashboardScreenState extends State<DashboardScreen>
 
               // Open Settings Drawer
               Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(
-                    Icons.settings_outlined,
-                    color: Color(0xFFFF007F),
-                    size: 22,
-                  ),
-                  tooltip: 'Workspace Settings',
-                  onPressed: () {
-                    Scaffold.of(context).openEndDrawer();
-                  },
-                ),
+                builder: (context) {
+                  final bool isOpen = Scaffold.of(context).isEndDrawerOpen;
+                  return IconButton(
+                    icon: Icon(
+                      isOpen ? Icons.extension : Icons.extension_outlined,
+                      color: const Color(0xFFFF007F),
+                      size: 22,
+                    ),
+                    tooltip: 'Puzzle Organizer',
+                    onPressed: () {
+                      if (isOpen) {
+                        Scaffold.of(context).closeEndDrawer();
+                      } else {
+                        Scaffold.of(context).openEndDrawer();
+                      }
+                    },
+                  );
+                },
               ),
               const SizedBox(width: 8),
             ],
@@ -1928,9 +1942,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     // ── Size-toggle icon (left of title, bigger for finger tap) ──────
     Widget buildSizeToggle() {
-      return GestureDetector(
+      final String current = _pedalSizes[pedal.instance] ?? 'regular';
+      return SizeToggleButton(
+        instanceId: pedal.instance,
+        currentSize: current,
+        accentColor: accentColor,
+        isDarkMode: _isDarkMode,
         onTap: () {
-          final String current = _pedalSizes[pedal.instance] ?? 'regular';
           final String next = current == 'compact'
               ? 'regular'
               : current == 'regular'
@@ -1941,17 +1959,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
           _saveLayoutSettings();
         },
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: (_isDarkMode ? Colors.grey[800] : Colors.grey[300])!
-                .withOpacity(0.5),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: accentColor.withOpacity(0.4), width: 1.0),
-          ),
-          child: Icon(Icons.aspect_ratio, size: 18, color: accentColor),
-        ),
       );
     }
 
@@ -2076,25 +2083,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                       // Row 3: FADE IN | FADE OUT — full width side-by-side
                       Row(
                         children: [
-                          Expanded(
-                            child: _buildFadeButton(
-                              label: 'FADE IN',
-                              icon: Icons.trending_up,
-                              isBypassed: isBypassed,
-                              onTap: () => _triggerFade(pedal, fadeIn: true),
-                              accentColor: accentColor,
-                              isFading: isFadingIn,
-                            ),
+                          FadeButton(
+                            label: 'FADE IN',
+                            icon: Icons.trending_up,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: true),
+                            accentColor: accentColor,
+                            isFading: isFadingIn,
                           ),
-                          Expanded(
-                            child: _buildFadeButton(
-                              label: 'FADE OUT',
-                              icon: Icons.trending_down,
-                              isBypassed: isBypassed,
-                              onTap: () => _triggerFade(pedal, fadeIn: false),
-                              accentColor: accentColor,
-                              isFading: isFadingOut,
-                            ),
+                          FadeButton(
+                            label: 'FADE OUT',
+                            icon: Icons.trending_down,
+                            isBypassed: isBypassed,
+                            onTap: () => _triggerFade(pedal, fadeIn: false),
+                            accentColor: accentColor,
+                            isFading: isFadingOut,
                           ),
                         ],
                       ),
@@ -2133,7 +2136,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
                           // Help icon
                           GestureDetector(
-                            onTap: () => _showModuleHelpSheet(context, 'gain'),
+                            onTap: () => ModuleHelpSheet.show(context, 'gain', _isDarkMode),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 4,
@@ -2224,7 +2227,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       // Fade buttons row
                       Row(
                         children: [
-                          _buildFadeButton(
+                          FadeButton(
                             label: 'FADE IN',
                             icon: Icons.trending_up,
                             isBypassed: isBypassed,
@@ -2232,7 +2235,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             accentColor: accentColor,
                             isFading: isFadingIn,
                           ),
-                          _buildFadeButton(
+                          FadeButton(
                             label: 'FADE OUT',
                             icon: Icons.trending_down,
                             isBypassed: isBypassed,
@@ -2355,7 +2358,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
             GestureDetector(
-              onTap: () => _showModuleHelpSheet(context, 'gain'),
+              onTap: () => ModuleHelpSheet.show(context, 'gain', _isDarkMode),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Icon(
@@ -2655,6 +2658,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               bars: _fadeBars,
               rangeStart: rangeStart,
               rangeEnd: rangeEnd,
+              isFadeOut: _fadeDirections[pedal.instance] == false,
             ),
             child: const SizedBox.expand(),
           ),
@@ -2664,7 +2668,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         // ── Fade buttons ────────────────────────────────────────────
         Row(
           children: [
-            _buildFadeButton(
+            FadeButton(
               label: 'FADE IN',
               icon: Icons.trending_up,
               isBypassed: isBypassed,
@@ -2672,7 +2676,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               accentColor: accentColor,
               isFading: isFadingIn,
             ),
-            _buildFadeButton(
+            FadeButton(
               label: 'FADE OUT',
               icon: Icons.trending_down,
               isBypassed: isBypassed,
@@ -2790,6 +2794,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     } catch (e) {
       debugPrint('Error running board sync blink: \$e');
     }
+  }
+
+  void _reloadPedalboard() {
+    setState(() {
+      _localVolumes.clear();
+    });
+    _webSocketService.requestPedalboard();
   }
 
   void _highlightPedalInWebView(PluginInstance pedal) {
@@ -3224,7 +3235,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () =>
-                                _showModuleHelpSheet(context, 'switch'),
+                                ModuleHelpSheet.show(context, 'switch', _isDarkMode),
                           ),
                           const SizedBox(width: 8),
                           // Compact Power Switch
@@ -3372,9 +3383,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                                           ),
                                           padding: EdgeInsets.zero,
                                           constraints: const BoxConstraints(),
-                                          onPressed: () => _showModuleHelpSheet(
+                                          onPressed: () => ModuleHelpSheet.show(
                                             context,
                                             'switch',
+                                            _isDarkMode,
                                           ),
                                         ),
                                       ],
@@ -3538,52 +3550,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildFadeButton({
-    required String label,
-    required IconData icon,
-    required bool isBypassed,
-    required VoidCallback onTap,
-    required Color accentColor,
-    required bool isFading,
-    bool isCompact = false,
-  }) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: ElevatedButton.icon(
-          onPressed: isBypassed ? null : onTap,
-          icon: Icon(
-            icon,
-            size: isCompact ? 10 : 13,
-            color: isFading ? const Color(0xFFFF007F) : Colors.black,
-          ),
-          label: Text(
-            label,
-            style: TextStyle(
-              fontSize: isCompact ? 9 : 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: isCompact ? 0.5 : 1.0,
-              color: isFading ? const Color(0xFFFF007F) : Colors.black,
-            ),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isFading
-                ? const Color(0xFFFF007F).withOpacity(0.12)
-                : accentColor,
-            disabledBackgroundColor: Colors.grey[800],
-            padding: EdgeInsets.symmetric(vertical: isCompact ? 4 : 8),
-            elevation: isFading ? 4 : 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: isFading
-                  ? const BorderSide(color: Color(0xFFFF007F), width: 1.5)
-                  : BorderSide.none,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildPlaceholderCard(PluginInstance pedal, String size) {
     final bool isBypassed = pedal.isBypassed;
@@ -4065,7 +4032,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 tooltip: 'Refresh Pedalboard',
                 onPressed: isConnected
-                    ? () => _webSocketService.requestPedalboard()
+                    ? _reloadPedalboard
                     : null,
               ),
             ],
@@ -4453,7 +4420,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   onTap: isConnected
                       ? () {
                           Navigator.pop(context);
-                          _webSocketService.requestPedalboard();
+                          _reloadPedalboard();
                         }
                       : null,
                 ),
@@ -4545,22 +4512,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildDrawerHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: _isDarkMode ? const Color(0xFF0F141C) : Colors.grey[200],
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Text(
-            'WORKSPACE SETTINGS',
-            style: TextStyle(
-              color: _isDarkMode
-                  ? const Color(0xFF00FFCC)
-                  : const Color(0xFF00B3FF),
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            ),
-          ),
           IconButton(
             icon: Icon(
               Icons.close,
@@ -5075,310 +5031,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _showModuleHelpSheet(BuildContext context, String moduleKey) {
-    final help = ModuleHelpData.registry[moduleKey];
-    if (help == null) return;
 
-    final primaryThemeColor = _isDarkMode
-        ? const Color(0xFF00FFCC)
-        : const Color(0xFF00B3FF);
-    final accentThemeColor = const Color(0xFFFF007F);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.75,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
-                border: Border.all(
-                  color: primaryThemeColor.withOpacity(0.3),
-                  width: 1.5,
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 48,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: _isDarkMode ? Colors.grey[800] : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [primaryThemeColor, accentThemeColor],
-                            ),
-                          ),
-                          child: Icon(help.icon, color: Colors.white, size: 24),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                help.title.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.0,
-                                  color: _isDarkMode
-                                      ? Colors.white
-                                      : Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'TamperMod Companion Documentation',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: _isDarkMode
-                                      ? Colors.grey[500]
-                                      : Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.close,
-                            color: _isDarkMode
-                                ? Colors.grey[500]
-                                : Colors.grey[750],
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Divider(
-                    color: _isDarkMode ? Colors.grey[900] : Colors.grey[300],
-                  ),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      children: [
-                        _buildHelpSectionHeader(
-                          'Overview',
-                          Icons.info_outline,
-                          primaryThemeColor,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          help.overview,
-                          style: TextStyle(
-                            fontSize: 13,
-                            height: 1.5,
-                            color: _isDarkMode
-                                ? Colors.grey[300]
-                                : Colors.grey[800],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildHelpSectionHeader(
-                          'Parameters',
-                          Icons.settings,
-                          primaryThemeColor,
-                        ),
-                        const SizedBox(height: 8),
-                        ...help.parameters.map((param) {
-                          final parts = param.split(':');
-                          final label = parts[0];
-                          final desc = parts.length > 1
-                              ? parts.sublist(1).join(':')
-                              : '';
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: 6,
-                                    right: 12,
-                                  ),
-                                  child: Icon(
-                                    Icons.radio_button_checked,
-                                    size: 8,
-                                    color: primaryThemeColor,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: RichText(
-                                    text: TextSpan(
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        height: 1.4,
-                                        color: _isDarkMode
-                                            ? Colors.grey[300]
-                                            : Colors.grey[800],
-                                      ),
-                                      children: [
-                                        TextSpan(
-                                          text: '$label:',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        TextSpan(text: desc),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        const SizedBox(height: 20),
-                        _buildHelpSectionHeader(
-                          'Keyboard Hotkeys',
-                          Icons.keyboard,
-                          primaryThemeColor,
-                        ),
-                        const SizedBox(height: 8),
-                        ...help.hotkeys.map((hotkey) {
-                          final parts = hotkey.split(':');
-                          final label = parts[0];
-                          final desc = parts.length > 1
-                              ? parts.sublist(1).join(':')
-                              : '';
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _isDarkMode
-                                        ? Colors.black
-                                        : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: _isDarkMode
-                                          ? Colors.grey[800]!
-                                          : Colors.grey[400]!,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontFamily: 'monospace',
-                                      fontWeight: FontWeight.bold,
-                                      color: primaryThemeColor,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    desc,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: _isDarkMode
-                                          ? Colors.grey[300]
-                                          : Colors.grey[800],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        const SizedBox(height: 20),
-                        _buildHelpSectionHeader(
-                          'Mod Dwarf Under-The-Hood',
-                          Icons.settings_ethernet,
-                          primaryThemeColor,
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: _isDarkMode
-                                ? Colors.black.withOpacity(0.3)
-                                : Colors.grey[100],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _isDarkMode
-                                  ? Colors.grey[900]!
-                                  : Colors.grey[300]!,
-                            ),
-                          ),
-                          child: Text(
-                            help.underTheHood,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.5,
-                              fontFamily: 'monospace',
-                              color: _isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[750],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildHelpSectionHeader(String title, IconData icon, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 8),
-        Text(
-          title.toUpperCase(),
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.8,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
 
   String? _findPortSymbol(PluginInstance pedal, String keyword) {
     final keywordLower = keyword.toLowerCase();
@@ -5453,28 +5106,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       // Size toggle button (greyed out, non-functional for ALO)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              (_isDarkMode
-                                      ? Colors.grey[800]
-                                      : Colors.grey[300])!
-                                  .withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.aspect_ratio,
-                          size: 18,
-                          color: Colors.grey[600],
-                        ),
+                      SizeToggleButton(
+                        instanceId: pedal.instance,
+                        currentSize: 'regular',
+                        accentColor: Colors.grey,
+                        isDarkMode: _isDarkMode,
+                        isEnabled: false,
+                        onTap: () {},
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -5527,7 +5165,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () =>
-                                    _showModuleHelpSheet(context, 'looper'),
+                                    ModuleHelpSheet.show(context, 'looper', _isDarkMode),
                               ),
                             ],
                           ),
@@ -5632,13 +5270,32 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 value: double.parse(val.toStringAsFixed(2)),
                               );
                             },
+                            onLabelTap: () {
+                              final double current = pedal.parameters[thresholdPort] ?? -40.0;
+                              double next;
+                              if (current < -50.0) {
+                                next = -40.0;
+                              } else if (current < -20.0) {
+                                next = 0.0;
+                              } else {
+                                next = -60.0;
+                              }
+                              setState(() {
+                                pedal.parameters[thresholdPort] = next;
+                              });
+                              _webSocketService.setParamValue(
+                                instance: pedal.instance,
+                                port: thresholdPort,
+                                value: next,
+                              );
+                            },
                           ),
                           const SizedBox(height: 6),
                           _buildLooperSlider(
                             label: 'Mix Setting',
                             value: mixValue,
-                            min: 0,
-                            max: 100,
+                            min: 0.0,
+                            max: 100.0,
                             accentColor: looperAccentColor,
                             onChanged: (val) {
                               setState(() {
@@ -5650,77 +5307,62 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 value: double.parse(val.toStringAsFixed(2)),
                               );
                             },
+                            onLabelTap: () {
+                              final double current = pedal.parameters[mixPort] ?? 100.0;
+                              double next;
+                              if (current < 25.0) {
+                                next = 50.0;
+                              } else if (current < 75.0) {
+                                next = 100.0;
+                              } else {
+                                next = 0.0;
+                              }
+                              setState(() {
+                                pedal.parameters[mixPort] = next;
+                              });
+                              _webSocketService.setParamValue(
+                                instance: pedal.instance,
+                                port: mixPort,
+                                value: next,
+                              );
+                            },
                           ),
                           const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              SizedBox(
-                                width: 90,
-                                child: Text(
-                                  'Click Volume',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: _isDarkMode
-                                        ? Colors.grey[300]
-                                        : Colors.grey[750],
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: SliderTheme(
-                                  data: SliderTheme.of(context).copyWith(
-                                    activeTrackColor: looperAccentColor,
-                                    inactiveTrackColor: _isDarkMode
-                                        ? Colors.grey[850]
-                                        : Colors.grey[300],
-                                    trackHeight: 4.0,
-                                    thumbColor: _isDarkMode
-                                        ? Colors.white
-                                        : Colors.grey[100],
-                                    thumbShape: const RoundSliderThumbShape(
-                                      enabledThumbRadius: 6.0,
-                                    ),
-                                    overlayShape: const RoundSliderOverlayShape(
-                                      overlayRadius: 12.0,
-                                    ),
-                                  ),
-                                  child: Slider(
-                                    value: (clickValue).clamp(0, 10),
-                                    min: 0,
-                                    max: 10,
-                                    divisions: 9,
-                                    onChanged: (val) {
-                                      final targetVal = val;
-                                      setState(() {
-                                        pedal.parameters[clickPort] = targetVal;
-                                      });
-                                      _webSocketService.setParamValue(
-                                        instance: pedal.instance,
-                                        port: clickPort,
-                                        value: double.parse(
-                                          targetVal.toStringAsFixed(2),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 50,
-                                child: Text(
-                                  (clickValue).round().toString(),
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    color: looperAccentColor,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ),
-                            ],
+                          _buildLooperSlider(
+                            label: 'Click Volume',
+                            value: clickValue,
+                            min: 0.0,
+                            max: 10.0,
+                            accentColor: looperAccentColor,
+                            isRound: true,
+                            onChanged: (val) {
+                              setState(() {
+                                pedal.parameters[clickPort] = val;
+                              });
+                              _webSocketService.setParamValue(
+                                instance: pedal.instance,
+                                port: clickPort,
+                                value: double.parse(val.toStringAsFixed(2)),
+                              );
+                            },
+                            onLabelTap: () {
+                              final double current = clickValue;
+                              double next;
+                              if (current > 0.0) {
+                                _lastNonZeroClickVolumes[pedal.instance] = current;
+                                next = 0.0;
+                              } else {
+                                next = _lastNonZeroClickVolumes[pedal.instance] ?? 5.0;
+                              }
+                              setState(() {
+                                pedal.parameters[clickPort] = next;
+                              });
+                              _webSocketService.setParamValue(
+                                instance: pedal.instance,
+                                port: clickPort,
+                                value: next,
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -5774,9 +5416,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         stateIcon = Icons.play_arrow;
         break;
       case LooperState.paused:
-        stateColor = Colors.amber;
-        stateText = 'PAUSED';
-        stateIcon = Icons.pause;
+        stateColor = Colors.grey[650]!;
+        stateText =
+            'MUTED (Bar ${_looperController.getCurrentBar(loopNum)}, Beat ${_looperController.getCurrentBeatInBar(loopNum)})';
+        stateIcon = Icons.volume_off;
         break;
     }
 
@@ -5871,54 +5514,76 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             const SizedBox(width: 6),
 
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isDarkMode
-                    ? Colors.black.withOpacity(0.4)
-                    : Colors.grey[200],
-                foregroundColor: _isDarkMode ? Colors.white : Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                minimumSize: const Size(40, 28),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  side: BorderSide(
-                    color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _isDarkMode
+                      ? Colors.black.withOpacity(0.4)
+                      : Colors.grey[200],
+                  foregroundColor: _isDarkMode ? Colors.white : Colors.black,
+                  disabledForegroundColor: Colors.grey[650],
+                  disabledBackgroundColor: _isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.grey[300],
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(
+                      color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                    ),
                   ),
                 ),
-              ),
-              onPressed: (state == LooperState.playing)
-                  ? () => _looperController.pauseLoop(loopNum)
-                  : (state == LooperState.paused)
-                  ? () => _looperController.playLoop(loopNum)
-                  : null,
-              child: Icon(
-                (state == LooperState.paused) ? Icons.play_arrow : Icons.pause,
-                size: 14,
+                onPressed: (state == LooperState.playing)
+                    ? () => _looperController.pauseLoop(loopNum)
+                    : (state == LooperState.paused)
+                    ? () => _looperController.playLoop(loopNum)
+                    : null,
+                icon: Icon(
+                  (state == LooperState.paused) ? Icons.play_arrow : Icons.volume_off,
+                  size: 12,
+                ),
+                label: Text(
+                  (state == LooperState.paused) ? 'PLAY' : 'MUTE',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 6),
 
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber.withOpacity(0.12),
-                foregroundColor: Colors.amber,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
+            Expanded(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.withOpacity(0.12),
+                  foregroundColor: Colors.amber,
+                  disabledForegroundColor: Colors.grey[650],
+                  disabledBackgroundColor: _isDarkMode
+                      ? Colors.black.withOpacity(0.2)
+                      : Colors.grey[300],
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(
+                      color: (state != LooperState.empty)
+                          ? Colors.amber
+                          : Colors.grey.withOpacity(0.3),
+                    ),
+                  ),
                 ),
-                minimumSize: const Size(40, 28),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  side: const BorderSide(color: Colors.amber),
+                onPressed: (state != LooperState.empty)
+                    ? () => _looperController.clearLoop(loopNum)
+                    : null,
+                icon: const Icon(Icons.delete_outline, size: 12),
+                label: const Text(
+                  'CLEAR',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
                 ),
               ),
-              onPressed: (state != LooperState.empty)
-                  ? () => _looperController.clearLoop(loopNum)
-                  : null,
-              child: const Icon(Icons.delete_outline, size: 14),
             ),
           ],
         ),
@@ -5935,20 +5600,28 @@ class _DashboardScreenState extends State<DashboardScreen>
     required ValueChanged<double> onChanged,
     String valueSuffix = '',
     bool isPercentage = false,
+    bool isRound = false,
+    VoidCallback? onLabelTap,
   }) {
     final displayValue = isPercentage
         ? (value * 100).toStringAsFixed(0) + '%'
-        : value.toStringAsFixed(1) + valueSuffix;
+        : isRound
+            ? value.round().toString() + valueSuffix
+            : value.toStringAsFixed(1) + valueSuffix;
     return Row(
       children: [
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: _isDarkMode ? Colors.grey[300] : Colors.grey[750],
+        GestureDetector(
+          onTap: onLabelTap,
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: _isDarkMode ? Colors.grey[300] : Colors.grey[750],
+              ),
             ),
           ),
         ),
@@ -5973,16 +5646,20 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
         const SizedBox(width: 8),
-        SizedBox(
-          width: 50,
-          child: Text(
-            displayValue,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              color: accentColor,
-              fontFamily: 'monospace',
+        GestureDetector(
+          onTap: onLabelTap,
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            width: 50,
+            child: Text(
+              displayValue,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: accentColor,
+                fontFamily: 'monospace',
+              ),
             ),
           ),
         ),
