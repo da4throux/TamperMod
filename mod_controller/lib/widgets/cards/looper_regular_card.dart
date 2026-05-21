@@ -422,7 +422,7 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
                       ),
                     ),
 
-                  // Beat bar separators (vertical lines for 4-bar timing)
+                  // Beat bar separators (vertical lines between bars - 3 lines for 4 bars)
                   if (isActive)
                     Positioned.fill(
                       child: Row(

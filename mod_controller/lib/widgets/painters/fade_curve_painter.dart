@@ -53,11 +53,11 @@ class FadeCurvePainter extends CustomPainter {
       canvas.drawLine(Offset(padL, y), Offset(padL + w, y), gridPaint);
     }
 
-    // Beat bar separators (prominent vertical lines for each bar)
+    // Beat bar separators (prominent vertical lines between bars - 3 lines for 4 bars)
     final beatBarPaint = Paint()
       ..color = accentColor.withOpacity(0.25)
       ..strokeWidth = 1.5;
-    for (int i = 0; i <= bars; i++) {
+    for (int i = 1; i < bars; i++) {
       final double x = padL + (i / bars) * w;
       canvas.drawLine(Offset(x, padT), Offset(x, padT + h), beatBarPaint);
     }

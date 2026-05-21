@@ -358,8 +358,8 @@ class _GainCardState extends State<GainCard> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  // Row 3: FADE IN | FADE OUT
-                  Row(
+                  // Row 3: FADE IN | FADE OUT (stacked vertically)
+                  Column(
                     children: [
                       FadeButton(
                         label: 'FADE IN',
@@ -369,6 +369,7 @@ class _GainCardState extends State<GainCard> {
                         accentColor: accentColor,
                         isFading: widget.isFadingIn,
                       ),
+                      const SizedBox(height: 4),
                       FadeButton(
                         label: 'FADE OUT',
                         icon: Icons.trending_down,
