@@ -22,6 +22,7 @@ class LooperCard extends StatefulWidget {
   final VoidCallback onRenamePressed;
   final VoidCallback onColorPickerPressed;
   final VoidCallback onHighlightPressed;
+  final VoidCallback onSizeToggled;
 
   const LooperCard({
     super.key,
@@ -35,6 +36,7 @@ class LooperCard extends StatefulWidget {
     required this.onRenamePressed,
     required this.onColorPickerPressed,
     required this.onHighlightPressed,
+    required this.onSizeToggled,
   });
 
   @override
@@ -104,10 +106,7 @@ class _LooperCardState extends State<LooperCard> {
                       accentColor: looperAccentColor,
                       isDarkMode: widget.isDarkMode,
                       isEnabled: true,
-                      onTap: () {
-                        // This will be handled by the dashboard's size toggle logic
-                        // The dashboard listens to size changes via SettingsDrawer
-                      },
+                      onTap: widget.onSizeToggled,
                     ),
                     const SizedBox(width: 8),
                     Expanded(

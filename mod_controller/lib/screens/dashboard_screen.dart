@@ -1432,6 +1432,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             _showColorPickerDialog(pedal),
                         onHighlightPressed: () =>
                             _highlightPedalInWebView(pedal),
+                        onSizeToggled: () => _cyclePedalSize(pedal.instance),
                       );
                     } else {
                       // Default to extended mode
@@ -1448,6 +1449,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             _showColorPickerDialog(pedal),
                         onHighlightPressed: () =>
                             _highlightPedalInWebView(pedal),
+                        onSizeToggled: () => _cyclePedalSize(pedal.instance),
                       );
                     }
                   } else if (isSwitch) {
