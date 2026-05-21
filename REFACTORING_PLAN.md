@@ -323,12 +323,12 @@ mod_controller/lib/
 - All helper methods not moved to cards
 
 **Tasks:**
-- [ ] Create `DashboardScreen` stateful widget
-- [ ] Move dashboard logic
-- [ ] Import all extracted widgets
-- [ ] Keep only state management in dashboard
-- [ ] Update `main.dart` to only contain `ModControllerApp`
-- [ ] Test full application
+- [x] Create `DashboardScreen` stateful widget
+- [x] Move dashboard logic
+- [x] Import all extracted widgets
+- [x] Keep only state management in dashboard
+- [x] Update `main.dart` to only contain `ModControllerApp`
+- [x] Test full application
 
 ### 7.2 Clean Up main.dart
 **File:** `lib/main.dart`
@@ -339,19 +339,19 @@ mod_controller/lib/
 - `ModControllerApp` widget (MaterialApp setup)
 
 **Tasks:**
-- [ ] Remove all extracted code
-- [ ] Add imports for `DashboardScreen`
-- [ ] Verify file is < 100 lines
-- [ ] Test compilation
+- [x] Remove all extracted code
+- [x] Add imports for `DashboardScreen`
+- [x] Verify file is < 100 lines
+- [x] Test compilation
 
 ---
 
 ## Phase 8: Testing & Validation
 
 ### 8.1 Compilation Tests
-- [ ] Run `flutter analyze` - should pass with no new errors
-- [ ] Run `flutter build apk --debug` - should succeed
-- [ ] Verify no import errors
+- [x] Run `flutter analyze` - should pass with no new errors
+- [x] Run `flutter build apk --debug` - should succeed
+- [x] Verify no import errors
 
 ### 8.2 Functional Tests
 - [ ] Test all card types (Gain, Switch, Looper, Placeholder)
