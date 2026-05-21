@@ -1,27 +1,21 @@
 # TamperMod — Current Focus
 
-## ✅ Completed (v1.3.9)
-- **Group B Fader/Automation Enhancements** (2 of 2 tasks completed):
-  - **B1. Double-Tap Triangle Instant Set**: ✓ Complete
-  - **B2. Beat Bar Visualization**: ✓ Complete
-    - Added prominent beat bar separators to gain fading curve
-    - Enhanced ALO looper extended timeline with beat bar separators
-    - Added beat bar separators to ALO looper regular card playing bar
+## ✅ Completed (v1.3.10)
+- **Beat Bar Visualization & UI Fixes**:
+  - Fixed beat bar separators: 3 lines for 4 bars (not 5)
+  - Applied to fade curve painter, looper extended timeline, and looper regular card
+  - Enabled ALO looper size toggle for both extended and regular modes
+  - Fixed gain compact card: fade buttons now stacked vertically (Column instead of Row)
 
-- **Group C ALO Looper Improvements** (3 of 3 tasks completed):
-  - **C1. ALO Extended Mode Redesign**: ✓ Complete
-  - **C2. ALO Regular Mode Implementation**: ✓ Complete
-  - **C3. Threshold Label Fix**: ✓ Complete
-  - **ALO Toggle Fix**: Size toggle button now enabled for both extended and regular modes
-
-## 🔧 Next Steps
-- **GROUP A Task A2**: WebView Controls Enhancement (reload, resize, separation adjustment)
+## 📋 Remaining Tasks
+- **On/Off/Click buttons**: Move below Record/Mute/Clear row and target the loop
+- **GROUP A Task A2**: WebView Controls Enhancement
 - **GROUP D Task D1**: Local Database for Pedalboard Configurations
 - **GROUP E Task E2**: Default Fadeout Values
-- **GROUP F Tasks**: Future enhancements as needed
+- **GROUP F Tasks**: Future enhancements
 
-## 📋 Quick Context
-- **App Version:** v1.3.9
-- **Last commit:** (pending) Fixed ALO toggle and updated documentation
+## 🔧 Quick Context
+- **App Version:** v1.3.10 (updated main.dart and pubspec.yaml)
+- **Last commit:** Claude-Haiku-4.5(v1.3.10) - Beat bar visualization and UI fixes
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **ALO Looper:** Now fully supports 6 loops with extended/regular view modes and toggle capability
+- **Status:** All beat bar separators now correctly show 3 lines between 4 bars
