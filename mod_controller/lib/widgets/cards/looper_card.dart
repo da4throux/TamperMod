@@ -878,10 +878,8 @@ class _LooperCardState extends State<LooperCard> {
                     border: Border(
                       right: barIndex < 3
                           ? BorderSide(
-                              color: widget.isDarkMode
-                                  ? Colors.grey[900]!
-                                  : Colors.grey[350]!,
-                              width: 1,
+                              color: stateColor.withOpacity(0.25),
+                              width: 1.5,
                             )
                           : BorderSide.none,
                     ),

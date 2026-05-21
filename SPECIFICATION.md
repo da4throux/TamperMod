@@ -171,7 +171,10 @@ Please read and apply .agenrules
 * [x] Right triangle double-tap sets gain to fade range end value.
 
 ### B2. Beat Bar Visualization
-* [ ] Add vertical Beat bar on the fading curve and the ALO play bar to make timing more visible.
+* [x] Add vertical Beat bar on the fading curve and the ALO play bar to make timing more visible.
+* [x] Enhanced fade curve painter with prominent beat bar separators (1.5px width, accent color at 0.25 opacity).
+* [x] Updated ALO looper extended timeline with thicker beat bar separators (1.5px, accent color at 0.25 opacity).
+* [x] Added beat bar separators to ALO looper regular card playing bar (1.0px, track color at 0.2 opacity).
 
 ### B3. Fade Transition Precision Fix
 * [ ] Resolve target value landing issues when switching automation effects.

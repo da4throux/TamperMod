@@ -44,17 +44,22 @@ class FadeCurvePainter extends CustomPainter {
       bgPaint,
     );
 
-    // Grid lines
+    // Grid lines (subtle horizontal)
     final gridPaint = Paint()
       ..color = Colors.white.withOpacity(0.06)
       ..strokeWidth = 0.5;
-    for (int i = 0; i <= bars; i++) {
-      final double x = padL + (i / bars) * w;
-      canvas.drawLine(Offset(x, padT), Offset(x, padT + h), gridPaint);
-    }
     for (int i = 0; i <= 4; i++) {
       final double y = padT + (i / 4) * h;
       canvas.drawLine(Offset(padL, y), Offset(padL + w, y), gridPaint);
+    }
+
+    // Beat bar separators (prominent vertical lines for each bar)
+    final beatBarPaint = Paint()
+      ..color = accentColor.withOpacity(0.25)
+      ..strokeWidth = 1.5;
+    for (int i = 0; i <= bars; i++) {
+      final double x = padL + (i / bars) * w;
+      canvas.drawLine(Offset(x, padT), Offset(x, padT + h), beatBarPaint);
     }
 
     // Range dashed lines
@@ -81,7 +86,9 @@ class FadeCurvePainter extends CustomPainter {
     const int steps = 120;
     for (int i = 0; i <= steps; i++) {
       final double t = i / steps;
-      final double ct = isFadeOut ? 1.0 - curve.transform(t) : curve.transform(t);
+      final double ct = isFadeOut
+          ? 1.0 - curve.transform(t)
+          : curve.transform(t);
       // ct=0 → bottom (muted), ct=1 → top (full)
       final double px = padL + t * w;
       final double py = padT + (1.0 - ct) * h;
@@ -95,7 +102,9 @@ class FadeCurvePainter extends CustomPainter {
 
     // Moving dot
     if (progress > 0.0 && progress < 1.0) {
-      final double ct = isFadeOut ? 1.0 - curve.transform(progress) : curve.transform(progress);
+      final double ct = isFadeOut
+          ? 1.0 - curve.transform(progress)
+          : curve.transform(progress);
       final double dotX = padL + progress * w;
       final double dotY = padT + (1.0 - ct) * h;
       // Glow

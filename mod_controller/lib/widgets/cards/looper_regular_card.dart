@@ -419,6 +419,29 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
                       ),
                     ),
 
+                  // Beat bar separators (vertical lines for 4-bar timing)
+                  if (isActive)
+                    Positioned.fill(
+                      child: Row(
+                        children: List.generate(4, (barIndex) {
+                          return Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  right: barIndex < 3
+                                      ? BorderSide(
+                                          color: trackColor.withOpacity(0.2),
+                                          width: 1.0,
+                                        )
+                                      : BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+
                   // Track label and status
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
