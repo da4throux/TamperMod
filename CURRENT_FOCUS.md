@@ -11,6 +11,7 @@
   - Enabled size toggle button for ALO loopers
   - Users can now toggle between extended and regular modes
   - Both LooperCard (extended) and LooperRegularCard (regular) are fully functional
+  - Toggle logic in dashboard's `_cyclePedalSize()` properly switches between modes
 
 - **Gain Compact Card Layout Refactored**:
   - Full name displayed on top row (no truncation)
@@ -18,10 +19,11 @@
   - Gain dB value and mute button displayed below slider
   - Fade IN and Fade OUT buttons use full width (stacked vertically)
 
-- **ALO Extended Mode On/Off/Click Buttons**:
+- **ALO Extended Mode On/Off/Click Buttons Fixed**:
   - Positioned below Record/Mute/Clear action row
-  - Buttons target the selected loop (send to loop_X port)
+  - Buttons target the selected loop (send to loop1-6 ports)
   - ON: sends 1.0 | OFF: sends 0.0 | CLICK: sends 1.0, waits 50ms, sends 0.0
+  - Port naming corrected from `loop_X` to `loopX` format
 
 ## 📋 Remaining Tasks
 - **GROUP A Task A2**: WebView Controls Enhancement
@@ -31,6 +33,6 @@
 
 ## 🔧 Quick Context
 - **App Version:** v1.3.11 (final)
-- **Last commit:** Claude-Haiku-4.5(v1.3.11) - Version bump and all refactoring complete
+- **Last commit:** Claude-Haiku-4.5(v1.3.11) - On/Off/Click button port fixes
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
 - **Status:** All v1.3.11 features complete and fully functional
