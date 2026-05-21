@@ -13,7 +13,7 @@ import 'services/looper_controller.dart';
 import 'models/module_help_data.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.8';
+const String kAppVersion = '1.2.9';
 
 // ─── Custom S-Curve for fade interpolation ────────────────────────────────
 /// A [Curve] defined by a midpoint (cx, cy) and a blend factor [slope].
