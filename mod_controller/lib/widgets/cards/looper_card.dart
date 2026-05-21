@@ -402,136 +402,6 @@ class _LooperCardState extends State<LooperCard> {
                       },
                     ),
                     const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: widget.isDarkMode
-                                  ? Colors.black.withOpacity(0.4)
-                                  : Colors.grey[200],
-                              foregroundColor: widget.isDarkMode
-                                  ? Colors.white
-                                  : Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                side: BorderSide(
-                                  color: looperAccentColor.withOpacity(0.4),
-                                ),
-                              ),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                widget.pedal.parameters[clickPort] = 1.0;
-                              });
-                              widget.webSocketService.setParamValue(
-                                instance: widget.pedal.instance,
-                                port: clickPort,
-                                value: 1.0,
-                              );
-                            },
-                            child: const Text(
-                              'ON',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: widget.isDarkMode
-                                  ? Colors.black.withOpacity(0.4)
-                                  : Colors.grey[200],
-                              foregroundColor: widget.isDarkMode
-                                  ? Colors.white
-                                  : Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                side: BorderSide(
-                                  color: looperAccentColor.withOpacity(0.4),
-                                ),
-                              ),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                widget.pedal.parameters[clickPort] = 0.0;
-                              });
-                              widget.webSocketService.setParamValue(
-                                instance: widget.pedal.instance,
-                                port: clickPort,
-                                value: 0.0,
-                              );
-                            },
-                            child: const Text(
-                              'OFF',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: widget.isDarkMode
-                                  ? Colors.black.withOpacity(0.4)
-                                  : Colors.grey[200],
-                              foregroundColor: widget.isDarkMode
-                                  ? Colors.white
-                                  : Colors.black,
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                side: BorderSide(
-                                  color: looperAccentColor.withOpacity(0.4),
-                                ),
-                              ),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                widget.pedal.parameters[clickPort] = 1.0;
-                              });
-                              widget.webSocketService.setParamValue(
-                                instance: widget.pedal.instance,
-                                port: clickPort,
-                                value: 1.0,
-                              );
-                              Future.delayed(
-                                const Duration(milliseconds: 50),
-                                () {
-                                  if (mounted) {
-                                    setState(() {
-                                      widget.pedal.parameters[clickPort] = 0.0;
-                                    });
-                                  }
-                                  widget.webSocketService.setParamValue(
-                                    instance: widget.pedal.instance,
-                                    port: clickPort,
-                                    value: 0.0,
-                                  );
-                                },
-                              );
-                            },
-                            child: const Text(
-                              'CLICK',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ],
@@ -743,6 +613,106 @@ class _LooperCardState extends State<LooperCard> {
                 icon: const Icon(Icons.delete_outline, size: 12),
                 label: const Text(
                   'CLEAR',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+
+        // On/Off/Click buttons row (targets the selected loop)
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.isDarkMode
+                      ? Colors.black.withOpacity(0.4)
+                      : Colors.grey[200],
+                  foregroundColor: widget.isDarkMode
+                      ? Colors.white
+                      : Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(color: stateColor.withOpacity(0.4)),
+                  ),
+                ),
+                onPressed: () {
+                  widget.webSocketService.setParamValue(
+                    instance: widget.pedal.instance,
+                    port: 'loop_$loopNum',
+                    value: 1.0,
+                  );
+                },
+                child: const Text(
+                  'ON',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.isDarkMode
+                      ? Colors.black.withOpacity(0.4)
+                      : Colors.grey[200],
+                  foregroundColor: widget.isDarkMode
+                      ? Colors.white
+                      : Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(color: stateColor.withOpacity(0.4)),
+                  ),
+                ),
+                onPressed: () {
+                  widget.webSocketService.setParamValue(
+                    instance: widget.pedal.instance,
+                    port: 'loop_$loopNum',
+                    value: 0.0,
+                  );
+                },
+                child: const Text(
+                  'OFF',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.isDarkMode
+                      ? Colors.black.withOpacity(0.4)
+                      : Colors.grey[200],
+                  foregroundColor: widget.isDarkMode
+                      ? Colors.white
+                      : Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(color: stateColor.withOpacity(0.4)),
+                  ),
+                ),
+                onPressed: () {
+                  widget.webSocketService.setParamValue(
+                    instance: widget.pedal.instance,
+                    port: 'loop_$loopNum',
+                    value: 1.0,
+                  );
+                  Future.delayed(const Duration(milliseconds: 50), () {
+                    widget.webSocketService.setParamValue(
+                      instance: widget.pedal.instance,
+                      port: 'loop_$loopNum',
+                      value: 0.0,
+                    );
+                  });
+                },
+                child: const Text(
+                  'CLICK',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
                 ),
               ),
