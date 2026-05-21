@@ -174,6 +174,14 @@ class _GainCardState extends State<GainCard> {
                       );
                       widget.onFadeRangeChanged(newStart, widget.rangeEnd);
                     },
+                    onDoubleTap: () {
+                      // B1: Double-tap sets gain to this level (start of fade range)
+                      widget.onVolumeChanged(
+                        widget.pedal.minGain +
+                            widget.rangeStart *
+                                (widget.pedal.maxGain - widget.pedal.minGain),
+                      );
+                    },
                     child: Container(color: Colors.transparent),
                   ),
                 ),
@@ -192,6 +200,14 @@ class _GainCardState extends State<GainCard> {
                         1.0,
                       );
                       widget.onFadeRangeChanged(widget.rangeStart, newEnd);
+                    },
+                    onDoubleTap: () {
+                      // B1: Double-tap sets gain to this level (end of fade range)
+                      widget.onVolumeChanged(
+                        widget.pedal.minGain +
+                            widget.rangeEnd *
+                                (widget.pedal.maxGain - widget.pedal.minGain),
+                      );
                     },
                     child: Container(color: Colors.transparent),
                   ),
