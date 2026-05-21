@@ -189,7 +189,10 @@ Please read and apply .agenrules
 * [ ] ALO Regular Mode: quick selector of current looper, small playing bar (recording or playing), and Record / Mute / Clear buttons.
 
 ### C3. Threshold Label Fix
-* [ ] In ALO Regular: threshold label should stay on one line at fixed size (currently jumps between 1 and 2 lines depending on dB value).
+* [x] In ALO Regular: threshold label should stay on one line at fixed size (currently jumps between 1 and 2 lines depending on dB value).
+* [x] Added `isThresholdLabel` parameter to `_buildLooperSlider()` function.
+* [x] Applied `maxLines: 1` and `TextOverflow.ellipsis` to threshold label when flag is true.
+* [x] Threshold label now maintains consistent single-line display regardless of dB value.
 
 ---
 
