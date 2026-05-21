@@ -2214,7 +2214,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       final titleLower = pedal.title.toLowerCase();
       final isLooper = uriLower.contains('alo') || titleLower.contains('alo');
       if (isLooper) {
-        return; // Forced expanded
+        // ALO loopers toggle between 'expanded' and 'regular' modes
+        final currentSize = _pedalSizes[instanceId] ?? 'expanded';
+        setState(() {
+          _pedalSizes[instanceId] = currentSize == 'expanded'
+              ? 'regular'
+              : 'expanded';
+        });
+        _saveLayoutSettings();
+        return;
       }
     }
 

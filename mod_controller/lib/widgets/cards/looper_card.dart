@@ -912,14 +912,15 @@ class _LooperCardState extends State<LooperCard> {
                         bottom: 4,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(4, (beatIndex) {
-                            final globalBeatIndex = barIndex * 4 + beatIndex;
+                          children: List.generate(3, (beatIndex) {
+                            final globalBeatIndex =
+                                barIndex * 4 + beatIndex + 1;
                             final isCurrentBeat =
                                 (state != LooperState.empty) &&
                                 (currentBeatIndex == globalBeatIndex);
                             return Container(
-                              width: isCurrentBeat ? 6 : 4,
-                              height: isCurrentBeat ? 6 : 4,
+                              width: isCurrentBeat ? 8 : 4,
+                              height: isCurrentBeat ? 8 : 4,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: isCurrentBeat
