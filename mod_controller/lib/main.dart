@@ -10,16 +10,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'services/websocket_service.dart';
 import 'models/plugin_instance.dart';
 import 'services/looper_controller.dart';
-import 'models/module_help_data.dart';
 import 'widgets/common/fade_button.dart';
 import 'widgets/common/size_toggle_button.dart';
 import 'widgets/common/module_help_sheet.dart';
 import 'widgets/toolbars/bpm_controller.dart';
 import 'widgets/toolbars/bottom_toolbar.dart';
 import 'widgets/toolbars/connection_panel.dart';
+import 'widgets/drawers/metrics_drawer.dart';
+import 'widgets/drawers/settings_drawer.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.2.11';
+const String kAppVersion = '1.2.12';
 
 // ─── Custom S-Curve for fade interpolation ────────────────────────────────
 /// A [Curve] defined by a midpoint (cx, cy) and a blend factor [slope].
@@ -197,72 +198,7 @@ class _FadeCurvePainter extends CustomPainter {
       old.isFadeOut != isFadeOut;
 }
 
-// ─── Mini range indicator painter (compact/regular cards) ─────────────────
-class _MiniRangePainter extends CustomPainter {
-  final Color accentColor;
-  final double rangeStart; // 0.0–1.0
-  final double rangeEnd; // 0.0–1.0
 
-  _MiniRangePainter({
-    required this.accentColor,
-    required this.rangeStart,
-    required this.rangeEnd,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const double trackW = 4.0;
-    final double cx = size.width / 2;
-    const double padY = 4.0;
-    final double trackH = size.height - padY * 2;
-
-    // Background track
-    final bgPaint = Paint()
-      ..color = accentColor.withOpacity(0.12)
-      ..strokeWidth = trackW
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(Offset(cx, padY), Offset(cx, padY + trackH), bgPaint);
-
-    // Active range highlight
-    final activePaint = Paint()
-      ..color = accentColor.withOpacity(0.5)
-      ..strokeWidth = trackW
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    // Note: rangeStart=0 = bottom (muted), rangeEnd=1 = top (full volume)
-    // Draw from bottom (muted) upwards
-    final double yStart = padY + (1.0 - rangeEnd) * trackH;
-    final double yEnd = padY + (1.0 - rangeStart) * trackH;
-    canvas.drawLine(Offset(cx, yStart), Offset(cx, yEnd), activePaint);
-
-    // Triangle handles
-    final triPaint = Paint()..color = accentColor;
-    // Start triangle (pointing right, at rangeStart)
-    final double ys = padY + (1.0 - rangeStart) * trackH;
-    final path1 = Path();
-    path1.moveTo(cx, ys);
-    path1.lineTo(cx + 6, ys - 4);
-    path1.lineTo(cx + 6, ys + 4);
-    path1.close();
-    canvas.drawPath(path1, triPaint);
-
-    // End triangle (pointing right, at rangeEnd)
-    final double ye = padY + (1.0 - rangeEnd) * trackH;
-    final path2 = Path();
-    path2.moveTo(cx, ye);
-    path2.lineTo(cx + 6, ye - 4);
-    path2.lineTo(cx + 6, ye + 4);
-    path2.close();
-    canvas.drawPath(path2, triPaint);
-  }
-
-  @override
-  bool shouldRepaint(_MiniRangePainter old) =>
-      old.rangeStart != rangeStart ||
-      old.rangeEnd != rangeEnd ||
-      old.accentColor != accentColor;
-}
 
 // ─── Range cursor overlay drawn ON the volume slider ─────────────────────
 class _RangeOverlayPainter extends CustomPainter {
@@ -459,7 +395,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Also include active ALO Looper if discovered and selected
     // Add null safety check for looper controller
     try {
-      if (_looperController != null && _looperController.activeLooper != null) {
+      if (_looperController.activeLooper != null) {
         final String looperId = _looperController.activeLooper!.instance;
         final bool isEnabled = _pedalGlowEnabled[looperId] ?? true;
         String colorHex = _pedalGlowColors[looperId] ?? '';
@@ -840,28 +776,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  Future<void> _syncNow() async {
-    final ip = _ipController.text;
-    if (ip.isEmpty) return;
-
-    try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 2);
-      final request = await client.postUrl(
-        Uri.parse('http://$ip/pedalboard/transport/sync/none'),
-      );
-      final response = await request.close();
-      debugPrint('Sync POST Response status code: ${response.statusCode}');
-
-      // Also send rolling command via websocket
-      _webSocketService.sendRawMessage('transport-rolling 1');
-    } catch (e) {
-      debugPrint('Error during Sync POST: $e');
-      // Fallback: send websocket command anyway
-      _webSocketService.sendRawMessage('transport-rolling 1');
-    }
-  }
-
   Future<void> _setTransportSyncMode(int mode) async {
     final ip = _ipController.text;
     if (ip.isEmpty) return;
@@ -1176,8 +1090,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-
     return ListenableBuilder(
       listenable: _webSocketService,
       builder: (context, _) {
@@ -1189,30 +1101,26 @@ class _DashboardScreenState extends State<DashboardScreen>
           onEndDrawerChanged: (isOpen) {
             setState(() {});
           },
-          // Right-aligned settings drawer, strategically padded below AppBar to keep a continuous border line
+          // Right-aligned settings drawer (puzzle organizer), occupying the full vertical height
           endDrawer: Drawer(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            child: Container(
-              margin: EdgeInsets.only(top: kToolbarHeight + statusBarHeight),
-              decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
-                border: Border(
-                  left: BorderSide(
-                    color: _isDarkMode
-                        ? const Color(0xFF00FFCC)
-                        : const Color(0xFF00B3FF),
-                    width: 1.5,
-                  ),
-                  top: BorderSide(
-                    color: _isDarkMode
-                        ? const Color(0xFF00FFCC)
-                        : const Color(0xFF00B3FF),
-                    width: 1.5,
-                  ),
-                ),
-              ),
-              child: _buildDrawerContent(),
+            child: SettingsDrawer(
+              isDarkMode: _isDarkMode,
+              allPluginsNotifier: _webSocketService.allPlugins,
+              enabledPluginInstances: _enabledPluginInstances,
+              orderedPluginInstances: _orderedPluginInstances,
+              pedalSizes: _pedalSizes,
+              pedalGlowColors: _pedalGlowColors,
+              customTitles: _customTitles,
+              onLayoutSettingsChanged: () {
+                _updateAllGlowsInWebView();
+                _saveLayoutSettings();
+              },
+              onHighlightPedal: _highlightPedalInWebView,
+              onShowColorPicker: _showColorPickerDialog,
+              onCyclePedalSize: _cyclePedalSize,
+              onScrollToCard: _scrollToCard,
             ),
           ),
 
@@ -1222,7 +1130,6 @@ class _DashboardScreenState extends State<DashboardScreen>
             elevation: 0,
             child: Container(
               decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
                 border: Border(
                   right: BorderSide(
                     color: _isDarkMode
@@ -1232,7 +1139,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
               ),
-              child: _buildLeftDrawerContent(),
+              child: MetricsDrawer(
+                isDarkMode: _isDarkMode,
+                bpm: _bpm,
+                activeCount: _enabledPluginInstances.length,
+                totalCount: _webSocketService.allPlugins.value.length,
+                connectionStatus: _webSocketService.status,
+                onRadarTap: _highlightAllPedalsInWebView,
+                onRefreshTap: _reloadPedalboard,
+                onOpenBrowser: _openWebInterface,
+                onThemeToggle: () {
+                  setState(() {
+                    _isDarkMode = !_isDarkMode;
+                  });
+                  _saveThemeSettings();
+                },
+                appVersion: kAppVersion,
+              ),
             ),
           ),
 
@@ -3867,836 +3790,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
   }
-
-  Widget _buildLeftDrawerHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
-          letterSpacing: 1.0,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLeftDrawerTile({
-    required IconData icon,
-    required String title,
-    required String trailingText,
-    required Color color,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: _isDarkMode ? Colors.grey[350] : Colors.grey[800],
-            ),
-          ),
-          const Spacer(),
-          Text(
-            trailingText,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: color,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLeftDrawerContent() {
-    final status = _webSocketService.status;
-    final isConnected = status == ConnectionStatus.connected;
-    final int activeCount = _enabledPluginInstances.length;
-    final int totalCount = _webSocketService.allPlugins.value.length;
-
-    return Container(
-      color: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
-      child: Column(
-        children: [
-          // Drawer Header
-          Container(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 20,
-              bottom: 24,
-              left: 20,
-              right: 20,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isDarkMode
-                    ? [const Color(0xFF161B22), const Color(0xFF0F141C)]
-                    : [const Color(0xFFE4E6EB), const Color(0xFFF0F2F5)],
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: _isDarkMode
-                      ? const Color(0xFF00FFCC)
-                      : const Color(0xFF00B3FF),
-                  width: 1.5,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: _isDarkMode
-                          ? [const Color(0xFF00FFCC), const Color(0xFFFF007F)]
-                          : [const Color(0xFF00B3FF), const Color(0xFFFF0055)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (_isDarkMode
-                                    ? const Color(0xFF00FFCC)
-                                    : const Color(0xFF00B3FF))
-                                .withOpacity(0.4),
-                        blurRadius: 10,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.tune, size: 20, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'TAMPERMOD',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2.0,
-                          color: _isDarkMode ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      Text(
-                        'LIVE CONTROLLER',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: _isDarkMode
-                              ? const Color(0xFF00FFCC)
-                              : const Color(0xFF00B3FF),
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Drawer Navigation / Info Items
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              children: [
-                _buildLeftDrawerHeader('DASHBOARD METRICS'),
-                _buildLeftDrawerTile(
-                  icon: Icons.grid_view,
-                  title: 'Active Controls',
-                  trailingText: '$activeCount / $totalCount',
-                  color: _isDarkMode
-                      ? const Color(0xFF00FFCC)
-                      : const Color(0xFF00B3FF),
-                ),
-                _buildLeftDrawerTile(
-                  icon: Icons.speed,
-                  title: 'BPM / Tempo',
-                  trailingText: '${_bpm.toStringAsFixed(0)} BPM',
-                  color: const Color(0xFFFF007F),
-                ),
-                _buildLeftDrawerTile(
-                  icon: Icons.link,
-                  title: 'Connection State',
-                  trailingText: isConnected ? 'CONNECTED' : 'DISCONNECTED',
-                  color: _getStatusColor(status),
-                ),
-
-                const Divider(height: 24, thickness: 1, color: Colors.grey),
-                _buildLeftDrawerHeader('QUICK UTILITIES'),
-
-                ListTile(
-                  leading: const Icon(
-                    Icons.radar,
-                    color: Color(0xFFFF007F),
-                    size: 20,
-                  ),
-                  title: Text(
-                    'Locate Workspace Pedals',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  subtitle: const Text(
-                    'strobe pulses on the web canvas',
-                    style: TextStyle(fontSize: 10),
-                  ),
-                  onTap: isConnected
-                      ? () {
-                          Navigator.pop(context);
-                          _highlightAllPedalsInWebView();
-                        }
-                      : null,
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.refresh,
-                    color: Color(0xFF00FFCC),
-                    size: 20,
-                  ),
-                  title: Text(
-                    'Refresh Pedalboard',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  subtitle: const Text(
-                    'query parameters from mod dwarf',
-                    style: TextStyle(fontSize: 10),
-                  ),
-                  onTap: isConnected
-                      ? () {
-                          Navigator.pop(context);
-                          _reloadPedalboard();
-                        }
-                      : null,
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.open_in_browser,
-                    color: Color(0xFFFF5500),
-                    size: 20,
-                  ),
-                  title: Text(
-                    'Open Pedalboard in Browser',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  subtitle: const Text(
-                    'launch Web interface in Chrome',
-                    style: TextStyle(fontSize: 10),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _openWebInterface();
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                    color: _isDarkMode
-                        ? const Color(0xFFFF7700)
-                        : const Color(0xFF9D00FF),
-                    size: 20,
-                  ),
-                  title: Text(
-                    _isDarkMode ? 'Daylight Theme' : 'Midnight Theme',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: _isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  subtitle: const Text(
-                    'optimize display for direct sunlight',
-                    style: TextStyle(fontSize: 10),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _isDarkMode = !_isDarkMode;
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          // Drawer Footer Version Tracking
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: _isDarkMode
-                      ? const Color(0xFF161B22)
-                      : const Color(0xFFE4E6EB),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Text(
-              'VERSION $kAppVersion',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-                color: _isDarkMode
-                    ? const Color(0xFF00FFCC)
-                    : const Color(0xFF00B3FF),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: _isDarkMode ? const Color(0xFF0F141C) : Colors.grey[200],
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          IconButton(
-            icon: Icon(
-              Icons.close,
-              color: _isDarkMode ? Colors.grey : Colors.grey[600],
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerContent() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double drawerWidth = constraints.maxWidth;
-        final double horizontalPadding = 12.0;
-        final double spacing = 6.0;
-        // Account for container margin (10px each side) + container padding (6px each side)
-        // so that two regularWidth tiles actually fit in a Wrap row.
-        final double tileAreaWidth =
-            drawerWidth - horizontalPadding * 2 - 10 * 2 - 6 * 2;
-        final double gridWidth = tileAreaWidth;
-
-        // 4 Columns available width calculation
-        final double totalColumnWidth = gridWidth - (spacing * 3);
-        final double colWidth = totalColumnWidth / 4;
-
-        final double compactWidth = colWidth;
-        final double regularWidth = (colWidth * 2) + spacing;
-        final double expandedWidth = gridWidth;
-
-        return ValueListenableBuilder<List<PluginInstance>>(
-          valueListenable: _webSocketService.allPlugins,
-          builder: (context, allPlugins, _) {
-            // Hydrate active list based on saved order & visibility
-            final List<PluginInstance> activePedals = [];
-            for (final id in _orderedPluginInstances) {
-              if (_enabledPluginInstances.contains(id)) {
-                final pedal = allPlugins.firstWhere(
-                  (p) => p.instance == id,
-                  orElse: () =>
-                      PluginInstance(instance: '', title: '', uri: ''),
-                );
-                if (pedal.instance.isNotEmpty) {
-                  activePedals.add(pedal);
-                }
-              }
-            }
-
-            // Hydrate inactive list
-            final List<PluginInstance> inactivePedals = [];
-            for (final id in _orderedPluginInstances) {
-              if (!_enabledPluginInstances.contains(id)) {
-                final pedal = allPlugins.firstWhere(
-                  (p) => p.instance == id,
-                  orElse: () =>
-                      PluginInstance(instance: '', title: '', uri: ''),
-                );
-                if (pedal.instance.isNotEmpty) {
-                  inactivePedals.add(pedal);
-                }
-              }
-            }
-
-            return Column(
-              children: [
-                // ACTIVE PUZZLE CANVAS
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.extension,
-                        size: 15,
-                        color: _isDarkMode
-                            ? const Color(0xFF00FFCC)
-                            : const Color(0xFF00B3FF),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'PUZZLE CANVAS (ACTIVE)',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10.5,
-                          color: _isDarkMode ? Colors.grey : Colors.grey[700],
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  flex: 3,
-                  child: DragTarget<String>(
-                    onAccept: (draggedId) {
-                      // Drag from Inactive or general drop to activate/reorder to the end
-                      setState(() {
-                        if (!_enabledPluginInstances.contains(draggedId)) {
-                          _enabledPluginInstances.add(draggedId);
-                        }
-
-                        // Move to end of active list in _orderedPluginInstances
-                        final List<String> actives = _orderedPluginInstances
-                            .where(
-                              (id) =>
-                                  _enabledPluginInstances.contains(id) &&
-                                  id != draggedId,
-                            )
-                            .toList();
-
-                        _orderedPluginInstances.remove(draggedId);
-                        if (actives.isNotEmpty) {
-                          final lastActiveId = actives.last;
-                          final targetIdx = _orderedPluginInstances.indexOf(
-                            lastActiveId,
-                          );
-                          if (targetIdx != -1) {
-                            _orderedPluginInstances.insert(
-                              targetIdx + 1,
-                              draggedId,
-                            );
-                          } else {
-                            _orderedPluginInstances.add(draggedId);
-                          }
-                        } else {
-                          _orderedPluginInstances.insert(0, draggedId);
-                        }
-
-                        // Also sync _enabledPluginInstances order
-                        _enabledPluginInstances.remove(draggedId);
-                        _enabledPluginInstances.add(draggedId);
-                      });
-                      _updateAllGlowsInWebView();
-                      _saveLayoutSettings();
-                    },
-                    builder: (context, _, __) {
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 2,
-                        ),
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _isDarkMode
-                              ? const Color(0xFF0F141C).withOpacity(0.5)
-                              : Colors.grey[100],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: (_isDarkMode
-                                ? Colors.grey[850]
-                                : Colors.grey[300])!,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: activePedals.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'Drag cards here or toggle below to activate.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: _isDarkMode
-                                        ? Colors.grey[600]
-                                        : Colors.grey[500],
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              )
-                            : SingleChildScrollView(
-                                child: Wrap(
-                                  spacing: spacing,
-                                  runSpacing: spacing,
-                                  alignment: WrapAlignment.start,
-                                  runAlignment: WrapAlignment.start,
-                                  crossAxisAlignment: WrapCrossAlignment.start,
-                                  children: activePedals.map((pedal) {
-                                    return _buildMiniPuzzleTile(
-                                      pedal: pedal,
-                                      isActive: true,
-                                      cWidth: compactWidth,
-                                      rWidth: regularWidth,
-                                      eWidth: expandedWidth,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                      );
-                    },
-                  ),
-                ),
-
-                // INACTIVE / AVAILABLE POOL
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.inventory_2_outlined,
-                        size: 15,
-                        color: inactivePedals.isEmpty
-                            ? Colors.grey
-                            : (_isDarkMode
-                                  ? const Color(0xFFFF007F)
-                                  : const Color(0xFFFF0055)),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'AVAILABLE POOL (INACTIVE)',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10.5,
-                          color: _isDarkMode ? Colors.grey : Colors.grey[700],
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  flex: 2,
-                  child: DragTarget<String>(
-                    onAccept: (draggedId) {
-                      // Drag from Active to Inactive
-                      if (_enabledPluginInstances.contains(draggedId)) {
-                        setState(() {
-                          _enabledPluginInstances.remove(draggedId);
-                        });
-                        _updateAllGlowsInWebView();
-                        _saveLayoutSettings();
-                      }
-                    },
-                    builder: (context, _, __) {
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 2,
-                        ),
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _isDarkMode
-                              ? const Color(0xFF0F141C).withOpacity(0.3)
-                              : Colors.grey[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: (_isDarkMode
-                                ? Colors.grey[900]
-                                : Colors.grey[200])!,
-                            style: BorderStyle.solid,
-                          ),
-                        ),
-                        child: inactivePedals.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'All components are active.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: _isDarkMode
-                                        ? Colors.grey[600]
-                                        : Colors.grey[500],
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              )
-                            : SingleChildScrollView(
-                                child: Wrap(
-                                  spacing: spacing,
-                                  runSpacing: spacing,
-                                  children: inactivePedals.map((pedal) {
-                                    return _buildMiniPuzzleTile(
-                                      pedal: pedal,
-                                      isActive: false,
-                                      cWidth: compactWidth,
-                                      rWidth: regularWidth,
-                                      eWidth: expandedWidth,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildMiniPuzzleTile({
-    required PluginInstance pedal,
-    required bool isActive,
-    required double cWidth,
-    required double rWidth,
-    required double eWidth,
-  }) {
-    final String instanceId = pedal.instance;
-    final size = _pedalSizes[instanceId] ?? 'regular';
-
-    final uriLower = pedal.uri.toLowerCase();
-    final titleLower = pedal.title.toLowerCase();
-    final isLooper =
-        uriLower.contains('alo') ||
-        titleLower.contains('alo') ||
-        instanceId.toLowerCase().contains('alo');
-    final isSwitch =
-        uriLower.contains('switch') || titleLower.contains('switch');
-
-    double width = rWidth;
-    double height = 46.0;
-    if (isActive) {
-      if (isLooper) {
-        width = eWidth;
-        height = 56.0;
-      } else if (size == 'compact') {
-        width = cWidth;
-        height = 40.0;
-      } else if (size == 'regular') {
-        width = rWidth;
-        height = 48.0;
-      } else {
-        width = eWidth;
-        height = 56.0;
-      }
-    } else {
-      // Inactive tiles always show regular sizing for grid visual consistency in pool
-      width = rWidth;
-      height = 46.0;
-    }
-
-    final String colorHex =
-        _pedalGlowColors[instanceId] ?? _getDefaultColorForPedal(pedal);
-    final Color glowColor = _hexToColor(colorHex);
-
-    IconData typeIcon = Icons.help_outline;
-    if (isLooper) {
-      typeIcon = Icons.fiber_manual_record; // red looper dot
-    } else if (isSwitch) {
-      typeIcon = Icons.swap_horiz;
-    } else {
-      typeIcon = Icons.adjust; // rotary volume knob
-    }
-
-    final tileContent = Container(
-      width: width,
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: isActive
-            ? glowColor.withOpacity(_isDarkMode ? 0.12 : 0.18)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: glowColor.withOpacity(isActive ? 0.9 : 0.4),
-          width: isActive ? 1.5 : 1.0,
-          style: isActive ? BorderStyle.solid : BorderStyle.solid,
-        ),
-        boxShadow: isActive
-            ? [
-                BoxShadow(
-                  color: glowColor.withOpacity(0.3),
-                  blurRadius: 4,
-                  spreadRadius: 0.5,
-                ),
-              ]
-            : null,
-      ),
-      child: Row(
-        children: [
-          // Device Type Icon
-          Icon(
-            typeIcon,
-            size: size == 'compact' && isActive ? 11 : 13,
-            color: isLooper && isActive ? const Color(0xFFFF0055) : glowColor,
-          ),
-          const SizedBox(width: 4),
-
-          // Title
-          Expanded(
-            child: Text(
-              (_customTitles[instanceId] ?? pedal.title).toUpperCase(),
-              style: TextStyle(
-                color: isActive
-                    ? (_isDarkMode ? Colors.white : Colors.black)
-                    : (_isDarkMode ? Colors.grey[400] : Colors.grey[700]),
-                fontWeight: FontWeight.bold,
-                fontSize: size == 'compact' && isActive ? 8 : 9.5,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-
-          // Right panel options
-          if (isActive) ...[
-            // Size Toggle C/R/E (non-loopers only)
-            if (!isLooper)
-              GestureDetector(
-                onTap: () => _cyclePedalSize(instanceId),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 4),
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    color: _isDarkMode ? Colors.grey[900] : Colors.grey[300],
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    size[0].toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      color: _isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-
-    // Draggable wrapping
-    return DragTarget<String>(
-      onWillAccept: (data) => data != instanceId,
-      onAccept: (draggedId) {
-        setState(() {
-          // Reorder list order
-          final idxA = _orderedPluginInstances.indexOf(draggedId);
-          final idxB = _orderedPluginInstances.indexOf(instanceId);
-          if (idxA != -1 && idxB != -1) {
-            final item = _orderedPluginInstances.removeAt(idxA);
-            _orderedPluginInstances.insert(idxB, item);
-          }
-
-          // If dragged item was inactive, activate it at target index
-          if (!_enabledPluginInstances.contains(draggedId)) {
-            _enabledPluginInstances.add(draggedId);
-          }
-
-          // Also sync reorder inside active visibility list
-          final activeA = _enabledPluginInstances.indexOf(draggedId);
-          final activeB = _enabledPluginInstances.indexOf(instanceId);
-          if (activeA != -1 && activeB != -1 && activeA != activeB) {
-            final item = _enabledPluginInstances.removeAt(activeA);
-            _enabledPluginInstances.insert(activeB, item);
-          }
-        });
-        _updateAllGlowsInWebView();
-        _saveLayoutSettings();
-      },
-      builder: (context, _, __) {
-        return LongPressDraggable<String>(
-          data: instanceId,
-          feedback: Material(
-            color: Colors.transparent,
-            child: Opacity(
-              opacity: 0.7,
-              child: Container(
-                width: width,
-                height: height,
-                decoration: BoxDecoration(
-                  color: glowColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: glowColor, width: 2.0),
-                ),
-                child: Center(
-                  child: Text(
-                    (_customTitles[instanceId] ?? pedal.title).toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          childWhenDragging: Opacity(
-            opacity: 0.25,
-            child: Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                color: Colors.grey[800],
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          child: GestureDetector(
-            onTap: () {
-              _highlightPedalInWebView(pedal);
-              if (isActive) {
-                _scrollToCard(instanceId);
-              }
-            },
-            onDoubleTap: () => _showColorPickerDialog(pedal),
-            child: tileContent,
-          ),
-        );
-      },
-    );
-  }
-
-
 
   String? _findPortSymbol(PluginInstance pedal, String keyword) {
     final keywordLower = keyword.toLowerCase();

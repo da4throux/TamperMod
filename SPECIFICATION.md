@@ -108,6 +108,7 @@ Please read and apply .agenrules
 * [x] Ensure card size toggle button position remains stable during card size changes.
 
 ### Todo Tasks
+* [x] While clicking on the top right puzzle icon opens the controler layout drawer on the right side, I should be able to tap on it again to close the drawer, however, it appears fade in the background, and cannot be reached... Can you make this right drawer take the whole vertical, on the puzzle icon is always visible in this way.
 * [x] Tapping reload on the UI bar (next to radar) should resync all the controler cards with the pedal board. If I change the volume of a gain directly on the pedalboard, it does not update on its control card, while having a regular polling could be a solution, as first step the reload should resync and fetch the new volume.
 * [x] The Play Transport is not well fetched (shown as play when is stop in the pedalboard* [x] The Play Transport is well fetched and updated but the icon is reversed (showing play when it is actually stop that was selected)
 * [ ] For Gain controller, the fade triangles should have an outline (different color than the glow), the lower point of the triangle should be on the top edge of the volume slider (not in the middle of the slider)
