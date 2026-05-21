@@ -1,25 +1,27 @@
 # TamperMod — Current Focus
 
-## ✅ Last Completed (v1.3.4)
-- **Group A UI/UX Improvements** (5 of 6 tasks completed):
-  - **A1. WiFi Auto-Disable on Connect**: Added "SETTINGS" button to WiFi warning snackbar that opens Android WiFi settings via MethodChannel
-  - **A3. Drawer Scroll Accuracy Fix**: Improved `_scrollToCard()` to calculate accurate scroll offsets based on card dimensions and spacing
-  - **A4. Edit Dialog Enhancement**: Renamed dialog now includes integrated color picker in the same dialog (StatefulBuilder for local state)
-  - **A5. Drawer Double-Tap Size Toggle**: Double-tap on drawer tiles now cycles through sizes (C→R→E→C) for non-loopers; loopers/inactive tiles open color picker
-  - **A6. Fader Triangle Drag Speed Fix**: Triangle drag now uses correct delta calculation for responsive 1:1 finger tracking
+## ✅ Last Completed (v1.3.8)
+- **Group C ALO Looper Improvements** (1 of 3 tasks completed):
+  - **C1. ALO Extended Mode Redesign**: Implemented 6 exclusive loop selector buttons with single timeline display
+    - Extended LooperController to support 6 loops (was 2)
+    - Added `selectLoop(int loopNum)` method for loop switching
+    - Refactored LooperCard UI with loop selector row at top
+    - Only selected loop's timeline and controls displayed
+    - On/Off/Click buttons target selected loop
 
 ## 🔧 Currently In Progress
-- Nothing — v1.3.4 committed.
+- **C2. ALO Regular Mode Implementation**: Creating compact regular-size looper card
+  - Small playing bar showing all 6 tracks (stacked)
+  - Loop selector (1-6)
+  - 3 buttons: Record, Mute, Clear
 
 ## ➡️ Recommended Next Step
-- **A2. WebView Controls Enhancement** (remaining from Group A):
-  - Add fullscreen toggle button for WebView (pinch-zoom/pan without controls overlay)
-  - Add separation slider between workspace and web view
-  - Requires UI refactoring to support dynamic layout adjustments
-- **GROUP B** (Fader/Automation - 3 tasks): Medium complexity - triangle double-tap, beat bars, precision fixes
-- **GROUP C** (ALO Looper - 3 tasks): Medium-high complexity - extended/regular mode redesign
+- Complete C2 (ALO Regular Mode) with compact UI
+- Then C3 is already done (threshold label fix)
+- Move to GROUP B or other pending tasks
 
 ## 📋 Quick Context
 - **Connected device:** Pixel Tablet via ADB
-- **App Version:** v1.3.4 (matches `main.dart` and `pubspec.yaml`)
-- **Last commit:** Cline(v1.3.4) - Group A improvements
+- **App Version:** v1.3.8 (matches `main.dart` and `pubspec.yaml`)
+- **Last commit:** Cline(v1.3.8) - C1 ALO extended mode redesign
+- **Architecture:** Flutter app in `mod_controller/` with modular card-based UI

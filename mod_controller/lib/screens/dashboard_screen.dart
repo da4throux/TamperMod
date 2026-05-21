@@ -23,6 +23,7 @@ import '../widgets/drawers/settings_drawer.dart';
 import '../widgets/cards/gain_card.dart';
 import '../widgets/cards/switch_card.dart';
 import '../widgets/cards/looper_card.dart';
+import '../widgets/cards/looper_regular_card.dart';
 import '../widgets/cards/placeholder_card.dart';
 import '../utils/color_utils.dart';
 
@@ -1414,18 +1415,41 @@ class _DashboardScreenState extends State<DashboardScreen>
                       titleLower.contains('volume');
 
                   if (isLooper) {
-                    cardWidget = LooperCard(
-                      pedal: pedal,
-                      isDarkMode: _isDarkMode,
-                      glowColor: glowColor,
-                      displayName: displayName,
-                      bpm: _bpm,
-                      looperController: _looperController,
-                      webSocketService: _webSocketService,
-                      onRenamePressed: () => _showRenameDialog(pedal),
-                      onColorPickerPressed: () => _showColorPickerDialog(pedal),
-                      onHighlightPressed: () => _highlightPedalInWebView(pedal),
-                    );
+                    // Choose between extended (expanded) and regular (compact) looper cards
+                    final looperSize =
+                        _pedalSizes[pedal.instance] ?? 'expanded';
+                    if (looperSize == 'regular') {
+                      cardWidget = LooperRegularCard(
+                        pedal: pedal,
+                        isDarkMode: _isDarkMode,
+                        glowColor: glowColor,
+                        displayName: displayName,
+                        bpm: _bpm,
+                        looperController: _looperController,
+                        webSocketService: _webSocketService,
+                        onRenamePressed: () => _showRenameDialog(pedal),
+                        onColorPickerPressed: () =>
+                            _showColorPickerDialog(pedal),
+                        onHighlightPressed: () =>
+                            _highlightPedalInWebView(pedal),
+                      );
+                    } else {
+                      // Default to extended mode
+                      cardWidget = LooperCard(
+                        pedal: pedal,
+                        isDarkMode: _isDarkMode,
+                        glowColor: glowColor,
+                        displayName: displayName,
+                        bpm: _bpm,
+                        looperController: _looperController,
+                        webSocketService: _webSocketService,
+                        onRenamePressed: () => _showRenameDialog(pedal),
+                        onColorPickerPressed: () =>
+                            _showColorPickerDialog(pedal),
+                        onHighlightPressed: () =>
+                            _highlightPedalInWebView(pedal),
+                      );
+                    }
                   } else if (isSwitch) {
                     cardWidget = SwitchCard(
                       pedal: pedal,
