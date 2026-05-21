@@ -18,8 +18,14 @@
   - Fade IN and Fade OUT buttons now stacked vertically (Column instead of Row)
   - Proper spacing between buttons (4px SizedBox)
 
+- **ALO Extended Mode On/Off/Click Buttons**:
+  - Moved below Record/Mute/Clear action row
+  - Buttons now target the selected loop (send to loop_X port)
+  - ON button: sends 1.0 to loop port
+  - OFF button: sends 0.0 to loop port
+  - CLICK button: sends 1.0, waits 50ms, then sends 0.0
+
 ## 📋 Remaining Tasks
-- **On/Off/Click buttons**: Move below Record/Mute/Clear row and target the loop
 - **GROUP A Task A2**: WebView Controls Enhancement
 - **GROUP D Task D1**: Local Database for Pedalboard Configurations
 - **GROUP E Task E2**: Default Fadeout Values
@@ -27,6 +33,6 @@
 
 ## 🔧 Quick Context
 - **App Version:** v1.3.10 (updated main.dart and pubspec.yaml)
-- **Last commit:** Claude-Haiku-4.5(v1.3.10) - Beat dots and ALO toggle fixes
+- **Last commit:** Claude-Haiku-4.5(v1.3.10) - On/Off/Click buttons repositioned
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All beat visualizations now correct (3 separators, 3 dots per bar)
+- **Status:** All ALO extended mode features complete and functional
