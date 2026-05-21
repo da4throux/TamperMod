@@ -129,7 +129,10 @@ Please read and apply .agenrules
 * [x] WiFi warning on connect: if WiFi is active when tapping Connect, an amber SnackBar warns that WiFi blocks the USB Ethernet route to MOD Dwarf and instructs the user to turn off WiFi.
 
 ### Todo Tasks
-* [ ] Please add a button to reload the web view.
+* [ ] If the Wifi is on, offer to turn it off when showing the alert snackbar on connect. The connect button could show a wifi icon as a warning.
+* are you that on loading the different controler are assigned different colors ? I just opened 1.3.2 and they all have the same color, when they all should have a different glow.
+* [ ] Save in a local database the different configuration made for the application (by pedalboard name, as I could switch from a pedalboard to another).
+* [ ] Please add a button to reload the web view, and resize to full screen. Also it would be nice to be able to adjust the separation between the workspace and the web view (sometimes the webview takes more place than needed)
 * [ ] Tapping on a controller from the right drawer does not always bring the effect in view by scrolling accurately.
 * [ ] Editing a controller's name by long pressing its name should also allow to change its glow color. In the right drawer, double tapping a tile should toggle its size (compact, regular, expanded).
 * [ ] bug: the fader scope triangle does not move as fast as the dragging finger (it runs half the length — unpleasant).
