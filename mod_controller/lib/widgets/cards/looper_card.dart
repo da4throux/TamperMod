@@ -105,8 +105,8 @@ class _LooperCardState extends State<LooperCard> {
                       isDarkMode: widget.isDarkMode,
                       isEnabled: true,
                       onTap: () {
-                        // Notify parent to toggle between extended and regular modes
                         // This will be handled by the dashboard's size toggle logic
+                        // The dashboard listens to size changes via SettingsDrawer
                       },
                     ),
                     const SizedBox(width: 8),
@@ -642,7 +642,7 @@ class _LooperCardState extends State<LooperCard> {
                 onPressed: () {
                   widget.webSocketService.setParamValue(
                     instance: widget.pedal.instance,
-                    port: 'loop_$loopNum',
+                    port: 'loop$loopNum',
                     value: 1.0,
                   );
                 },
@@ -671,7 +671,7 @@ class _LooperCardState extends State<LooperCard> {
                 onPressed: () {
                   widget.webSocketService.setParamValue(
                     instance: widget.pedal.instance,
-                    port: 'loop_$loopNum',
+                    port: 'loop$loopNum',
                     value: 0.0,
                   );
                 },
@@ -700,13 +700,13 @@ class _LooperCardState extends State<LooperCard> {
                 onPressed: () {
                   widget.webSocketService.setParamValue(
                     instance: widget.pedal.instance,
-                    port: 'loop_$loopNum',
+                    port: 'loop$loopNum',
                     value: 1.0,
                   );
                   Future.delayed(const Duration(milliseconds: 50), () {
                     widget.webSocketService.setParamValue(
                       instance: widget.pedal.instance,
-                      port: 'loop_$loopNum',
+                      port: 'loop$loopNum',
                       value: 0.0,
                     );
                   });
