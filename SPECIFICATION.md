@@ -183,7 +183,7 @@ Please read and apply .agenrules
 *Complexity: Medium-High | Est. Time: 2-3 hours | Suitable for: Intermediate models*
 
 ### C1. ALO Extended Mode Redesign
-* [ ] In Alo extended, on/off/click buttons should target the active looper. One timeline + 6 buttons; tabs above (one per Looper 1–6) showing play/pause state icon.
+* [x] In Alo extended, on/off/click buttons should target the active looper. One timeline + 6 buttons; tabs above (one per Looper 1–6) showing play/pause state icon.
 
 ### C2. ALO Regular Mode Implementation
 * [ ] ALO Regular Mode: quick selector of current looper, small playing bar (recording or playing), and Record / Mute / Clear buttons.

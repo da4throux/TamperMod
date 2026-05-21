@@ -1,5 +1,5 @@
 # TamperMod Refactoring Plan — Completed at v1.2.14 → targeting Milestone v1.3.0
-- follow .agentrules as you should
+- follow strictly the rules from .agentrules as you should
 - Mark as done [x], tasks that are achieved
 - update Specification.md, readme.md as they should
 

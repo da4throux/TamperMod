@@ -81,6 +81,8 @@ class _LooperCardState extends State<LooperCard> {
         final double clickValue = widget.pedal.parameters[clickPort] ?? 0.0;
         final double mixValue = widget.pedal.parameters[mixPort] ?? 50.0;
 
+        final int selectedLoopNum = widget.looperController.selectedLoopNum;
+
         return BaseCard(
           glowColor: widget.glowColor,
           isDarkMode: widget.isDarkMode,
@@ -209,299 +211,321 @@ class _LooperCardState extends State<LooperCard> {
                           ?.withOpacity(0.5),
                   height: 1,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
-                // Auto-expanding tracks and sliders (no internal scrolling)
+                // Loop Selector Buttons (6 exclusive buttons)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: List.generate(6, (index) {
+                    final loopNum = index + 1;
+                    final isSelected = selectedLoopNum == loopNum;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isSelected
+                                ? looperAccentColor
+                                : (widget.isDarkMode
+                                      ? Colors.black.withOpacity(0.4)
+                                      : Colors.grey[200]),
+                            foregroundColor: isSelected
+                                ? Colors.black
+                                : (widget.isDarkMode
+                                      ? Colors.white
+                                      : Colors.black),
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? looperAccentColor
+                                    : looperAccentColor.withOpacity(0.3),
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                          ),
+                          onPressed: () {
+                            widget.looperController.selectLoop(loopNum);
+                          },
+                          child: Text(
+                            '$loopNum',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 12),
+
+                // Selected Loop Timeline and Controls
+                SizedBox(
+                  height: 140,
+                  child: _buildLooperTrackSegment(
+                    selectedLoopNum,
+                    looperAccentColor,
+                    widget.pedal,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Divider(
+                  color:
+                      (widget.isDarkMode ? Colors.grey[850] : Colors.grey[300])
+                          ?.withOpacity(0.5),
+                  height: 1,
+                ),
+                const SizedBox(height: 12),
+
+                // Sliders Column at bottom
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Track 1
-                    SizedBox(
-                      height: 140,
-                      child: _buildLooperTrackSegment(
-                        1,
-                        looperAccentColor,
-                        widget.pedal,
-                      ),
+                    _buildLooperSlider(
+                      label: 'Threshold',
+                      value: thresholdValue,
+                      min: -60.0,
+                      max: 0.0,
+                      valueSuffix: ' dB',
+                      accentColor: looperAccentColor,
+                      isThresholdLabel: true,
+                      onChanged: (val) {
+                        setState(() {
+                          widget.pedal.parameters[thresholdPort] = val;
+                        });
+                        widget.webSocketService.setParamValue(
+                          instance: widget.pedal.instance,
+                          port: thresholdPort,
+                          value: double.parse(val.toStringAsFixed(2)),
+                        );
+                      },
+                      onLabelTap: () {
+                        final double current =
+                            widget.pedal.parameters[thresholdPort] ?? -40.0;
+                        double next;
+                        if (current < -50.0) {
+                          next = -40.0;
+                        } else if (current < -20.0) {
+                          next = 0.0;
+                        } else {
+                          next = -60.0;
+                        }
+                        setState(() {
+                          widget.pedal.parameters[thresholdPort] = next;
+                        });
+                        widget.webSocketService.setParamValue(
+                          instance: widget.pedal.instance,
+                          port: thresholdPort,
+                          value: next,
+                        );
+                      },
                     ),
-                    const SizedBox(height: 12),
-
-                    // Track 2
-                    SizedBox(
-                      height: 140,
-                      child: _buildLooperTrackSegment(
-                        2,
-                        looperAccentColor,
-                        widget.pedal,
-                      ),
+                    const SizedBox(height: 6),
+                    _buildLooperSlider(
+                      label: 'Mix Setting',
+                      value: mixValue,
+                      min: 0.0,
+                      max: 100.0,
+                      accentColor: looperAccentColor,
+                      onChanged: (val) {
+                        setState(() {
+                          widget.pedal.parameters[mixPort] = val;
+                        });
+                        widget.webSocketService.setParamValue(
+                          instance: widget.pedal.instance,
+                          port: mixPort,
+                          value: double.parse(val.toStringAsFixed(2)),
+                        );
+                      },
+                      onLabelTap: () {
+                        final double current =
+                            widget.pedal.parameters[mixPort] ?? 100.0;
+                        double next;
+                        if (current < 25.0) {
+                          next = 50.0;
+                        } else if (current < 75.0) {
+                          next = 100.0;
+                        } else {
+                          next = 0.0;
+                        }
+                        setState(() {
+                          widget.pedal.parameters[mixPort] = next;
+                        });
+                        widget.webSocketService.setParamValue(
+                          instance: widget.pedal.instance,
+                          port: mixPort,
+                          value: next,
+                        );
+                      },
                     ),
-                    const SizedBox(height: 12),
-                    Divider(
-                      color:
-                          (widget.isDarkMode
-                                  ? Colors.grey[850]
-                                  : Colors.grey[300])
-                              ?.withOpacity(0.5),
-                      height: 1,
+                    const SizedBox(height: 6),
+                    _buildLooperSlider(
+                      label: 'Click Volume',
+                      value: clickValue,
+                      min: 0.0,
+                      max: 10.0,
+                      accentColor: looperAccentColor,
+                      isRound: true,
+                      onChanged: (val) {
+                        setState(() {
+                          widget.pedal.parameters[clickPort] = val;
+                        });
+                        widget.webSocketService.setParamValue(
+                          instance: widget.pedal.instance,
+                          port: clickPort,
+                          value: double.parse(val.toStringAsFixed(2)),
+                        );
+                      },
+                      onLabelTap: () {
+                        final double current = clickValue;
+                        double next;
+                        if (current > 0.0) {
+                          _lastNonZeroClickVolume = current;
+                          next = 0.0;
+                        } else {
+                          next = _lastNonZeroClickVolume;
+                        }
+                        setState(() {
+                          widget.pedal.parameters[clickPort] = next;
+                        });
+                        widget.webSocketService.setParamValue(
+                          instance: widget.pedal.instance,
+                          port: clickPort,
+                          value: next,
+                        );
+                      },
                     ),
-                    const SizedBox(height: 12),
-
-                    // Sliders Column at bottom
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildLooperSlider(
-                          label: 'Threshold',
-                          value: thresholdValue,
-                          min: -60.0,
-                          max: 0.0,
-                          valueSuffix: ' dB',
-                          accentColor: looperAccentColor,
-                          // C3: Fix threshold label to stay on one line at fixed size
-                          isThresholdLabel: true,
-                          onChanged: (val) {
-                            setState(() {
-                              widget.pedal.parameters[thresholdPort] = val;
-                            });
-                            widget.webSocketService.setParamValue(
-                              instance: widget.pedal.instance,
-                              port: thresholdPort,
-                              value: double.parse(val.toStringAsFixed(2)),
-                            );
-                          },
-                          onLabelTap: () {
-                            final double current =
-                                widget.pedal.parameters[thresholdPort] ?? -40.0;
-                            double next;
-                            if (current < -50.0) {
-                              next = -40.0;
-                            } else if (current < -20.0) {
-                              next = 0.0;
-                            } else {
-                              next = -60.0;
-                            }
-                            setState(() {
-                              widget.pedal.parameters[thresholdPort] = next;
-                            });
-                            widget.webSocketService.setParamValue(
-                              instance: widget.pedal.instance,
-                              port: thresholdPort,
-                              value: next,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildLooperSlider(
-                          label: 'Mix Setting',
-                          value: mixValue,
-                          min: 0.0,
-                          max: 100.0,
-                          accentColor: looperAccentColor,
-                          onChanged: (val) {
-                            setState(() {
-                              widget.pedal.parameters[mixPort] = val;
-                            });
-                            widget.webSocketService.setParamValue(
-                              instance: widget.pedal.instance,
-                              port: mixPort,
-                              value: double.parse(val.toStringAsFixed(2)),
-                            );
-                          },
-                          onLabelTap: () {
-                            final double current =
-                                widget.pedal.parameters[mixPort] ?? 100.0;
-                            double next;
-                            if (current < 25.0) {
-                              next = 50.0;
-                            } else if (current < 75.0) {
-                              next = 100.0;
-                            } else {
-                              next = 0.0;
-                            }
-                            setState(() {
-                              widget.pedal.parameters[mixPort] = next;
-                            });
-                            widget.webSocketService.setParamValue(
-                              instance: widget.pedal.instance,
-                              port: mixPort,
-                              value: next,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        _buildLooperSlider(
-                          label: 'Click Volume',
-                          value: clickValue,
-                          min: 0.0,
-                          max: 10.0,
-                          accentColor: looperAccentColor,
-                          isRound: true,
-                          onChanged: (val) {
-                            setState(() {
-                              widget.pedal.parameters[clickPort] = val;
-                            });
-                            widget.webSocketService.setParamValue(
-                              instance: widget.pedal.instance,
-                              port: clickPort,
-                              value: double.parse(val.toStringAsFixed(2)),
-                            );
-                          },
-                          onLabelTap: () {
-                            final double current = clickValue;
-                            double next;
-                            if (current > 0.0) {
-                              _lastNonZeroClickVolume = current;
-                              next = 0.0;
-                            } else {
-                              next = _lastNonZeroClickVolume;
-                            }
-                            setState(() {
-                              widget.pedal.parameters[clickPort] = next;
-                            });
-                            widget.webSocketService.setParamValue(
-                              instance: widget.pedal.instance,
-                              port: clickPort,
-                              value: next,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: widget.isDarkMode
-                                      ? Colors.black.withOpacity(0.4)
-                                      : Colors.grey[200],
-                                  foregroundColor: widget.isDarkMode
-                                      ? Colors.white
-                                      : Colors.black,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                    side: BorderSide(
-                                      color: looperAccentColor.withOpacity(0.4),
-                                    ),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    widget.pedal.parameters[clickPort] = 1.0;
-                                  });
-                                  widget.webSocketService.setParamValue(
-                                    instance: widget.pedal.instance,
-                                    port: clickPort,
-                                    value: 1.0,
-                                  );
-                                },
-                                child: const Text(
-                                  'ON',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10,
-                                  ),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.isDarkMode
+                                  ? Colors.black.withOpacity(0.4)
+                                  : Colors.grey[200],
+                              foregroundColor: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                side: BorderSide(
+                                  color: looperAccentColor.withOpacity(0.4),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: widget.isDarkMode
-                                      ? Colors.black.withOpacity(0.4)
-                                      : Colors.grey[200],
-                                  foregroundColor: widget.isDarkMode
-                                      ? Colors.white
-                                      : Colors.black,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                    side: BorderSide(
-                                      color: looperAccentColor.withOpacity(0.4),
-                                    ),
-                                  ),
+                            onPressed: () {
+                              setState(() {
+                                widget.pedal.parameters[clickPort] = 1.0;
+                              });
+                              widget.webSocketService.setParamValue(
+                                instance: widget.pedal.instance,
+                                port: clickPort,
+                                value: 1.0,
+                              );
+                            },
+                            child: const Text(
+                              'ON',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.isDarkMode
+                                  ? Colors.black.withOpacity(0.4)
+                                  : Colors.grey[200],
+                              foregroundColor: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                side: BorderSide(
+                                  color: looperAccentColor.withOpacity(0.4),
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    widget.pedal.parameters[clickPort] = 0.0;
-                                  });
+                              ),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                widget.pedal.parameters[clickPort] = 0.0;
+                              });
+                              widget.webSocketService.setParamValue(
+                                instance: widget.pedal.instance,
+                                port: clickPort,
+                                value: 0.0,
+                              );
+                            },
+                            child: const Text(
+                              'OFF',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: widget.isDarkMode
+                                  ? Colors.black.withOpacity(0.4)
+                                  : Colors.grey[200],
+                              foregroundColor: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                                side: BorderSide(
+                                  color: looperAccentColor.withOpacity(0.4),
+                                ),
+                              ),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                widget.pedal.parameters[clickPort] = 1.0;
+                              });
+                              widget.webSocketService.setParamValue(
+                                instance: widget.pedal.instance,
+                                port: clickPort,
+                                value: 1.0,
+                              );
+                              Future.delayed(
+                                const Duration(milliseconds: 50),
+                                () {
+                                  if (mounted) {
+                                    setState(() {
+                                      widget.pedal.parameters[clickPort] = 0.0;
+                                    });
+                                  }
                                   widget.webSocketService.setParamValue(
                                     instance: widget.pedal.instance,
                                     port: clickPort,
                                     value: 0.0,
                                   );
                                 },
-                                child: const Text(
-                                  'OFF',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10,
-                                  ),
-                                ),
+                              );
+                            },
+                            child: const Text(
+                              'CLICK',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: widget.isDarkMode
-                                      ? Colors.black.withOpacity(0.4)
-                                      : Colors.grey[200],
-                                  foregroundColor: widget.isDarkMode
-                                      ? Colors.white
-                                      : Colors.black,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 4,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                    side: BorderSide(
-                                      color: looperAccentColor.withOpacity(0.4),
-                                    ),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    widget.pedal.parameters[clickPort] = 1.0;
-                                  });
-                                  widget.webSocketService.setParamValue(
-                                    instance: widget.pedal.instance,
-                                    port: clickPort,
-                                    value: 1.0,
-                                  );
-                                  Future.delayed(
-                                    const Duration(milliseconds: 50),
-                                    () {
-                                      if (mounted) {
-                                        setState(() {
-                                          widget.pedal.parameters[clickPort] =
-                                              0.0;
-                                        });
-                                      }
-                                      widget.webSocketService.setParamValue(
-                                        instance: widget.pedal.instance,
-                                        port: clickPort,
-                                        value: 0.0,
-                                      );
-                                    },
-                                  );
-                                },
-                                child: const Text(
-                                  'CLICK',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
