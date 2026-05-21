@@ -128,32 +128,158 @@ Please read and apply .agenrules
 * [x] Color system: drawer tile colors always match workspace card colors; palette expanded to 10 neon colors; new plugins auto-assigned the least-used color; ALO looper treated identically to other plugins.
 * [x] WiFi warning on connect: if WiFi is active when tapping Connect, an amber SnackBar warns that WiFi blocks the USB Ethernet route to MOD Dwarf and instructs the user to turn off WiFi.
 
-### Todo Tasks
-* [ ] If the Wifi is on, offer to turn it off when showing the alert snackbar on connect. The connect button could show a wifi icon as a warning.
-* are you that on loading the different controler are assigned different colors ? I just opened 1.3.2 and they all have the same color, when they all should have a different glow.
-* [ ] Save in a local database the different configuration made for the application (by pedalboard name, as I could switch from a pedalboard to another).
-* [ ] Please add a button to reload the web view, and resize to full screen. Also it would be nice to be able to adjust the separation between the workspace and the web view (sometimes the webview takes more place than needed)
+### Todo Tasks (Grouped by Category)
+
+---
+
+## GROUP A: UI/UX Improvements (High Priority - 6 tasks)
+*Complexity: Low-Medium | Est. Time: 1-2 hours | Suitable for: Simpler models*
+
+### A1. WiFi Auto-Disable on Connect
+* [ ] If WiFi is on, offer to turn it off when showing the alert snackbar on connect.
+* [ ] The connect button could show a wifi icon as a warning.
+
+### A2. WebView Controls Enhancement
+* [ ] Add a button to reload the web view, and resize to full screen.
+* [ ] Add ability to adjust the separation between the workspace and the web view.
+
+### A3. Drawer Scroll Accuracy Fix
 * [ ] Tapping on a controller from the right drawer does not always bring the effect in view by scrolling accurately.
-* [ ] Editing a controller's name by long pressing its name should also allow to change its glow color. In the right drawer, double tapping a tile should toggle its size (compact, regular, expanded).
+
+### A4. Edit Dialog Enhancement
+* [ ] Editing a controller's name by long pressing its name should also allow to change its glow color.
+
+### A5. Drawer Double-Tap Size Toggle
+* [ ] In the right drawer, double tapping a tile should toggle its size (compact, regular, expanded).
+
+### A6. Fader Triangle Drag Speed Fix (Critical UX Bug)
 * [ ] bug: the fader scope triangle does not move as fast as the dragging finger (it runs half the length — unpleasant).
+
+---
+
+## GROUP B: Fader/Automation Enhancements (Medium Priority - 3 tasks)
+*Complexity: Medium | Est. Time: 2-3 hours | Suitable for: Intermediate models*
+
+### B1. Double-Tap Triangle Instant Set
 * [ ] Double tapping on a fader scope triangle sets the gain to that level.
+
+### B2. Beat Bar Visualization
 * [ ] Add vertical Beat bar on the fading curve and the ALO play bar to make timing more visible.
+
+### B3. Fade Transition Precision Fix
+* [ ] Resolve target value landing issues when switching automation effects.
+* [ ] Address fade transition errors where fade does not land exactly on 0 starting from -40dB.
+
+---
+
+## GROUP C: ALO Looper Improvements (Medium Priority - 3 tasks)
+*Complexity: Medium-High | Est. Time: 2-3 hours | Suitable for: Intermediate models*
+
+### C1. ALO Extended Mode Redesign
 * [ ] In Alo extended, on/off/click buttons should target the active looper. One timeline + 6 buttons; tabs above (one per Looper 1–6) showing play/pause state icon.
+
+### C2. ALO Regular Mode Implementation
 * [ ] ALO Regular Mode: quick selector of current looper, small playing bar (recording or playing), and Record / Mute / Clear buttons.
+
+### C3. Threshold Label Fix
 * [ ] In ALO Regular: threshold label should stay on one line at fixed size (currently jumps between 1 and 2 lines depending on dB value).
+
+---
+
+## GROUP D: Data Persistence (High Priority - 1 task)
+*Complexity: High | Est. Time: 3-4 hours | Suitable for: Advanced models*
+
+### D1. Local Database for Pedalboard Configurations
+* [ ] Save in a local database the different configuration made for the application (by pedalboard name, as I could switch from a pedalboard to another).
+
+---
+
+## GROUP E: Code Quality/Technical Debt (Low Priority - 2 tasks)
+*Complexity: Low-Medium | Est. Time: 1-2 hours | Suitable for: Simpler models*
+
+### E1. setInterval Cleanup
+* [ ] Store setInterval IDs in an external array for clean automation cancellation.
+
+### E2. Default Fadeout Values
+* [ ] Map default values for fadeout objects to minimize boilerplate definitions.
+
+---
+
+## GROUP F: Future Enhancements (Low Priority - 9 tasks)
+*Complexity: Varies | Est. Time: Varies | Suitable for: Advanced models*
+
+### F1. Link Maximum Period to Host BPM
+* [ ] Link maximum period length to host BPM (e.g. 2 times 4 bars).
+
+### F2. Optimize Keystroke Handlers
+* [ ] Optimize keystroke handlers inside `TamperMod.user.js` to prevent thread blocking.
+
+### F3. Standardize Background-Position Shifts
+* [ ] Standardize background-position shifts to match exact knob image heights.
+
+### F4. Verify Asset Knob GIFs
+* [ ] Verify that all asset knob GIFs have identical frame-step sizes.
+
+### F5. Pause All Automations Gesture
+* [ ] Implement key gesture to pause all active automations instantly.
+
+### F6. Pedalboard Presets
+* [ ] Add pedalboard presets to store configuration profiles in local browser memory.
+
+### F7. Cross-Fader Transitions
+* [ ] Build cross-fader transitions to toggle between two Gain channels.
+
+### F8. Graphical UI for Button Links
+* [ ] Build a graphical UI inside the web view to configure button links directly.
+
+### F9. MIDI CC Command Mapping
+* [ ] Map midi CC commands directly to web interface parameters.
+
+---
+
+## Completed Tasks (v1.3.2 and earlier)
+* [x] Initialize baseline Flutter controller project setup.
+* [x] Create base Tampermonkey injection script structure.
+* [x] Implement dynamic BPM value reflection in the Flutter UI.
+* [x] Map `pedals_families` object parameters to volume controls.
+* [x] Implement dual-track ALO Looper UI with volume/mix/threshold sliders.
+* [x] Create "Puzzle Organizer" right drawer with tap, double-tap (color picker), long-press drag-and-drop, and visibility via drag between Active Canvas and Available Pool zones.
+* [x] Design bottom toolbar (repositioned above connection bar) with view selectors, radar, refresh, theme toggle, and version display.
+* [x] Integrate dual-layered box-shadow neon glows in WebView.
+* [x] Implement dark/light theme switching and SharedPreferences persistence.
+* [x] Fix control card overflow — Regular card height set to 240px to fully accommodate the fade row.
+* [x] Fix drawer tile layout so two Regular tiles share a row, mirroring the main canvas proportions.
+* [x] Simplify settings drawer by removing open in browser and version banner, and reposition bottom toolbar (UI bar) above connection bar.
+* [x] Implement compact form of Gain card (half-width) with name/size toggle, volume slider/mute toggle, and fade in/out buttons.
+* [x] Map regular Gain card power settings button to toggle mute (software muting) instead of bypass.
+* [x] Map ALO looper click volume slider to discrete 1-10 range in UI.
+* [x] Update ALO looper record logic to send flat 1.0 at start of recording and nothing more.
+* [x] Update ALO looper play/pause logic to send flat 1.0 (play) / 0.0 (pause).
+* [x] Fix compilation error by restoring missing _tapTimes state field.
+* [x] Compact Gain card: Fade IN/OUT buttons stacked vertically (same 110px height), mini range indicator bar beside them.
+* [x] Regular Gain card: remove power button, add speaker mute icon, long-press title = rename, fixed 72px dB box, range mini-indicator in min/max row, size-toggle cycles compact→regular→expanded.
+* [x] Expanded Gain card: RangeSlider for fade start/end cursors, shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders + clipboard EXPORT, live CustomPainter fade visualizer with moving dot (height 520px).
+* [x] Fade engine: uses per-pedal range cursors and selected curve shape (linear/easeInOut/easeIn/easeOut/custom); tracks _fadeProgress for visualizer.
+* [x] Increase card size toggle button size for better finger tap accessibility.
+* [x] Reposition card size toggle button to left of card name in compact/regular/expanded views; position is stable during size changes.
+* [x] Right drawer (puzzle icon) takes whole vertical height so icon is always reachable; tapping puzzle icon again closes the drawer.
+* [x] Tapping reload on the UI bar resyncs all controller cards with the pedalboard (fetches current volume from server).
+* [x] Fix Play Transport icon: was reversed (showing play when stop was active).
+* [x] Gain card fade triangles: outline in different color; lower point on top edge of volume slider.
+* [x] Expanded Gain card: fade range defined with triangles directly on the curve, no separate interface.
+* [x] Fade-in and Fade-out curves reversed (Fade Out starts at 100%).
+* [x] ALO Looper: pausing keeps beat in sync; pause icon changed to mute-style icon.
+* [x] ALO Looper: buttons have more balanced size.
+* [x] ALO Looper: tapping Click Volume toggles between 0 and current volume (mute toggle).
+* [x] ALO Looper: tapping Click Mix Setting cycles 0 → 50 → 100%.
+* [x] ALO Looper: tapping Threshold cycles between minimum, -40 dB, and maximum.
+* [x] ALO Looper: Clear button always available to press.
+* [x] Bug fix: ALO Looper Mute button caused grey screen.
+* [x] ALO Looper extended: three extra buttons — On (send 1), Off (send 0), Click (send 1, wait 50ms, send 0).
+* [x] Drawer icon changed to puzzle piece; tapping it again closes the drawer (no separate close button needed).
+* [x] Complete modular refactoring (v1.3.0): main.dart < 60 lines; all cards, drawers, toolbars, painters, and utilities in dedicated files.
+* [x] Color system: drawer tile colors always match workspace card colors; palette expanded to 10 neon colors; new plugins auto-assigned the least-used color; ALO looper treated identically to other plugins.
+* [x] WiFi warning on connect: if WiFi is active when tapping Connect, an amber SnackBar warns that WiFi blocks the USB Ethernet route to MOD Dwarf and instructs the user to turn off WiFi.
 * [x] Fix drawer tile color: must always match the workspace card color (all plugins treated equally — no type-specific default overrides).
 * [x] Expand neon color palette from 5 to 10 colors for more variety.
 * [x] When a new plugin is added with no saved color, auto-assign the least-used color from the palette.
-* [ ] Resolve target value landing issues when switching automation effects.
-* [ ] Address fade transition errors where fade does not land exactly on 0 starting from -40dB.
-* [ ] Store setInterval IDs in an external array for clean automation cancellation.
-* [ ] Map default values for fadeout objects to minimize boilerplate definitions.
-* [ ] Link maximum period length to host BPM (e.g. 2 times 4 bars).
-* [ ] Optimize keystroke handlers inside `TamperMod.user.js` to prevent thread blocking.
-* [ ] Standardize background-position shifts to match exact knob image heights.
-* [ ] Verify that all asset knob GIFs have identical frame-step sizes.
-* [ ] Implement key gesture to pause all active automations instantly.
-* [ ] Add pedalboard presets to store configuration profiles in local browser memory.
-* [ ] Build cross-fader transitions to toggle between two Gain channels.
-* [ ] Build a graphical UI inside the web view to configure button links directly.
-* [ ] Map midi CC commands directly to web interface parameters.

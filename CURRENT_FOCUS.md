@@ -12,10 +12,14 @@
 - Nothing — v1.3.1 committed.
 
 ## ➡️ Recommended Next Step
-- **Device Testing**: Validate color consistency on Pixel Tablet (drawer tiles match workspace cards).
+- **SPECIFICATION.md Reorganized**: All 24 pending tasks now grouped into 6 categories (A-F) for easier assignment to different AI models.
 - **Next Feature** (from `SPECIFICATION.md` §4 Todo):
-  - Add a button to reload the WebView (most impactful UX item remaining).
-  - Fix fader scope triangle drag speed (runs at half rate).
+  - **GROUP A** (UI/UX - 6 tasks): Best for simpler models - WebView controls, drawer fixes, dialog enhancements
+  - **GROUP B** (Fader - 3 tasks): Medium complexity - triangle drag fix, beat bars, precision fixes
+  - **GROUP C** (ALO - 3 tasks): Medium-high complexity - extended mode, regular mode, label fixes
+  - **GROUP D** (Database - 1 task): High complexity - local database for pedalboard configs
+  - **GROUP E** (Tech Debt - 2 tasks): Low complexity - setInterval cleanup, default values
+  - **GROUP F** (Future - 9 tasks): Varies - BPM linking, MIDI, presets, cross-fader
 
 ## 📋 Quick Context
 - **Connected device:** Pixel Tablet via ADB
