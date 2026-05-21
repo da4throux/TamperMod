@@ -127,6 +127,11 @@ Please read and apply .agenrules
 * [ ] Editting a controler s name by long pressing its name should also allow to change its glow. Then in the right drawer, double tapping a small type toggle its size (available: compact, regular, extended). ALO Looper glow is counted twice.
 * [x] changing the icon to open the drawer to a puzzle (better than setting), remove "workspace settings, from the top. Re-taping the new puzzle icon close the drawer.
 * [x] The same puzzle icon which is used to open the drawer, can be tap again when the drawer is open to clos it, no need for the cross in the top right corner of the drawer. the drawer.
+* [ ] bug: the fader scope triangle, do not move as fast the finger dragging it (it runs half the length, which is unpleasant)
+* [ ] double tapping on a fader scope triangle, set the gain to that level
+* [ ] Add vertical Beat bar on the fading curve, and the alo play to make it more visible
+* [ ] In Alo extended, there was a misunderstanding for on/off/click buttons, They should be focused on the active looper. (turn the looper button 1, off, and on / off). There should be only one timeline and buttons set (6 buttons) displayed, and above a tab for each Looper (from 1 to 6), to display the timeline and the concerned buttons. A tab should display a specific icon if is playing, or on pause.
+* [ ] Alo in Regular Mode: quick selector of the current looper, small playing bar (for recording or playing), and record / mute / clear buttons
 * [ ] Resolve target value landing issues when switching automation effects.
 * [ ] Address fade transition errors where fade does not land exactly on 0 starting from -40dB.
 * [ ] Store setInterval IDs in an external array for clean automation cancellation.
