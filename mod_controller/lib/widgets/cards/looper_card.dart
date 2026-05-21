@@ -76,7 +76,8 @@ class _LooperCardState extends State<LooperCard> {
             _findPortSymbol(widget.pedal, 'dry') ??
             'mix';
 
-        final double thresholdValue = widget.pedal.parameters[thresholdPort] ?? -40.0;
+        final double thresholdValue =
+            widget.pedal.parameters[thresholdPort] ?? -40.0;
         final double clickValue = widget.pedal.parameters[clickPort] ?? 0.0;
         final double mixValue = widget.pedal.parameters[mixPort] ?? 50.0;
 
@@ -152,8 +153,11 @@ class _LooperCardState extends State<LooperCard> {
                               ),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
-                              onPressed: () =>
-                                  ModuleHelpSheet.show(context, 'looper', widget.isDarkMode),
+                              onPressed: () => ModuleHelpSheet.show(
+                                context,
+                                'looper',
+                                widget.isDarkMode,
+                              ),
                             ),
                           ],
                         ),
@@ -167,7 +171,9 @@ class _LooperCardState extends State<LooperCard> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: widget.isDarkMode ? Colors.black : Colors.grey[200],
+                        color: widget.isDarkMode
+                            ? Colors.black
+                            : Colors.grey[200],
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
                           color: primaryThemeColor.withOpacity(0.3),
@@ -198,8 +204,9 @@ class _LooperCardState extends State<LooperCard> {
                 ),
                 const SizedBox(height: 8),
                 Divider(
-                  color: (widget.isDarkMode ? Colors.grey[850] : Colors.grey[300])
-                      ?.withOpacity(0.5),
+                  color:
+                      (widget.isDarkMode ? Colors.grey[850] : Colors.grey[300])
+                          ?.withOpacity(0.5),
                   height: 1,
                 ),
                 const SizedBox(height: 8),
@@ -231,7 +238,9 @@ class _LooperCardState extends State<LooperCard> {
                     const SizedBox(height: 12),
                     Divider(
                       color:
-                          (widget.isDarkMode ? Colors.grey[850] : Colors.grey[300])
+                          (widget.isDarkMode
+                                  ? Colors.grey[850]
+                                  : Colors.grey[300])
                               ?.withOpacity(0.5),
                       height: 1,
                     ),
@@ -248,6 +257,8 @@ class _LooperCardState extends State<LooperCard> {
                           max: 0.0,
                           valueSuffix: ' dB',
                           accentColor: looperAccentColor,
+                          // C3: Fix threshold label to stay on one line at fixed size
+                          isThresholdLabel: true,
                           onChanged: (val) {
                             setState(() {
                               widget.pedal.parameters[thresholdPort] = val;
@@ -259,7 +270,8 @@ class _LooperCardState extends State<LooperCard> {
                             );
                           },
                           onLabelTap: () {
-                            final double current = widget.pedal.parameters[thresholdPort] ?? -40.0;
+                            final double current =
+                                widget.pedal.parameters[thresholdPort] ?? -40.0;
                             double next;
                             if (current < -50.0) {
                               next = -40.0;
@@ -296,7 +308,8 @@ class _LooperCardState extends State<LooperCard> {
                             );
                           },
                           onLabelTap: () {
-                            final double current = widget.pedal.parameters[mixPort] ?? 100.0;
+                            final double current =
+                                widget.pedal.parameters[mixPort] ?? 100.0;
                             double next;
                             if (current < 25.0) {
                               next = 50.0;
@@ -362,9 +375,12 @@ class _LooperCardState extends State<LooperCard> {
                                   backgroundColor: widget.isDarkMode
                                       ? Colors.black.withOpacity(0.4)
                                       : Colors.grey[200],
-                                  foregroundColor:
-                                      widget.isDarkMode ? Colors.white : Colors.black,
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  foregroundColor: widget.isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                     side: BorderSide(
@@ -398,9 +414,12 @@ class _LooperCardState extends State<LooperCard> {
                                   backgroundColor: widget.isDarkMode
                                       ? Colors.black.withOpacity(0.4)
                                       : Colors.grey[200],
-                                  foregroundColor:
-                                      widget.isDarkMode ? Colors.white : Colors.black,
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  foregroundColor: widget.isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                     side: BorderSide(
@@ -434,9 +453,12 @@ class _LooperCardState extends State<LooperCard> {
                                   backgroundColor: widget.isDarkMode
                                       ? Colors.black.withOpacity(0.4)
                                       : Colors.grey[200],
-                                  foregroundColor:
-                                      widget.isDarkMode ? Colors.white : Colors.black,
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
+                                  foregroundColor: widget.isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                     side: BorderSide(
@@ -453,18 +475,22 @@ class _LooperCardState extends State<LooperCard> {
                                     port: clickPort,
                                     value: 1.0,
                                   );
-                                  Future.delayed(const Duration(milliseconds: 50), () {
-                                    if (mounted) {
-                                      setState(() {
-                                        widget.pedal.parameters[clickPort] = 0.0;
-                                      });
-                                    }
-                                    widget.webSocketService.setParamValue(
-                                      instance: widget.pedal.instance,
-                                      port: clickPort,
-                                      value: 0.0,
-                                    );
-                                  });
+                                  Future.delayed(
+                                    const Duration(milliseconds: 50),
+                                    () {
+                                      if (mounted) {
+                                        setState(() {
+                                          widget.pedal.parameters[clickPort] =
+                                              0.0;
+                                        });
+                                      }
+                                      widget.webSocketService.setParamValue(
+                                        instance: widget.pedal.instance,
+                                        port: clickPort,
+                                        value: 0.0,
+                                      );
+                                    },
+                                  );
                                 },
                                 child: const Text(
                                   'CLICK',
@@ -632,7 +658,9 @@ class _LooperCardState extends State<LooperCard> {
                   backgroundColor: widget.isDarkMode
                       ? Colors.black.withOpacity(0.4)
                       : Colors.grey[200],
-                  foregroundColor: widget.isDarkMode ? Colors.white : Colors.black,
+                  foregroundColor: widget.isDarkMode
+                      ? Colors.white
+                      : Colors.black,
                   disabledForegroundColor: Colors.grey[600],
                   disabledBackgroundColor: widget.isDarkMode
                       ? Colors.black.withOpacity(0.2)
@@ -641,7 +669,9 @@ class _LooperCardState extends State<LooperCard> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
                     side: BorderSide(
-                      color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                      color: widget.isDarkMode
+                          ? Colors.grey[800]!
+                          : Colors.grey[400]!,
                     ),
                   ),
                 ),
@@ -651,7 +681,9 @@ class _LooperCardState extends State<LooperCard> {
                     ? () => widget.looperController.playLoop(loopNum)
                     : null,
                 icon: Icon(
-                  (state == LooperState.paused) ? Icons.play_arrow : Icons.volume_off,
+                  (state == LooperState.paused)
+                      ? Icons.play_arrow
+                      : Icons.volume_off,
                   size: 12,
                 ),
                 label: Text(
@@ -677,19 +709,14 @@ class _LooperCardState extends State<LooperCard> {
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
-                    side: const BorderSide(
-                      color: Colors.amber,
-                    ),
+                    side: const BorderSide(color: Colors.amber),
                   ),
                 ),
                 onPressed: () => widget.looperController.clearLoop(loopNum),
                 icon: const Icon(Icons.delete_outline, size: 12),
                 label: const Text(
                   'CLEAR',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
                 ),
               ),
             ),
@@ -709,13 +736,14 @@ class _LooperCardState extends State<LooperCard> {
     String valueSuffix = '',
     bool isPercentage = false,
     bool isRound = false,
+    bool isThresholdLabel = false,
     VoidCallback? onLabelTap,
   }) {
     final displayValue = isPercentage
         ? (value * 100).toStringAsFixed(0) + '%'
         : isRound
-            ? value.round().toString() + valueSuffix
-            : value.toStringAsFixed(1) + valueSuffix;
+        ? value.round().toString() + valueSuffix
+        : value.toStringAsFixed(1) + valueSuffix;
     return Row(
       children: [
         GestureDetector(
@@ -725,6 +753,8 @@ class _LooperCardState extends State<LooperCard> {
             width: 90,
             child: Text(
               label,
+              maxLines: isThresholdLabel ? 1 : null,
+              overflow: isThresholdLabel ? TextOverflow.ellipsis : null,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -779,12 +809,16 @@ class _LooperCardState extends State<LooperCard> {
     final state = widget.looperController.getState(loopNum);
     final progress = widget.looperController.getSweepProgress(loopNum);
     final currentBar = widget.looperController.getCurrentBar(loopNum);
-    final currentBeatIndex = widget.looperController.getCurrentBeatIndex(loopNum);
+    final currentBeatIndex = widget.looperController.getCurrentBeatIndex(
+      loopNum,
+    );
 
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: widget.isDarkMode ? Colors.black.withOpacity(0.5) : Colors.grey[200],
+        color: widget.isDarkMode
+            ? Colors.black.withOpacity(0.5)
+            : Colors.grey[200],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: widget.isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
