@@ -1,17 +1,16 @@
 # TamperMod — Current Focus
 
-## ✅ Last Completed (v1.2.12)
-- **Phase 5 Refactoring**: Extracted `MetricsDrawer` and `SettingsDrawer` to `lib/widgets/drawers/`.
-- **Settings Drawer Optimization**: Right drawer now occupies the full vertical height of the screen and embeds a mirroring puzzle toggle button in its header, matching the AppBar action button.
-- **Cleanup**: Removed redundant drawer builder methods and fixed unused elements/warnings in `main.dart`.
-- **Version Bump**: Synced application version to `1.2.12` in `main.dart` and `pubspec.yaml`.
+## ✅ Last Completed (v1.2.13)
+- **Phase 6 Refactoring**: Extracted all card widgets (`BaseCard`, `PlaceholderCard`, `SwitchCard`, `GainCard`, and `LooperCard`) to `lib/widgets/cards/`.
+- **Cleanup**: Removed redundant card builder helper methods from `main.dart`.
+- **Version Bump**: Synced application version to `1.2.13` in `main.dart` and `pubspec.yaml`.
 
 ## 🔧 Currently In Progress
-None.
+- **Phase 7 Refactoring**: Extracting the `DashboardScreen` and its state to `lib/screens/dashboard_screen.dart`.
 
 ## ➡️ Recommended Next Step
-- **Gain Controller Polish**: Implement outlines for fade triangles and reposition the lower point of the triangle on the top edge of the volume slider.
+- **Dashboard Screen Extraction**: Move the massive `DashboardScreen` widget out of `main.dart` and clean up `main.dart` to contain only the app entry point.
 
 ## 📋 Quick Context
 - **Connected device:** Pixel Tablet via ADB.
-- **App Version:** v1.2.12 (dynamically matches `main.dart` and `pubspec.yaml`).
+- **App Version:** v1.2.13 (dynamically matches `main.dart` and `pubspec.yaml`).

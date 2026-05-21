@@ -14,12 +14,16 @@ class RangeOverlayPainter extends CustomPainter {
   final double rangeStart;
   final double rangeEnd;
   final double thumbPadding;
+  final double trackHeight;
+  final bool isDarkMode;
 
   RangeOverlayPainter({
     required this.accentColor,
     required this.rangeStart,
     required this.rangeEnd,
     required this.thumbPadding,
+    required this.trackHeight,
+    required this.isDarkMode,
   });
 
   @override
@@ -27,32 +31,49 @@ class RangeOverlayPainter extends CustomPainter {
     final double trackW = size.width - 2 * thumbPadding;
     if (trackW <= 0) return;
     final double cy = size.height / 2;
+    final double tipY = cy - (trackHeight / 2);
     final double x1 = thumbPadding + rangeStart * trackW;
     final double x2 = thumbPadding + rangeEnd * trackW;
 
-    // Highlighted zone between cursors
+    // Highlighted zone between cursors (over the track)
     canvas.drawRect(
-      Rect.fromLTRB(x1, cy - 7, x2, cy + 7),
+      Rect.fromLTRB(x1, tipY, x2, tipY + trackHeight),
       Paint()
         ..color = accentColor.withOpacity(0.18)
         ..style = PaintingStyle.fill,
     );
 
-    // Downward-pointing triangle (tip at track centre)
+    // Downward-pointing triangle (tip at top edge of track)
     void drawCursor(double x) {
       final double h = (size.height * 0.38).clamp(6.0, 14.0);
       final double w = h * 0.75;
+      
+      final path = Path()
+        ..moveTo(x, tipY) // tip
+        ..lineTo(x - w, tipY - h) // upper-left
+        ..lineTo(x + w, tipY - h) // upper-right
+        ..close();
+
+      // Fill
       canvas.drawPath(
-        Path()
-          ..moveTo(x, cy) // tip
-          ..lineTo(x - w, cy - h) // upper-left
-          ..lineTo(x + w, cy - h) // upper-right
-          ..close(),
-        Paint()..color = accentColor,
+        path,
+        Paint()
+          ..color = accentColor
+          ..style = PaintingStyle.fill,
       );
+
+      // Outline (contrasting color)
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = isDarkMode ? Colors.white : Colors.black87
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+
       // Thin stem to top of widget
       canvas.drawLine(
-        Offset(x, cy - h),
+        Offset(x, tipY - h),
         Offset(x, 0),
         Paint()
           ..color = accentColor.withOpacity(0.35)
@@ -69,6 +90,8 @@ class RangeOverlayPainter extends CustomPainter {
     return oldDelegate.rangeStart != rangeStart ||
         oldDelegate.rangeEnd != rangeEnd ||
         oldDelegate.accentColor != accentColor ||
-        oldDelegate.thumbPadding != thumbPadding;
+        oldDelegate.thumbPadding != thumbPadding ||
+        oldDelegate.trackHeight != trackHeight ||
+        oldDelegate.isDarkMode != isDarkMode;
   }
 }

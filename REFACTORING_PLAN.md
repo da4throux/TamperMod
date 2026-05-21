@@ -12,13 +12,13 @@
 - Inconsistent card structure compared to Gain/Switch cards
 
 **Tasks:**
-- [ ] Add greyed-out size toggle button to ALO looper card header (left of title, matching Gain/Switch position)
-- [ ] Treat ALO looper as single controller in `_enabledPluginInstances` (currently may be duplicated)
-- [ ] Ensure ALO looper uses single glow color assignment (not two separate glows)
-- [ ] Update `_buildLooperControlPanel()` to match standard card header structure:
+- [x] Add greyed-out size toggle button to ALO looper card header (left of title, matching Gain/Switch position)
+- [x] Treat ALO looper as single controller in `_enabledPluginInstances` (currently may be duplicated)
+- [x] Ensure ALO looper uses single glow color assignment (not two separate glows)
+- [x] Update `_buildLooperControlPanel()` to match standard card header structure:
   - Size toggle (greyed, non-functional) | Title | Help icon | BPM badge
-- [ ] Test that ALO appears once in puzzle organizer drawer
-- [ ] Verify single glow color persists for ALO in settings
+- [x] Test that ALO appears once in puzzle organizer drawer
+- [x] Verify single glow color persists for ALO in settings
 
 **Acceptance Criteria:**
 - ALO looper card has same header structure as Gain/Switch cards
@@ -71,9 +71,9 @@ mod_controller/lib/
 ```
 
 **Tasks:**
-- [ ] Create all directories
-- [ ] Create empty placeholder files with TODO comments
-- [ ] Add copyright/license headers to each file
+- [x] Create all directories
+- [x] Create empty placeholder files with TODO comments
+- [x] Add copyright/license headers to each file
 
 ---
 
@@ -85,10 +85,10 @@ mod_controller/lib/
 - `_CustomSCurve` class (lines ~18-35)
 
 **Tasks:**
-- [ ] Create `curves.dart`
-- [ ] Move `_CustomSCurve` class
-- [ ] Add imports to `main.dart`
-- [ ] Test compilation
+- [x] Create `curves.dart`
+- [x] Move `_CustomSCurve` class
+- [x] Add imports to `main.dart`
+- [x] Test compilation
 
 ### 2.2 Extract Color Utilities
 **File:** `lib/utils/color_utils.dart`
@@ -98,10 +98,10 @@ mod_controller/lib/
 - Any other color helper functions
 
 **Tasks:**
-- [ ] Create `color_utils.dart`
-- [ ] Move color utilities
-- [ ] Add imports to `main.dart`
-- [ ] Test compilation
+- [x] Create `color_utils.dart`
+- [x] Move color utilities
+- [x] Add imports to `main.dart`
+- [x] Test compilation
 
 ### 2.3 Extract Painters
 **Files:** 
@@ -115,11 +115,11 @@ mod_controller/lib/
 - `_RangeOverlayPainter` class (~252-310)
 
 **Tasks:**
-- [ ] Create painter files
-- [ ] Move each painter class
-- [ ] Add necessary imports (Flutter material, curves)
-- [ ] Update imports in `main.dart`
-- [ ] Test compilation
+- [x] Create painter files
+- [x] Move each painter class
+- [x] Add necessary imports (Flutter material, curves)
+- [x] Update imports in `main.dart`
+- [x] Test compilation
 
 ---
 
@@ -131,11 +131,11 @@ mod_controller/lib/
 - `_buildFadeButton()` method logic
 
 **Tasks:**
-- [ ] Create stateless widget `FadeButton`
-- [ ] Move button building logic
-- [ ] Add parameters: label, icon, isBypassed, onTap, accentColor, isFading, isCompact
-- [ ] Replace all `_buildFadeButton()` calls with `FadeButton` widget
-- [ ] Test compilation
+- [x] Create stateless widget `FadeButton`
+- [x] Move button building logic
+- [x] Add parameters: label, icon, isBypassed, onTap, accentColor, isFading, isCompact
+- [x] Replace all `_buildFadeButton()` calls with `FadeButton` widget
+- [x] Test compilation
 
 ### 3.2 Extract Size Toggle Button
 **File:** `lib/widgets/common/size_toggle_button.dart`
@@ -143,10 +143,10 @@ mod_controller/lib/
 - `buildSizeToggle()` method logic from gain card
 
 **Tasks:**
-- [ ] Create stateless widget `SizeToggleButton`
-- [ ] Add parameters: instanceId, currentSize, accentColor, onTap, isEnabled
-- [ ] Replace all size toggle building code
-- [ ] Test compilation
+- [x] Create stateless widget `SizeToggleButton`
+- [x] Add parameters: instanceId, currentSize, accentColor, onTap, isEnabled
+- [x] Replace all size toggle building code
+- [x] Test compilation
 
 ### 3.3 Extract Module Help Sheet
 **File:** `lib/widgets/common/module_help_sheet.dart`
@@ -155,10 +155,10 @@ mod_controller/lib/
 - `_buildHelpSectionHeader()` method
 
 **Tasks:**
-- [ ] Create `ModuleHelpSheet` class with static `show()` method
-- [ ] Move help sheet logic
-- [ ] Update all calls to use new class
-- [ ] Test compilation
+- [x] Create `ModuleHelpSheet` class with static `show()` method
+- [x] Move help sheet logic
+- [x] Update all calls to use new class
+- [x] Test compilation
 
 ---
 
@@ -213,11 +213,11 @@ mod_controller/lib/
 - `_buildLeftDrawerTile()` method
 
 **Tasks:**
-- [ ] Create stateless widget `MetricsDrawer`
-- [ ] Move left drawer logic
-- [ ] Pass required state and callbacks
-- [ ] Replace in Scaffold drawer
-- [ ] Test compilation
+- [x] Create stateless widget `MetricsDrawer`
+- [x] Move left drawer logic
+- [x] Pass required state and callbacks
+- [x] Replace in Scaffold drawer
+- [x] Test compilation
 
 ### 5.2 Extract Settings Drawer (Puzzle Organizer)
 **File:** `lib/widgets/drawers/settings_drawer.dart`
@@ -227,11 +227,11 @@ mod_controller/lib/
 - `_buildMiniPuzzleTile()` method
 
 **Tasks:**
-- [ ] Create stateful widget `SettingsDrawer`
-- [ ] Move right drawer logic
-- [ ] Pass required state and callbacks
-- [ ] Replace in Scaffold endDrawer
-- [ ] Test compilation and drag-drop functionality
+- [x] Create stateful widget `SettingsDrawer`
+- [x] Move right drawer logic
+- [x] Pass required state and callbacks
+- [x] Replace in Scaffold endDrawer
+- [x] Test compilation and drag-drop functionality
 
 ---
 
@@ -242,10 +242,10 @@ mod_controller/lib/
 **Purpose:** Shared card shell with glow, border, padding
 
 **Tasks:**
-- [ ] Create `BaseCard` widget
-- [ ] Extract common card decoration logic
-- [ ] Add parameters: child, glowColor, isBypassed, onLongPress
-- [ ] Test with one card type
+- [x] Create `BaseCard` widget
+- [x] Extract common card decoration logic
+- [x] Add parameters: child, glowColor, isBypassed, onLongPress
+- [x] Test with one card type
 
 ### 6.2 Extract Placeholder Card
 **File:** `lib/widgets/cards/placeholder_card.dart`
@@ -253,11 +253,11 @@ mod_controller/lib/
 - `_buildPlaceholderCard()` method
 
 **Tasks:**
-- [ ] Create stateless widget `PlaceholderCard`
-- [ ] Move placeholder card logic
-- [ ] Use `BaseCard` wrapper
-- [ ] Replace in `_buildUnifiedControlsList()`
-- [ ] Test compilation
+- [x] Create stateless widget `PlaceholderCard`
+- [x] Move placeholder card logic
+- [x] Use `BaseCard` wrapper
+- [x] Replace in `_buildUnifiedControlsList()`
+- [x] Test compilation
 
 ### 6.3 Extract Switch Card
 **File:** `lib/widgets/cards/switch_card.dart`
@@ -267,12 +267,12 @@ mod_controller/lib/
 - `_setSwitchPath()` method
 
 **Tasks:**
-- [ ] Create stateful widget `SwitchCard`
-- [ ] Move switch card logic
-- [ ] Use `BaseCard` wrapper
-- [ ] Pass required state and callbacks
-- [ ] Replace in `_buildUnifiedControlsList()`
-- [ ] Test compilation and functionality
+- [x] Create stateful widget `SwitchCard`
+- [x] Move switch card logic
+- [x] Use `BaseCard` wrapper
+- [x] Pass required state and callbacks
+- [x] Replace in `_buildUnifiedControlsList()`
+- [x] Test compilation and functionality
 
 ### 6.4 Extract Gain Card
 **File:** `lib/widgets/cards/gain_card.dart`
@@ -282,14 +282,14 @@ mod_controller/lib/
 - All gain card helper methods
 
 **Tasks:**
-- [ ] Create stateful widget `GainCard`
-- [ ] Move all gain card logic (compact, regular, expanded)
-- [ ] Use `BaseCard` wrapper
-- [ ] Use extracted painters and common widgets
-- [ ] Pass required state and callbacks
-- [ ] Replace in `_buildUnifiedControlsList()`
-- [ ] Test compilation and all three size modes
-- [ ] Test fade functionality
+- [x] Create stateful widget `GainCard`
+- [x] Move all gain card logic (compact, regular, expanded)
+- [x] Use `BaseCard` wrapper
+- [x] Use extracted painters and common widgets
+- [x] Pass required state and callbacks
+- [x] Replace in `_buildUnifiedControlsList()`
+- [x] Test compilation and all three size modes
+- [x] Test fade functionality
 
 ### 6.5 Extract Looper Card
 **File:** `lib/widgets/cards/looper_card.dart`
@@ -302,13 +302,13 @@ mod_controller/lib/
 - `_findPortSymbol()` method
 
 **Tasks:**
-- [ ] Create stateful widget `LooperCard`
-- [ ] Move all looper logic
-- [ ] Use `BaseCard` wrapper
-- [ ] Ensure standardized header with greyed size toggle
-- [ ] Pass required state and callbacks
-- [ ] Replace in `_buildUnifiedControlsList()`
-- [ ] Test compilation and all looper functionality
+- [x] Create stateful widget `LooperCard`
+- [x] Move all looper logic
+- [x] Use `BaseCard` wrapper
+- [x] Ensure standardized header with greyed size toggle
+- [x] Pass required state and callbacks
+- [x] Replace in `_buildUnifiedControlsList()`
+- [x] Test compilation and all looper functionality
 
 ---
 

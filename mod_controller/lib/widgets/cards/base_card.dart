@@ -1,27 +1,23 @@
 // Copyright (c) 2026 TamperMod Contributors
 // Licensed under the MIT License
 //
-// TODO: Create shared card shell with glow, border, padding
+// Shared card shell with glow, border, padding
 
 import 'package:flutter/material.dart';
 
 /// Base card widget providing shared styling and glow effects
-///
-/// TODO: Extract common card decoration logic:
-/// - Glow color configuration
-/// - Border styling
-/// - Box shadow effects
-/// - Padding and border radius
 class BaseCard extends StatelessWidget {
   final Widget child;
   final Color glowColor;
   final bool isBypassed;
+  final bool isDarkMode;
   final VoidCallback? onLongPress;
 
   const BaseCard({
     super.key,
     required this.child,
     required this.glowColor,
+    required this.isDarkMode,
     this.isBypassed = false,
     this.onLongPress,
   });
@@ -34,7 +30,7 @@ class BaseCard extends StatelessWidget {
         opacity: isBypassed ? 0.70 : 1.0,
         child: Container(
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: isDarkMode ? const Color(0xFF161B22) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: glowColor.withOpacity(isBypassed ? 0.25 : 0.6),
@@ -47,7 +43,9 @@ class BaseCard extends StatelessWidget {
                 spreadRadius: 2,
               ),
               BoxShadow(
-                color: glowColor.withOpacity(isBypassed ? 0.0 : 0.20),
+                color: glowColor.withOpacity(
+                  isBypassed ? 0.0 : (isDarkMode ? 0.20 : 0.35),
+                ),
                 blurRadius: 80,
                 spreadRadius: 2,
               ),
