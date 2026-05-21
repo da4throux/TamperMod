@@ -110,6 +110,7 @@ Please read and apply .agenrules
 ### Todo Tasks
 * [x] Tapping reload on the UI bar (next to radar) should resync all the controler cards with the pedal board. If I change the volume of a gain directly on the pedalboard, it does not update on its control card, while having a regular polling could be a solution, as first step the reload should resync and fetch the new volume.
 * [x] The Play Transport is not well fetched (shown as play when is stop in the pedalboard interface)
+* [ ] The Play Transport is well fetched and updated but the icon is reversed (showing play when it is actually stop that was selected)
 * [ ] For Gain controler, the fade triangles should have an outline (different color than the glow), the lower point of the triangle should be on the top edge of the volume slider (not in the middle of the slider)
 * [ ] For Gain Controler, in extended mode, the fade range should be defined with triangles, no need for a separate interface
 * [x] The Fade-in and Fade-out curves should be reversed (starting at 100% for a Fade Out)
@@ -118,9 +119,13 @@ Please read and apply .agenrules
 * [x] In Alo looper, tapping Click Volume toggles to 0 and the current volume (kind of a mute)
 * [x] In Alo looper, tapping Click Mix Setting toggles between 0, 50, and 100%
 * [x] In Alo looper, tapping Threshold toggles betwen the minimu, -40dB and the maximum
+* [ ] In Alo looper, the clear button should always be available to press
+* [ ] Bug: In Alo looper, pressing Mute made a grey screen.
+* [ ] In Alo looper extended, add three buttons: on (send a 1), off (send a 0), click (send a 1, wait 50ms and send a 0)
 * [ ] tapping on a controler from the right drawer does not always bring the effect in view by scrolling accurately.
 * [ ] Editting a controler s name by long pressing its name should also allow to change its glow. Then in the right drawer, double tapping a small type toggle its size (available: compact, regular, extended). ALO Looper glow is counted twice.
 * [x] changing the icon to open the drawer to a puzzle (better than setting), remove "workspace settings, from the top. Re-taping the new puzzle icon close the drawer.
+* [ ] The same puzzle icon which is used to open the drawer, can be tap again when the drawer is open to clos it, no need for the cross in the top right corner of the drawer.
 * [ ] Resolve target value landing issues when switching automation effects.
 * [ ] Address fade transition errors where fade does not land exactly on 0 starting from -40dB.
 * [ ] Store setInterval IDs in an external array for clean automation cancellation.
