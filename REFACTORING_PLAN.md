@@ -170,11 +170,11 @@ mod_controller/lib/
 - `_buildBpmControllerWidget()` method
 
 **Tasks:**
-- [ ] Create stateful widget `BpmController`
-- [ ] Move BPM widget logic
-- [ ] Pass required callbacks and state
-- [ ] Replace in AppBar and inline widget
-- [ ] Test compilation
+- [x] Create stateful widget `BpmController`
+- [x] Move BPM widget logic
+- [x] Pass required callbacks and state
+- [x] Replace in AppBar and inline widget
+- [x] Test compilation
 
 ### 4.2 Extract Bottom Toolbar
 **File:** `lib/widgets/toolbars/bottom_toolbar.dart`
@@ -183,11 +183,11 @@ mod_controller/lib/
 - `_buildLayoutButton()` method
 
 **Tasks:**
-- [ ] Create stateless widget `BottomToolbar`
-- [ ] Move toolbar logic
-- [ ] Pass required state and callbacks
-- [ ] Replace in dashboard
-- [ ] Test compilation
+- [x] Create stateless widget `BottomToolbar`
+- [x] Move toolbar logic
+- [x] Pass required state and callbacks
+- [x] Replace in dashboard
+- [x] Test compilation
 
 ### 4.3 Extract Connection Panel
 **File:** `lib/widgets/toolbars/connection_panel.dart`
@@ -195,11 +195,11 @@ mod_controller/lib/
 - `_buildConnectionPanel()` method
 
 **Tasks:**
-- [ ] Create stateless widget `ConnectionPanel`
-- [ ] Move connection panel logic
-- [ ] Pass required state and callbacks
-- [ ] Replace in dashboard
-- [ ] Test compilation
+- [x] Create stateless widget `ConnectionPanel`
+- [x] Move connection panel logic
+- [x] Pass required state and callbacks
+- [x] Replace in dashboard
+- [x] Test compilation
 
 ---
 

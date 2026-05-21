@@ -98,7 +98,7 @@ class ModuleHelpSheet {
                             Icons.close,
                             color: isDarkMode
                                 ? Colors.grey[500]
-                                : Colors.grey[750],
+                                : Colors.grey[700],
                           ),
                           onPressed: () => Navigator.pop(context),
                         ),
@@ -276,7 +276,7 @@ class ModuleHelpSheet {
                               fontFamily: 'monospace',
                               color: isDarkMode
                                   ? Colors.grey[400]
-                                  : Colors.grey[750],
+                                  : Colors.grey[700],
                             ),
                           ),
                         ),
