@@ -1,5 +1,18 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.12)
+- **ALO Looper On/Off/Click Buttons Fixed**:
+  - ON button: Now properly sets loop to playing state with green visual feedback
+  - OFF button: Pauses/mutes the loop with grey visual feedback
+  - CLICK button: Uses manualTrigger() to simulate foot switch tap
+  - All buttons now integrate with LooperController for proper state management
+  - Visual feedback shows current state (playing = green highlight, paused = grey highlight)
+
+- **Regular Mode Confirmed Working**:
+  - LooperRegularCard exists and is fully functional
+  - Size toggle properly switches between 'expanded' and 'regular' modes
+  - Dashboard correctly renders both card types based on _pedalSizes setting
+
 ## ✅ Completed (v1.3.11)
 - **Beat Bar & Beat Dot Visualization Fixes**:
   - Fixed beat bar separators: 3 lines for 4 bars (not 5)
@@ -19,12 +32,6 @@
   - Gain dB value and mute button displayed below slider
   - Fade IN and Fade OUT buttons use full width (stacked vertically)
 
-- **ALO Extended Mode On/Off/Click Buttons Fixed**:
-  - Positioned below Record/Mute/Clear action row
-  - Buttons target the selected loop (send to loop1-6 ports)
-  - ON: sends 1.0 | OFF: sends 0.0 | CLICK: sends 1.0, waits 50ms, sends 0.0
-  - Port naming corrected from `loop_X` to `loopX` format
-
 ## 📋 Remaining Tasks
 - **GROUP A Task A2**: WebView Controls Enhancement
 - **GROUP D Task D1**: Local Database for Pedalboard Configurations
@@ -32,7 +39,7 @@
 - **GROUP F Tasks**: Future enhancements
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.11 (final)
-- **Last commit:** Claude-Haiku-4.5(v1.3.11) - On/Off/Click button port fixes
+- **App Version:** v1.3.12
+- **Last commit:** Claude-3.5-Sonnet(v1.3.12) - ALO looper On/Off/Click button fixes
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All v1.3.11 features complete and fully functional
+- **Status:** All v1.3.12 features complete and fully functional
