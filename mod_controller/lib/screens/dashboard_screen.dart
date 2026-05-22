@@ -174,6 +174,77 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  void _injectBpmMonitor() {
+    const String jsCode = r'''
+      (function() {
+        function getBpmValue() {
+          const selectors = [
+            '.bpm', '.tempo', '#bpm', '.bpm-value', '.tempo-value',
+            '.status-bar-bpm', '.footer-bpm', '.status-bpm',
+            'span[data-bind*="bpm"]', 'div[data-bind*="bpm"]'
+          ];
+          for (let selector of selectors) {
+            const el = document.querySelector(selector);
+            if (el && el.textContent) {
+              const txt = el.textContent.trim();
+              const match = txt.match(/\b([0-9]{2,3}(?:\.[0-9]+)?)\b/);
+              if (match) {
+                return parseFloat(match[1]);
+              }
+            }
+          }
+
+          const all = document.getElementsByTagName('*');
+          for (let i = 0; i < all.length; i++) {
+            const el = all[i];
+            if (el.children.length === 0 && el.textContent) {
+              const txt = el.textContent.trim();
+              const match = txt.match(/\b([0-9]{2,3}(?:\.[0-9]+)?)\s*BPM\b/i);
+              if (match) {
+                return parseFloat(match[1]);
+              }
+            }
+          }
+          
+          for (let i = 0; i < all.length; i++) {
+            const el = all[i];
+            if (el.textContent) {
+              const txt = el.textContent.trim();
+              const match = txt.match(/\b([0-9]{2,3}(?:\.[0-9]+)?)\s*BPM\b/i);
+              if (match) {
+                return parseFloat(match[1]);
+              }
+            }
+          }
+          return null;
+        }
+
+        let lastBpm = null;
+        if (window.bpmIntervalId) {
+          clearInterval(window.bpmIntervalId);
+        }
+        window.bpmIntervalId = setInterval(function() {
+          try {
+            const bpm = getBpmValue();
+            if (bpm && bpm !== lastBpm) {
+              lastBpm = bpm;
+              if (window.BpmChannel) {
+                window.BpmChannel.postMessage(bpm.toString());
+              }
+            }
+          } catch(e) {}
+        }, 1000);
+      })();
+    ''';
+
+    try {
+      _webViewController.runJavaScript(jsCode);
+    } catch (e) {
+      debugPrint('Error injecting BPM monitor: $e');
+    }
+  }
+
+
   // Fading and BPM Parameter State
   double _bpm = 120.0;
   int _fadeBars =
@@ -250,11 +321,23 @@ class _DashboardScreenState extends State<DashboardScreen>
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0B0E14))
+      ..addJavaScriptChannel(
+        'BpmChannel',
+        onMessageReceived: (JavaScriptMessage message) {
+          final double? parsedBpm = double.tryParse(message.message);
+          if (parsedBpm != null) {
+            debugPrint('SCRAPED BPM FROM WEBVIEW DOM: $parsedBpm');
+            _webSocketService.bpm.value = parsedBpm;
+          }
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (String url) {
             // Apply all permanent glows automatically when the page is finished loading!
             _updateAllGlowsInWebView();
+            // Inject BPM monitor script
+            _injectBpmMonitor();
           },
         ),
       );

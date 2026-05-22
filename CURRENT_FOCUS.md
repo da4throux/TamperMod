@@ -1,5 +1,15 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.16)
+- **BPM Fetching & Setting Fix**:
+  - Implemented handling of the `transport <rolling> <beatsPerBar> <bpm>` command in `ModWebSocketService` to correctly parse and update BPM.
+  - Modified `setBpm` to send the `transport-bpm <value>` command which is the correct command expected by the `mod-ui` Python server.
+  - Removed empty `bpm` and `transport_bpm` commands on connection which were triggering `IndexError` on the Python host.
+  - Added WebView DOM scraping fallback using JavaScript Channel (`BpmChannel`) and a periodic monitor to scrape host BPM from the status bar.
+- **Widget Test Suite Fix**:
+  - Implemented missing `setPlatformNavigationDelegate`, `addJavaScriptChannel`, and `removeJavaScriptChannel` overrides in the `FakePlatformWebViewController` mock.
+  - Configured mock `SharedPreferences` initial values and set widget test physical viewport to `1280x800` to avoid layout overflows.
+
 ## ✅ Completed (v1.3.15)
 - **Gain Regular & Extended Card UI**: 
   - Fade In and Fade Out buttons now properly share half width side-by-side using `Expanded`.
@@ -46,7 +56,7 @@
 - **GROUP F Tasks**: Future enhancements
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.15
-- **Last commit:** Gemini-3.1-Pro-Low(v1.3.15) - Fix Gain cards UI, BPM Fetch/Set, ALO Regular height, and ALO Rec sync
+- **App Version:** v1.3.16
+- **Last commit:** Gemini2.5Flash(v1.3.16) - Fix WebView test mock and implement DOM-based BPM fallback fetching
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All v1.3.15 features complete and fully functional
+- **Status:** All v1.3.16 features complete and fully functional

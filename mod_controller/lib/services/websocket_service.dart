@@ -55,9 +55,6 @@ class ModWebSocketService extends ChangeNotifier {
             _status = ConnectionStatus.connected;
             notifyListeners();
             debugPrint('Connected to MOD Dwarf!');
-            // Try to explicitly request BPM to fix sync issues
-            _channel!.sink.add('transport_bpm');
-            _channel!.sink.add('bpm');
           }
           _handleIncomingMessage(message);
         },
@@ -204,6 +201,24 @@ class ModWebSocketService extends ChangeNotifier {
             }
           }
         }
+      } else if (cmd == 'transport') {
+        // Format: transport <rolling> <beatsPerBar> <beatsPerMinute>
+        // e.g. transport 0 4.000000 120.000000
+        final List<String> parts = data.split(' ');
+        if (parts.length >= 3) {
+          final double? rollingValDouble = double.tryParse(parts[0]);
+          final int? rollingValInt = int.tryParse(parts[0]);
+          final bool rolling = (rollingValDouble == 1.0) || (rollingValInt == 1);
+          isTransportRolling.value = rolling;
+          isRolling.value = rolling;
+          
+          final double? bpmVal = double.tryParse(parts[2]);
+          if (bpmVal != null) {
+            bpm.value = bpmVal;
+            debugPrint('RECEIVED BPM FROM TRANSPORT BROADCAST: $bpmVal');
+          }
+          debugPrint('RECEIVED TRANSPORT STATE FROM HOST: rolling=$rolling, bpm=${bpmVal ?? "unknown"}');
+        }
       } else if (cmd == 'transport_rolling' || cmd == 'transport-rolling') {
         final double? valDouble = double.tryParse(data);
         final int? valInt = int.tryParse(data);
@@ -302,15 +317,19 @@ class ModWebSocketService extends ChangeNotifier {
       return;
     }
 
-    // Send both formats to ensure maximum compatibility with host
+    // Send all formats to ensure maximum compatibility with host
     final String rawPayload1 = 'bpm $value';
     final String rawPayload2 = 'transport_bpm $value';
+    final String rawPayload3 = 'transport-bpm $value';
     
     debugPrint('SENDING COMMAND: $rawPayload1');
     _channel!.sink.add(rawPayload1);
     
     debugPrint('SENDING COMMAND: $rawPayload2');
     _channel!.sink.add(rawPayload2);
+    
+    debugPrint('SENDING COMMAND: $rawPayload3');
+    _channel!.sink.add(rawPayload3);
     
     bpm.value = value; // Optimistic update
   }

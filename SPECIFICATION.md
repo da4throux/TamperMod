@@ -82,7 +82,57 @@ Please read and apply .agenrules
 
 ---
 
-## 4. Feature Implementation Progress
+## 4. MOD Dwarf Protocol & Communication Reference
+
+To facilitate future development, this section catalogs all known protocols, endpoints, and behaviors of the MOD Dwarf interface.
+
+### 4.1 WebSocket Commands (ws://<ip>/websocket)
+The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-separated string commands.
+
+#### Commands Sent by App to Host:
+- **`param_set <instance> <portsymbol> <value>`** or **`param_set <instance>/<portsymbol> <value>`**
+  - Sets parameter values for a plugin.
+  - *Example:* `param_set /graph/gain_mono gain 0.5`
+- **`param_set <instance>/:bypass <value>`**
+  - Toggles the bypass/mute state of a plugin. `1.0` bypasses/mutes, `0.0` enables/actives.
+  - *Example:* `param_set /graph/gain_mono/:bypass 1.0`
+- **`transport-rolling <value>`**
+  - Starts or stops host transport. `1` is play, `0` is stop.
+- **`transport-bpm <value>`** / **`transport_bpm <value>`** / **`bpm <value>`**
+  - Sets the global host BPM. Send all three formats to ensure backward compatibility across firmware releases.
+  - *Example:* `transport-bpm 120`
+
+#### Commands Received from Host (Broadcast):
+- **`loading_start`** / **`loading_end`**
+  - Signals the start and end of a pedalboard configuration reload/refresh.
+- **`add <instance> <uri> <x> <y> <bypassed> ...`**
+  - Broadcast when a plugin is initialized or added to the active pedalboard.
+- **`param_set <instance> <portsymbol> <value>`**
+  - Broadcast when any parameter is changed on the host.
+- **`transport <rolling> <beatsPerBar> <bpm>`**
+  - Broadcast when transport settings change or are initialized. Contains rolling state (`0` or `1`), beats per bar (e.g. `4.0`), and current tempo/BPM (e.g. `120.0`).
+- **`transport-rolling <value>`** / **`transport_rolling <value>`**
+  - Broadcast rolling state changes.
+- **`transport-bpm <value>`** / **`transport_bpm <value>`** / **`bpm <value>`** / **`tempo <value>`**
+  - Broadcast tempo changes.
+
+> [!WARNING]
+> **WebSocket Limitations:**
+> - Sending empty commands like `bpm` or `transport_bpm` causes the backend to crash with an `IndexError` (due to `message.split(" ", 1)` slicing errors).
+> - The WebSocket connection does *not* broadcast the initial transport state or BPM on setup.
+
+### 4.2 HTTP REST Endpoints (http://<ip>/...)
+- **`POST /pedalboard/transport/sync/<mode>`**
+  - Sets the sync mode for the transport clock.
+  - Valid values for `<mode>`: `none` (internal), `midi`, `link`.
+
+### 4.3 WebView DOM Scraping Fallback
+- Because the WebSocket API doesn't support querying the current BPM state directly, we parse it from the DOM of the web interface.
+- Scan for elements matching the class list (`.bpm`, `.tempo`, etc.) or containing the text `BPM` using the regex: `/\b([0-9]{2,3}(?:\.[0-9]+)?)\s*BPM\b/i`.
+
+---
+
+## 5. Feature Implementation Progress
 
 ### Done
 * [x] Initialize baseline Flutter controller project setup.
@@ -136,6 +186,7 @@ Please read and apply .agenrules
 * [x] ALO Regular Card loops timeline reorganized into two columns (3 rows each) to prevent bottom row overflow and reduce card height (v1.3.15).
 * [x] Increased ALO Loop playing bar opacity to 0.5 to make active timelines stand out more (v1.3.15).
 * [x] ALO Looper recording now utilizes a global stopwatch to wait precisely for the *next beat* to sync correctly with the host tempo (v1.3.15).
+* [x] Fix BPM fetching and setting via websocket transport commands, parsing transport broadcast and sending transport-bpm (v1.3.16).
 
 ### Todo Tasks (Grouped by Category)
 
