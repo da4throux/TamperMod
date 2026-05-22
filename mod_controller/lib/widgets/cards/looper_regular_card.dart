@@ -353,7 +353,7 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
 
   Widget _buildAllTracksPlayingBar(Color accentColor) {
     return Container(
-      height: 80,
+      height: 60,
       decoration: BoxDecoration(
         color: widget.isDarkMode
             ? Colors.black.withOpacity(0.5)
@@ -363,126 +363,143 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
           color: widget.isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
         ),
       ),
-      child: Column(
-        children: List.generate(6, (loopIndex) {
-          final loopNum = loopIndex + 1;
-          final state = widget.looperController.getState(loopNum);
-          final progress = widget.looperController.getSweepProgress(loopNum);
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              children: List.generate(3, (i) => _buildTrackRow(i, accentColor, false)),
+            ),
+          ),
+          Container(
+            width: 1,
+            color: widget.isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+          ),
+          Expanded(
+            child: Column(
+              children: List.generate(3, (i) => _buildTrackRow(i + 3, accentColor, true)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-          Color trackColor;
-          bool isActive = false;
+  Widget _buildTrackRow(int loopIndex, Color accentColor, bool isRightColumn) {
+    final loopNum = loopIndex + 1;
+    final state = widget.looperController.getState(loopNum);
+    final progress = widget.looperController.getSweepProgress(loopNum);
 
-          switch (state) {
-            case LooperState.empty:
-              trackColor = Colors.grey[700]!;
-              isActive = false;
-              break;
-            case LooperState.countIn:
-              trackColor = Colors.orange;
-              isActive = true;
-              break;
-            case LooperState.recording:
-              trackColor = const Color(0xFFFF0055);
-              isActive = true;
-              break;
-            case LooperState.playing:
-              trackColor = accentColor;
-              isActive = true;
-              break;
-            case LooperState.paused:
-              trackColor = Colors.grey[600]!;
-              isActive = false;
-              break;
-          }
+    Color trackColor;
+    bool isActive = false;
 
-          return Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: loopIndex < 5
-                      ? BorderSide(
-                          color: widget.isDarkMode
-                              ? Colors.grey[900]!
-                              : Colors.grey[350]!,
-                          width: 1,
-                        )
-                      : BorderSide.none,
+    switch (state) {
+      case LooperState.empty:
+        trackColor = Colors.grey[700]!;
+        isActive = false;
+        break;
+      case LooperState.countIn:
+        trackColor = Colors.orange;
+        isActive = true;
+        break;
+      case LooperState.recording:
+        trackColor = const Color(0xFFFF0055);
+        isActive = true;
+        break;
+      case LooperState.playing:
+        trackColor = accentColor;
+        isActive = true;
+        break;
+      case LooperState.paused:
+        trackColor = Colors.grey[600]!;
+        isActive = false;
+        break;
+    }
+
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: (loopIndex % 3) < 2
+                ? BorderSide(
+                    color: widget.isDarkMode
+                        ? Colors.grey[900]!
+                        : Colors.grey[350]!,
+                    width: 1,
+                  )
+                : BorderSide.none,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Background progress bar
+            if (isActive)
+              Positioned.fill(
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: progress,
+                  child: Container(color: trackColor.withOpacity(0.5)), // Increased visibility
                 ),
               ),
-              child: Stack(
-                children: [
-                  // Background progress bar
-                  if (isActive)
-                    Positioned.fill(
-                      child: FractionallySizedBox(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: progress,
-                        child: Container(color: trackColor.withOpacity(0.2)),
-                      ),
-                    ),
 
-                  // Beat bar separators (vertical lines between bars - 3 lines for 4 bars)
-                  if (isActive)
-                    Positioned.fill(
-                      child: Row(
-                        children: List.generate(4, (barIndex) {
-                          return Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  right: barIndex < 3
-                                      ? BorderSide(
-                                          color: trackColor.withOpacity(0.2),
-                                          width: 1.0,
-                                        )
-                                      : BorderSide.none,
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-
-                  // Track label and status
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        Text(
-                          'L$loopNum',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: trackColor,
-                            letterSpacing: 0.5,
+            // Beat bar separators (vertical lines between bars - 3 lines for 4 bars)
+            if (isActive)
+              Positioned.fill(
+                child: Row(
+                  children: List.generate(4, (barIndex) {
+                    return Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: barIndex < 3
+                                ? BorderSide(
+                                    color: trackColor.withOpacity(0.3),
+                                    width: 1.0,
+                                  )
+                                : BorderSide.none,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        if (isActive)
-                          Icon(
-                            state == LooperState.recording
-                                ? Icons.fiber_manual_record
-                                : state == LooperState.countIn
-                                ? Icons.hourglass_top
-                                : Icons.play_arrow,
-                            size: 10,
-                            color: trackColor,
-                          )
-                        else
-                          Icon(
-                            Icons.music_note_outlined,
-                            size: 10,
-                            color: trackColor,
-                          ),
-                      ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
+            // Track label and status
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  Text(
+                    'L$loopNum',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: trackColor,
+                      letterSpacing: 0.5,
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  if (isActive)
+                    Icon(
+                      state == LooperState.recording
+                          ? Icons.fiber_manual_record
+                          : state == LooperState.countIn
+                          ? Icons.hourglass_top
+                          : Icons.play_arrow,
+                      size: 10,
+                      color: trackColor,
+                    )
+                  else
+                    Icon(
+                      Icons.music_note_outlined,
+                      size: 10,
+                      color: trackColor,
+                    ),
                 ],
               ),
             ),
-          );
-        }),
+          ],
+        ),
       ),
     );
   }

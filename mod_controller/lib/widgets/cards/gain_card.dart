@@ -514,21 +514,25 @@ class _GainCardState extends State<GainCard> {
                   // Fade buttons
                   Row(
                     children: [
-                      FadeButton(
-                        label: 'FADE IN',
-                        icon: Icons.trending_up,
-                        isBypassed: isBypassed,
-                        onTap: () => widget.onTriggerFade(true),
-                        accentColor: accentColor,
-                        isFading: widget.isFadingIn,
+                      Expanded(
+                        child: FadeButton(
+                          label: 'FADE IN',
+                          icon: Icons.trending_up,
+                          isBypassed: isBypassed,
+                          onTap: () => widget.onTriggerFade(true),
+                          accentColor: accentColor,
+                          isFading: widget.isFadingIn,
+                        ),
                       ),
-                      FadeButton(
-                        label: 'FADE OUT',
-                        icon: Icons.trending_down,
-                        isBypassed: isBypassed,
-                        onTap: () => widget.onTriggerFade(false),
-                        accentColor: accentColor,
-                        isFading: widget.isFadingOut,
+                      Expanded(
+                        child: FadeButton(
+                          label: 'FADE OUT',
+                          icon: Icons.trending_down,
+                          isBypassed: isBypassed,
+                          onTap: () => widget.onTriggerFade(false),
+                          accentColor: accentColor,
+                          isFading: widget.isFadingOut,
+                        ),
                       ),
                     ],
                   ),
@@ -881,21 +885,25 @@ class _GainCardState extends State<GainCard> {
         // Fade buttons
         Row(
           children: [
-            FadeButton(
-              label: 'FADE IN',
-              icon: Icons.trending_up,
-              isBypassed: isBypassed,
-              onTap: () => widget.onTriggerFade(true),
-              accentColor: accentColor,
-              isFading: widget.isFadingIn,
+            Expanded(
+              child: FadeButton(
+                label: 'FADE IN',
+                icon: Icons.trending_up,
+                isBypassed: isBypassed,
+                onTap: () => widget.onTriggerFade(true),
+                accentColor: accentColor,
+                isFading: widget.isFadingIn,
+              ),
             ),
-            FadeButton(
-              label: 'FADE OUT',
-              icon: Icons.trending_down,
-              isBypassed: isBypassed,
-              onTap: () => widget.onTriggerFade(false),
-              accentColor: accentColor,
-              isFading: widget.isFadingOut,
+            Expanded(
+              child: FadeButton(
+                label: 'FADE OUT',
+                icon: Icons.trending_down,
+                isBypassed: isBypassed,
+                onTap: () => widget.onTriggerFade(false),
+                accentColor: accentColor,
+                isFading: widget.isFadingOut,
+              ),
             ),
           ],
         ),

@@ -1,16 +1,18 @@
 # TamperMod — Current Focus
 
-## ✅ Completed (v1.3.14)
-- **Compact Gain Card Fade Buttons Fixed**:
-  - Removed `Expanded` widget from FadeButton that was causing layout issues in Column contexts
-  - Fade IN and Fade OUT buttons now properly stack vertically with full width
-  - Buttons correctly use `SizedBox(width: double.infinity)` wrapper
+## ✅ Completed (v1.3.15)
+- **Gain Regular & Extended Card UI**: 
+  - Fade In and Fade Out buttons now properly share half width side-by-side using `Expanded`.
+- **BPM Fetching & Setting**:
+  - `ModWebSocketService` now explicitly requests BPM on connection using both `bpm` and `transport_bpm` commands.
+  - Setting BPM now safely sends both commands to ensure compatibility with MOD Dwarf.
+- **ALO Regular Card UI**:
+  - Reorganized the 6 loop tracks timeline into two columns (3 rows each) to reduce overall height.
+  - Increased track opacity while playing to 0.5 for better visibility.
+- **ALO Looper Sync**:
+  - Recording now waits for the *next beat* using an internal global stopwatch before actually starting, creating a perfect quantized sync point.
 
-- **ALO Regular Card Sizing Fixed**:
-  - ALO Regular card now matches Gain Regular card width (regularWidth)
-  - Fixed dashboard logic to check looper size before setting card dimensions
-  - Regular mode: 240px height, same width as other regular cards
-  - Extended mode: full width, auto-height
+## ✅ Completed (v1.3.14)
 
 ## ✅ Completed (v1.3.13)
 - **ALO Looper Size Toggle Fixed**:
@@ -44,7 +46,7 @@
 - **GROUP F Tasks**: Future enhancements
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.14
-- **Last commit:** Claude-3.5-Sonnet(v1.3.14) - Compact Gain card and ALO Regular card fixes
+- **App Version:** v1.3.15
+- **Last commit:** Gemini-3.1-Pro-Low(v1.3.15) - Fix Gain cards UI, BPM Fetch/Set, ALO Regular height, and ALO Rec sync
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All v1.3.14 features complete and fully functional
+- **Status:** All v1.3.15 features complete and fully functional

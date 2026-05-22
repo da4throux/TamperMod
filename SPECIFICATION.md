@@ -131,6 +131,11 @@ Please read and apply .agenrules
 * [x] Complete modular refactoring (v1.3.0): main.dart < 60 lines; all cards, drawers, toolbars, painters, and utilities in dedicated files.
 * [x] Color system: drawer tile colors always match workspace card colors; palette expanded to 10 neon colors; new plugins auto-assigned the least-used color; ALO looper treated identically to other plugins.
 * [x] WiFi warning on connect: if WiFi is active when tapping Connect, an amber SnackBar warns that WiFi blocks the USB Ethernet route to MOD Dwarf and instructs the user to turn off WiFi.
+* [x] UI Gain Regular and Extended card: Fade In / Out now take half the width (side by side) using Expanded (v1.3.15).
+* [x] Improved BPM fetching/setting robustness by broadcasting both `bpm` and `transport_bpm` on set, and requesting BPM explicitly on connection (v1.3.15).
+* [x] ALO Regular Card loops timeline reorganized into two columns (3 rows each) to prevent bottom row overflow and reduce card height (v1.3.15).
+* [x] Increased ALO Loop playing bar opacity to 0.5 to make active timelines stand out more (v1.3.15).
+* [x] ALO Looper recording now utilizes a global stopwatch to wait precisely for the *next beat* to sync correctly with the host tempo (v1.3.15).
 
 ### Todo Tasks (Grouped by Category)
 

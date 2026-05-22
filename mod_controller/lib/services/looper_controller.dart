@@ -8,6 +8,9 @@ enum LooperState { empty, countIn, recording, playing, paused }
 class LooperController extends ChangeNotifier {
   final ModWebSocketService webSocketService;
 
+  // Global stopwatch for beat sync
+  final Stopwatch _globalStopwatch = Stopwatch();
+
   // State for all 6 loops
   final List<LooperState> _states = List.filled(6, LooperState.empty);
   int _selectedLoopIndex = 0; // 0-5 representing loops 1-6
@@ -28,6 +31,7 @@ class LooperController extends ChangeNotifier {
       ValueNotifier<List<PluginInstance>>([]);
 
   LooperController({required this.webSocketService}) {
+    _globalStopwatch.start();
     // Listen to all discovered plugins to extract ALO loopers
     webSocketService.allPlugins.addListener(_updateDiscoveredLoopers);
   }
@@ -109,19 +113,9 @@ class LooperController extends ChangeNotifier {
         if (_states[i] != LooperState.empty) {
           final double elapsed = _stopwatches[i].elapsedMilliseconds.toDouble();
           if (_states[i] == LooperState.countIn) {
-            if (elapsed >= total) {
-              _sendLooperValue(i + 1, 1.0);
-              _stopwatches[i].reset();
-              _states[i] = LooperState.recording;
-            } else {
-              _sweepProgress[i] = elapsed / total;
-              _currentBeatIndex[i] = (elapsed / beatDurationMs).floor().clamp(
-                0,
-                15,
-              );
-              _currentBar[i] = (_currentBeatIndex[i] / 4).floor() + 1;
-              _currentBeatInBar[i] = (_currentBeatIndex[i] % 4) + 1;
-            }
+            // Count-in is now just waiting for next beat (handled by Future.delayed)
+            // If it's still here, just show the sweep progress
+            _sweepProgress[i] = 1.0; 
           } else if (_states[i] == LooperState.recording) {
             if (elapsed >= total) {
               _stopwatches[i].reset();
@@ -199,16 +193,30 @@ class LooperController extends ChangeNotifier {
     await _triggerSwitch(loopNum);
   }
 
-  // Start 4-Bar Count-In + 4-Bar Record sequence for specified loop
+  // Start recording synced to the next beat
   void recordSequence([int loopNum = 1]) {
     if (_activeLooper == null) return;
 
     _resetStateFor(loopNum);
     final idx = loopNum - 1;
+    
+    // Calculate wait time until next beat based on global stopwatch
+    final double elapsedGlobal = _globalStopwatch.elapsedMilliseconds.toDouble();
+    final double beatDuration = beatDurationMs;
+    final double waitTimeMs = beatDuration - (elapsedGlobal % beatDuration);
+    
     _states[idx] = LooperState.countIn;
-    _stopwatches[idx].start();
-    _startSweepTimer();
     notifyListeners();
+    
+    Future.delayed(Duration(milliseconds: waitTimeMs.toInt()), () {
+      if (_states[idx] == LooperState.countIn) {
+        _sendLooperValue(loopNum, 1.0);
+        _stopwatches[idx].start();
+        _states[idx] = LooperState.recording;
+        _startSweepTimer();
+        notifyListeners();
+      }
+    });
   }
 
   // Cancel/clear record/countIn/play

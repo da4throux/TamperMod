@@ -55,6 +55,9 @@ class ModWebSocketService extends ChangeNotifier {
             _status = ConnectionStatus.connected;
             notifyListeners();
             debugPrint('Connected to MOD Dwarf!');
+            // Try to explicitly request BPM to fix sync issues
+            _channel!.sink.add('transport_bpm');
+            _channel!.sink.add('bpm');
           }
           _handleIncomingMessage(message);
         },
@@ -299,9 +302,16 @@ class ModWebSocketService extends ChangeNotifier {
       return;
     }
 
-    final String rawPayload = 'bpm $value';
-    debugPrint('SENDING COMMAND: $rawPayload');
-    _channel!.sink.add(rawPayload);
+    // Send both formats to ensure maximum compatibility with host
+    final String rawPayload1 = 'bpm $value';
+    final String rawPayload2 = 'transport_bpm $value';
+    
+    debugPrint('SENDING COMMAND: $rawPayload1');
+    _channel!.sink.add(rawPayload1);
+    
+    debugPrint('SENDING COMMAND: $rawPayload2');
+    _channel!.sink.add(rawPayload2);
+    
     bpm.value = value; // Optimistic update
   }
 
