@@ -1116,6 +1116,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   isDarkMode: _isDarkMode,
                   onTapTempo: _onTapTempo,
                   onBpmTap: _showBpmDialog,
+                  onBpmChanged: (val) {
+                    _webSocketService.setBpm(val);
+                  },
                   onFadeBarsChanged: (val) {
                     setState(() {
                       _fadeBars = val;
@@ -1201,6 +1204,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   },
                   onRadarTap: _highlightAllPedalsInWebView,
                   onRefreshTap: _reloadPedalboard,
+                  onWebReload: () {
+                    _webViewController.reload();
+                  },
                   onThemeToggle: () {
                     setState(() {
                       _isDarkMode = !_isDarkMode;
@@ -1242,6 +1248,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       isDarkMode: _isDarkMode,
                       onTapTempo: _onTapTempo,
                       onBpmTap: _showBpmDialog,
+                      onBpmChanged: (val) {
+                        _webSocketService.setBpm(val);
+                      },
                       onFadeBarsChanged: (val) {
                         setState(() {
                           _fadeBars = val;

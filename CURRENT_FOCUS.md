@@ -1,5 +1,15 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.17)
+- **WebView Reload Button**:
+  - Added an explicit reload button (using `Icons.cached`) to the bottom toolbar.
+  - Linked to `_webViewController.reload()` to force manual web interface synchronization.
+- **BPM Rotary Knob**:
+  - Implemented a custom `BpmKnob` and custom painter `BpmKnobPainter` next to the BPM text display.
+  - Bounded to `20-280` BPM range. Adjusts value via intuitive vertical drag gestures.
+  - Supports double-tap to reset to `120.0` BPM.
+  - Wired to `_webSocketService.setBpm` to update global host tempo.
+
 ## ✅ Completed (v1.3.16)
 - **BPM Fetching & Setting Fix**:
   - Implemented handling of the `transport <rolling> <beatsPerBar> <bpm>` command in `ModWebSocketService` to correctly parse and update BPM.
@@ -50,13 +60,13 @@
 - **Gain Compact Card Layout Refactored**
 
 ## 📋 Remaining Tasks
-- **GROUP A Task A2**: WebView Controls Enhancement
+- **GROUP A Task A2**: WebView Controls Enhancement (Remaining: full screen and separation scaling)
 - **GROUP D Task D1**: Local Database for Pedalboard Configurations
 - **GROUP E Task E2**: Default Fadeout Values
 - **GROUP F Tasks**: Future enhancements
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.16
-- **Last commit:** Gemini2.5Flash(v1.3.16) - Fix WebView test mock and implement DOM-based BPM fallback fetching
+- **App Version:** v1.3.17
+- **Last commit:** Gemini2.5Flash(v1.3.17) - Add WebView reload button and BPM rotary knob
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All v1.3.16 features complete and fully functional
+- **Status:** All v1.3.17 features complete and fully functional

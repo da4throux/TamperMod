@@ -15,6 +15,7 @@ class BottomToolbar extends StatelessWidget {
   final VoidCallback onWebOnly;
   final VoidCallback onRadarTap;
   final VoidCallback onRefreshTap;
+  final VoidCallback onWebReload;
   final VoidCallback onThemeToggle;
   final String appVersion;
 
@@ -30,6 +31,7 @@ class BottomToolbar extends StatelessWidget {
     required this.onWebOnly,
     required this.onRadarTap,
     required this.onRefreshTap,
+    required this.onWebReload,
     required this.onThemeToggle,
     required this.appVersion,
   });
@@ -130,6 +132,18 @@ class BottomToolbar extends StatelessWidget {
                 ),
                 tooltip: 'Refresh Pedalboard',
                 onPressed: isConnected ? onRefreshTap : null,
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                icon: Icon(
+                  Icons.cached,
+                  color: isDarkMode
+                      ? const Color(0xFF00FFCC)
+                      : const Color(0xFF009977),
+                  size: 20,
+                ),
+                tooltip: 'Reload Web View',
+                onPressed: onWebReload,
               ),
             ],
           ),

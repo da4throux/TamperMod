@@ -66,6 +66,7 @@ Please read and apply .agenrules
   * Layout view selectors (Controls, Web, Split).
   * Radar locate trigger button (pulses all active pedal glows in the Web GUI).
   * Refresh/Reload pedalboard trigger.
+  * Reload WebView trigger (resets/reloads web interface to manual sync BPM and layout updates).
   * Light/Dark Theme toggle with SharedPreferences persistence.
   * Current version info display.
 
@@ -187,6 +188,8 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 * [x] Increased ALO Loop playing bar opacity to 0.5 to make active timelines stand out more (v1.3.15).
 * [x] ALO Looper recording now utilizes a global stopwatch to wait precisely for the *next beat* to sync correctly with the host tempo (v1.3.15).
 * [x] Fix BPM fetching and setting via websocket transport commands, parsing transport broadcast and sending transport-bpm (v1.3.16).
+* [x] Add WebView reload button to bottom toolbar (v1.3.17).
+* [x] Add premium interactive BPM rotary knob (range: 20-280) next to the BPM display (v1.3.17).
 
 ### Todo Tasks (Grouped by Category)
 
@@ -200,7 +203,8 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 * [x] Added "SETTINGS" button to WiFi warning snackbar that opens Android WiFi settings via MethodChannel.
 
 ### A2. WebView Controls Enhancement
-* [ ] Add a button to reload the web view, and resize to full screen.
+* [x] Add a button to reload the web view (v1.3.17).
+* [ ] Add option to resize web view to full screen.
 * [ ] Add ability to adjust the separation between the workspace and the web view.
 
 ### A3. Drawer Scroll Accuracy Fix

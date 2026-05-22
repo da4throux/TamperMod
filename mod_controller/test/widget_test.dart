@@ -50,6 +50,9 @@ class FakePlatformWebViewController extends PlatformWebViewController {
 
   @override
   Future<void> removeJavaScriptChannel(String javaScriptChannelName) async {}
+
+  @override
+  Future<void> reload() async {}
 }
 
 class FakePlatformNavigationDelegate extends PlatformNavigationDelegate {
