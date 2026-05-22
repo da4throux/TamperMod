@@ -269,6 +269,7 @@ class _GainCardState extends State<GainCard> {
         accentColor: accentColor,
         isDarkMode: widget.isDarkMode,
         onTap: widget.onSizeToggled,
+        onLongPress: widget.onRenamePressed,
       );
     }
 

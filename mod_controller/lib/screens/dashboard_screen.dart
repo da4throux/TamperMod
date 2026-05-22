@@ -2055,14 +2055,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     final String instId = pedal.instance;
     final String currentColorHex =
         _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
+    String selectedColorHex = currentColorHex;
 
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            String selectedColorHex = currentColorHex;
-
             return AlertDialog(
               backgroundColor: _isDarkMode
                   ? const Color(0xFF0F141C)

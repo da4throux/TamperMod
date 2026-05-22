@@ -11,6 +11,7 @@ class SizeToggleButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool isEnabled;
   final bool isDarkMode;
+  final VoidCallback? onLongPress;
 
   const SizeToggleButton({
     super.key,
@@ -20,6 +21,7 @@ class SizeToggleButton extends StatelessWidget {
     required this.onTap,
     required this.isDarkMode,
     this.isEnabled = true,
+    this.onLongPress,
   });
 
   @override
@@ -46,6 +48,7 @@ class SizeToggleButton extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),

@@ -109,6 +109,7 @@ class _LooperCardState extends State<LooperCard> {
                       isDarkMode: widget.isDarkMode,
                       isEnabled: true,
                       onTap: widget.onSizeToggled,
+                      onLongPress: widget.onRenamePressed,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
