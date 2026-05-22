@@ -367,7 +367,10 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
         children: [
           Expanded(
             child: Column(
-              children: List.generate(3, (i) => _buildTrackRow(i, accentColor, false)),
+              children: [
+                _buildTrackRow(0, accentColor, true),
+                _buildTrackRow(1, accentColor, false),
+              ],
             ),
           ),
           Container(
@@ -376,7 +379,22 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
           ),
           Expanded(
             child: Column(
-              children: List.generate(3, (i) => _buildTrackRow(i + 3, accentColor, true)),
+              children: [
+                _buildTrackRow(2, accentColor, true),
+                _buildTrackRow(3, accentColor, false),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            color: widget.isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                _buildTrackRow(4, accentColor, true),
+                _buildTrackRow(5, accentColor, false),
+              ],
             ),
           ),
         ],
@@ -384,7 +402,7 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
     );
   }
 
-  Widget _buildTrackRow(int loopIndex, Color accentColor, bool isRightColumn) {
+  Widget _buildTrackRow(int loopIndex, Color accentColor, bool showBottomBorder) {
     final loopNum = loopIndex + 1;
     final state = widget.looperController.getState(loopNum);
     final progress = widget.looperController.getSweepProgress(loopNum);
@@ -419,7 +437,7 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
       child: Container(
         decoration: BoxDecoration(
           border: Border(
-            bottom: (loopIndex % 3) < 2
+            bottom: showBottomBorder
                 ? BorderSide(
                     color: widget.isDarkMode
                         ? Colors.grey[900]!
