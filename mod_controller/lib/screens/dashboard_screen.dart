@@ -85,6 +85,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final List<Map<String, dynamic>> configs = [];
     for (final instanceId in _enabledPluginInstances) {
+      if (instanceId.startsWith('__spacer_')) continue;
       final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
       String colorHex = _pedalGlowColors[instanceId] ?? '';
       if (colorHex.isEmpty) {
@@ -585,7 +586,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       List<String> newOrder = [];
       if (savedOrder != null) {
         for (final id in savedOrder) {
-          if (currentIds.contains(id)) {
+          if (currentIds.contains(id) || id.startsWith('__spacer_')) {
             newOrder.add(id);
           }
         }
@@ -622,7 +623,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       List<String> newEnabled = [];
       if (savedEnabled != null) {
         newEnabled = savedEnabled
-            .where((id) => currentIds.contains(id))
+            .where((id) => currentIds.contains(id) || id.startsWith('__spacer_'))
             .toList();
       } else {
         // default populate with gains
@@ -1287,6 +1288,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               onCyclePedalSize: _cyclePedalSize,
               onScrollToCard: _scrollToCard,
               onBackupRestore: _showBackupRestoreDialog,
+              onAddSpacer: _addSpacer,
+              onDeleteSpacer: _deleteSpacer,
             ),
           ),
 
@@ -1308,7 +1311,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: MetricsDrawer(
                 isDarkMode: _isDarkMode,
                 bpm: _bpm,
-                activeCount: _enabledPluginInstances.length,
+                activeCount: _enabledPluginInstances.where((id) => !id.startsWith('__spacer_')).length,
                 totalCount: _webSocketService.allPlugins.value.length,
                 connectionStatus: _webSocketService.status,
                 onRadarTap: _highlightAllPedalsInWebView,
@@ -1698,6 +1701,14 @@ class _DashboardScreenState extends State<DashboardScreen>
         final List<PluginInstance> enabledPlugins = [];
         for (final instanceId in _orderedPluginInstances) {
           if (_enabledPluginInstances.contains(instanceId)) {
+            if (instanceId.startsWith('__spacer_')) {
+              enabledPlugins.add(PluginInstance(
+                instance: instanceId,
+                uri: 'spacer',
+                title: 'SPACER',
+              ));
+              continue;
+            }
             PluginInstance? found;
             for (final p in plugins) {
               if (p.instance == instanceId) {
@@ -1773,6 +1784,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 runSpacing: spacing,
                 children: enabledPlugins.map((pedal) {
                   final String size = _pedalSizes[pedal.instance] ?? 'regular';
+                  final bool isSpacer = pedal.instance.startsWith('__spacer_');
                   final uriLower = pedal.uri.toLowerCase();
                   final titleLower = pedal.title.toLowerCase();
                   final isLooper =
@@ -1781,7 +1793,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                   double cardWidth = regularWidth;
                   double? cardHeight = 240.0;
 
-                  if (isLooper) {
+                  if (isSpacer) {
+                    if (size == 'compact') {
+                      cardWidth = compactWidth;
+                      cardHeight = 240.0;
+                    } else if (size == 'regular') {
+                      cardWidth = regularWidth;
+                      cardHeight = 240.0;
+                    } else {
+                      cardWidth = expandedWidth;
+                      cardHeight = 240.0;
+                    }
+                  } else if (isLooper) {
                     // ALO loopers: check size setting
                     if (size == 'regular') {
                       cardWidth = regularWidth;
@@ -1824,7 +1847,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       titleLower.contains('gain') ||
                       titleLower.contains('volume');
 
-                  if (isLooper) {
+                  if (isSpacer) {
+                    cardWidget = SizedBox(
+                      width: cardWidth,
+                      height: cardHeight,
+                    );
+                  } else if (isLooper) {
                     // Choose between extended (expanded) and regular (compact) looper cards
                     final looperSize =
                         _pedalSizes[pedal.instance] ?? 'expanded';
@@ -2051,6 +2079,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _highlightAllPedalsInWebView() {
     final List<Map<String, dynamic>> configs = [];
     for (final instanceId in _enabledPluginInstances) {
+      if (instanceId.startsWith('__spacer_')) continue;
       final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
       String colorHex = _pedalGlowColors[instanceId] ?? '';
       if (colorHex.isEmpty) {
@@ -2163,6 +2192,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _highlightPedalInWebView(PluginInstance pedal) {
     final String instId = pedal.instance;
+    if (instId.startsWith('__spacer_')) return;
     final String colorHex =
         _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
     final bool isGlowEnabled = _pedalGlowEnabled[instId] ?? true;
@@ -3679,6 +3709,25 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
     setState(() {
       _pedalSizes[instanceId] = next;
+    });
+    _saveLayoutSettings();
+  }
+
+  void _addSpacer() {
+    final String spacerId = '__spacer_${DateTime.now().millisecondsSinceEpoch}';
+    setState(() {
+      _orderedPluginInstances.add(spacerId);
+      _enabledPluginInstances.add(spacerId);
+      _pedalSizes[spacerId] = 'regular';
+    });
+    _saveLayoutSettings();
+  }
+
+  void _deleteSpacer(String spacerId) {
+    setState(() {
+      _orderedPluginInstances.remove(spacerId);
+      _enabledPluginInstances.remove(spacerId);
+      _pedalSizes.remove(spacerId);
     });
     _saveLayoutSettings();
   }

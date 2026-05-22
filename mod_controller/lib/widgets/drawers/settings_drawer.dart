@@ -26,6 +26,8 @@ class SettingsDrawer extends StatefulWidget {
   final VoidCallback onConfigRename;
   final VoidCallback onConfigDelete;
   final VoidCallback onBackupRestore;
+  final VoidCallback onAddSpacer;
+  final Function(String) onDeleteSpacer;
 
   const SettingsDrawer({
     super.key,
@@ -48,6 +50,8 @@ class SettingsDrawer extends StatefulWidget {
     required this.onConfigRename,
     required this.onConfigDelete,
     required this.onBackupRestore,
+    required this.onAddSpacer,
+    required this.onDeleteSpacer,
   });
 
   @override
@@ -63,28 +67,41 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     required double eWidth,
   }) {
     final String instanceId = pedal.instance;
-    final size = widget.pedalSizes[instanceId] ?? 'regular';
+    final bool isSpacer = instanceId.startsWith('__spacer_');
 
-    final uriLower = pedal.uri.toLowerCase();
-    final titleLower = pedal.title.toLowerCase();
-    final isLooper =
+    final uriLower = isSpacer ? '' : pedal.uri.toLowerCase();
+    final titleLower = isSpacer ? '' : pedal.title.toLowerCase();
+    final isLooper = !isSpacer && (
         uriLower.contains('alo') ||
         titleLower.contains('alo') ||
-        instanceId.toLowerCase().contains('alo');
-    final isSwitch =
-        uriLower.contains('switch') || titleLower.contains('switch');
+        instanceId.toLowerCase().contains('alo'));
+    final isSwitch = !isSpacer && (
+        uriLower.contains('switch') || titleLower.contains('switch'));
 
-    final isGainOrVolume =
+    final isGainOrVolume = !isSpacer && (
         uriLower.contains('gain') ||
         uriLower.contains('volume') ||
         uriLower.contains('amp') ||
         titleLower.contains('gain') ||
-        titleLower.contains('volume');
+        titleLower.contains('volume'));
+
+    final size = widget.pedalSizes[instanceId] ?? (isLooper ? 'expanded' : 'regular');
 
     double width = rWidth;
     double height = 46.0;
     if (isActive) {
-      if (isLooper) {
+      if (isSpacer) {
+        if (size == 'compact') {
+          width = cWidth;
+          height = 40.0;
+        } else if (size == 'regular') {
+          width = rWidth;
+          height = 48.0;
+        } else {
+          width = eWidth;
+          height = 56.0;
+        }
+      } else if (isLooper) {
         if (size == 'regular') {
           width = rWidth;
           height = 48.0;
@@ -108,13 +125,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       height = 46.0;
     }
 
-    final String colorHex =
-        widget.pedalGlowColors[instanceId] ??
-        getLeastUsedColor(widget.pedalGlowColors);
-    final Color glowColor = hexToColor(colorHex);
+    final String colorHex = isSpacer
+        ? ''
+        : (widget.pedalGlowColors[instanceId] ??
+            getLeastUsedColor(widget.pedalGlowColors));
+    final Color glowColor = isSpacer
+        ? (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!)
+        : hexToColor(colorHex);
 
     IconData typeIcon = Icons.tune;
-    if (isLooper) {
+    if (isSpacer) {
+      typeIcon = Icons.space_bar;
+    } else if (isLooper) {
       typeIcon = Icons.fiber_manual_record; // red looper dot
     } else if (isSwitch) {
       typeIcon = Icons.swap_horiz;
@@ -128,15 +150,19 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
         color: isActive
-            ? glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18)
+            ? (isSpacer
+                ? Colors.transparent
+                : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18))
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: glowColor.withOpacity(isActive ? 0.9 : 0.4),
+          color: isSpacer
+              ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
+              : glowColor.withOpacity(isActive ? 0.9 : 0.4),
           width: isActive ? 1.5 : 1.0,
           style: BorderStyle.solid,
         ),
-        boxShadow: isActive
+        boxShadow: isActive && !isSpacer
             ? [
                 BoxShadow(
                   color: glowColor.withOpacity(0.3),
@@ -152,18 +178,24 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           Icon(
             typeIcon,
             size: size == 'compact' && isActive ? 11 : 13,
-            color: isLooper && isActive ? const Color(0xFFFF0055) : glowColor,
+            color: isSpacer
+                ? (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600])
+                : (isLooper && isActive ? const Color(0xFFFF0055) : glowColor),
           ),
           const SizedBox(width: 4),
 
           // Title
           Expanded(
             child: Text(
-              (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+              isSpacer
+                  ? 'SPACER'
+                  : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
               style: TextStyle(
-                color: isActive
-                    ? (widget.isDarkMode ? Colors.white : Colors.black)
-                    : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                color: isSpacer
+                    ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
+                    : (isActive
+                        ? (widget.isDarkMode ? Colors.white : Colors.black)
+                        : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700])),
                 fontWeight: FontWeight.bold,
                 fontSize: size == 'compact' && isActive ? 8 : 9.5,
                 overflow: TextOverflow.ellipsis,
@@ -173,26 +205,42 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
           // Right panel options
           if (isActive) ...[
-            // Size Toggle C/R/E (non-loopers only)
-            if (!isLooper)
+            // Size Toggle C/R/E
+            GestureDetector(
+              onTap: () => widget.onCyclePedalSize(instanceId),
+              child: Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  color: widget.isDarkMode
+                      ? Colors.grey[900]
+                      : Colors.grey[300],
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  size[0].toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: widget.isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+            ),
+            if (isSpacer)
               GestureDetector(
-                onTap: () => widget.onCyclePedalSize(instanceId),
+                onTap: () => widget.onDeleteSpacer(instanceId),
                 child: Container(
-                  margin: const EdgeInsets.only(right: 4),
+                  margin: const EdgeInsets.only(left: 4),
                   padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    color: widget.isDarkMode
-                        ? Colors.grey[900]
-                        : Colors.grey[300],
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFF0055),
                     shape: BoxShape.circle,
                   ),
-                  child: Text(
-                    size[0].toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      color: widget.isDarkMode ? Colors.white : Colors.black,
-                    ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 8,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -277,12 +325,12 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               }
             },
             onDoubleTap: () {
-              // Double-tap cycles through sizes (C→R→E→C) for non-loopers
-              if (!isLooper && isActive) {
+              if (isActive) {
                 widget.onCyclePedalSize(instanceId);
               } else {
-                // For loopers or inactive tiles, open color picker
-                widget.onShowColorPicker(pedal);
+                if (!isSpacer) {
+                  widget.onShowColorPicker(pedal);
+                }
               }
             },
             child: tileContent,
@@ -319,6 +367,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             final List<PluginInstance> activePedals = [];
             for (final id in widget.orderedPluginInstances) {
               if (widget.enabledPluginInstances.contains(id)) {
+                if (id.startsWith('__spacer_')) {
+                  activePedals.add(PluginInstance(
+                    instance: id,
+                    title: 'SPACER',
+                    uri: 'spacer',
+                  ));
+                  continue;
+                }
                 final pedal = allPlugins.firstWhere(
                   (p) => p.instance == id,
                   orElse: () =>
@@ -571,6 +627,52 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                           letterSpacing: 1.0,
                         ),
                       ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: widget.onAddSpacer,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (widget.isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF))
+                                .withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: widget.isDarkMode
+                                  ? const Color(0xFF00FFCC)
+                                  : const Color(0xFF00B3FF),
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                size: 10,
+                                color: widget.isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                'ADD SPACER',
+                                style: TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.isDarkMode
+                                      ? const Color(0xFF00FFCC)
+                                      : const Color(0xFF00B3FF),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -713,6 +815,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   child: DragTarget<String>(
                     onAccept: (draggedId) {
                       // Drag from Active to Inactive
+                      if (draggedId.startsWith('__spacer_')) {
+                        widget.onDeleteSpacer(draggedId);
+                        return;
+                      }
                       if (widget.enabledPluginInstances.contains(draggedId)) {
                         setState(() {
                           widget.enabledPluginInstances.remove(draggedId);

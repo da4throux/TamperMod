@@ -18,3 +18,10 @@
 * [x] Add dynamic Backbone/DOM-based parameter metadata scraping in the WebView to update parameter ranges and steps in real time.
 * [x] Support visible parameter checklists in Expanded mode to custom construct Regular card layouts, persisting settings in SharedPreferences.
 * [x] Display a fallback tune icon (Icons.tune) for generic plugins in the Settings Drawer.
+
+## Grid Layout Customization & ALO Card Standardization (v1.3.26)
+* [x] Implement Spacer Cards (virtual transparent SizedBox placeholders on the dashboard) with size support (compact, regular, expanded) to enable custom card positioning, offsets, and line alignment.
+* [x] Add "ADD SPACER" action button to the Active Canvas header in the Settings Drawer to instantly create virtual spacer tiles.
+* [x] Implement spacer tile rendering in the Settings Drawer (dashed outline, space-bar icon, name "SPACER", size letter, and quick delete icon), supporting drag-and-drop ordering.
+* [x] Standardize active ALO Looper sizes: active loopers now render their size indicator (R/E) in the Settings Drawer and support double-tap cycling of their layout size, matching regular card behaviors.
+* [x] Prevent spacer cards from sending visual glow overlays to the WebView or counting as active physical pedals in the metrics count.

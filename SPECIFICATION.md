@@ -48,15 +48,16 @@ Please read and apply .agenrules
   * **Compact (C):** Compact card (height: 240) representing minimal parameters. Size-toggle icon (left of name)/Name, gain dB, volume slider, speaker mute icon. Fade IN and OUT buttons stacked vertically side-by-side with a mini range indicator bar.
   * **Regular (R):** Standard card (height:240). Long-press on title = rename. Speaker icon (rightmost) = mute toggle. Size-toggle icon (left of title) cycles compact→regular→expanded→compact. Fixed-width 72px dB box. Mini range indicator in the min/max row. No power button.
   * **Expanded (E):** Full-width card (height: 520). Includes all Regular features plus: Size-toggle icon (left of title), RangeSlider for fade start/end cursors, fade shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders with clipboard EXPORT, and a live CustomPainter fade curve visualiser with moving dot.
-  * *ALO Loopers always use full row width at height 450.*
+  * **Spacer Cards:** Blank, transparent slot placeholders (height: 240) of size Compact, Regular, or Expanded used to force alignments, create empty gaps, or control line wrapping.
+  * **ALO Loopers:** Support Regular (height: 240, regularWidth) and Expanded (height: 450, full-width) sizes.
 
 ### 3.2 Puzzle Organizer Settings Drawer
 * Scale-down grid layout mirroring the workspace card arrangement (two Regular tiles per row, same proportions as the main canvas).
-* **Card Visibility:** Controlled exclusively by dragging tiles between the **Active Canvas** (upper zone) and the **Available Pool** (lower inactive zone). No toggle buttons.
+* **Card Visibility & Spacers:** Controlled by dragging tiles between the Active Canvas and Available Pool. Spacer cards can be added to the active pool using the "ADD SPACER" button. Spacers show with a dashed outline, spacebar icon, name "SPACER", size letter, and a delete icon. Dragging a spacer to the available pool deletes it.
 * **Drag-and-Drop:** Long Press on a tile initiates drag to reorder within the canvas or move between zones.
 * Interactive gestures:
   * **Single Tap:** Scrolls main view to and pulses the target card.
-  * **Double Tap:** Opens a color picker to adjust the neon glow color of the card.
+  * **Double Tap:** Cycles layout size (C→R→E→C) for any active tile (including loopers and spacers). Double-tapping an inactive tile in the pool opens its neon glow color picker.
   * **Long Press:** Initiates Drag-and-Drop to rearrange cards or change active/inactive status.
 * **Color consistency rule:** Drawer tile colors MUST always match the workspace card color. All plugins use the same color assignment logic — no type-specific default overrides.
 
