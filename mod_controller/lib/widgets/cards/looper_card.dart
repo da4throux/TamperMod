@@ -212,54 +212,8 @@ class _LooperCardState extends State<LooperCard> {
                 ),
                 const SizedBox(height: 12),
 
-                // Loop Selector Buttons (6 exclusive buttons)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(6, (index) {
-                    final loopNum = index + 1;
-                    final isSelected = selectedLoopNum == loopNum;
-                    return Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isSelected
-                                ? looperAccentColor
-                                : (widget.isDarkMode
-                                      ? Colors.black.withOpacity(0.4)
-                                      : Colors.grey[200]),
-                            foregroundColor: isSelected
-                                ? Colors.black
-                                : (widget.isDarkMode
-                                      ? Colors.white
-                                      : Colors.black),
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? looperAccentColor
-                                    : looperAccentColor.withOpacity(0.3),
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                          ),
-                          onPressed: () {
-                            widget.looperController.setActiveLooper(widget.pedal);
-                            widget.looperController.selectLoop(loopNum);
-                          },
-                          child: Text(
-                            '$loopNum',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
+                // 3x2 Timeline Grid Replacement
+                _buildAllTracksTimeline(looperAccentColor),
                 const SizedBox(height: 12),
 
                 // Selected Loop Timeline and Controls
@@ -423,7 +377,7 @@ class _LooperCardState extends State<LooperCard> {
 
     switch (state) {
       case LooperState.empty:
-        stateColor = Colors.grey[600]!;
+        stateColor = Colors.grey[800]!;
         stateText = 'Empty Loop';
         stateIcon = Icons.music_note_outlined;
         break;
@@ -448,7 +402,7 @@ class _LooperCardState extends State<LooperCard> {
         stateIcon = Icons.play_arrow;
         break;
       case LooperState.paused:
-        stateColor = Colors.grey[600]!;
+        stateColor = Colors.blueGrey;
         stateText =
             'MUTED (Bar ${widget.looperController.getCurrentBar(loopNum)}, Beat ${widget.looperController.getCurrentBeatInBar(loopNum)})';
         stateIcon = Icons.volume_off;
@@ -628,128 +582,32 @@ class _LooperCardState extends State<LooperCard> {
         ),
         const SizedBox(height: 6),
 
-        // On/Off/Click buttons row (targets the selected loop)
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: (state == LooperState.playing)
-                      ? glowColor.withOpacity(0.2)
-                      : (widget.isDarkMode
-                            ? Colors.black.withOpacity(0.4)
-                            : Colors.grey[200]),
-                  foregroundColor: (state == LooperState.playing)
-                      ? glowColor
-                      : (widget.isDarkMode ? Colors.white : Colors.black),
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    side: BorderSide(
-                      color: (state == LooperState.playing)
-                          ? glowColor
-                          : stateColor.withOpacity(0.4),
-                      width: (state == LooperState.playing) ? 2 : 1,
-                    ),
-                  ),
-                ),
-                onPressed: () {
-                  widget.looperController.setActiveLooper(widget.pedal);
-                  // ON: Set loop to playing state (if it has content)
-                  if (state == LooperState.paused) {
-                    widget.looperController.playLoop(loopNum);
-                  } else if (state == LooperState.playing ||
-                      state == LooperState.recording ||
-                      state == LooperState.countIn) {
-                    // Already on, do nothing or could toggle to pause
-                  } else {
-                    // Empty loop - send raw 1.0 to hardware
-                    widget.webSocketService.setParamValue(
-                      instance: widget.pedal.instance,
-                      port: 'loop$loopNum',
-                      value: 1.0,
-                    );
-                  }
-                },
-                child: const Text(
-                  'ON',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
-                ),
+        // Click-only button (targets the selected loop)
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: widget.isDarkMode
+                  ? Colors.black.withOpacity(0.4)
+                  : Colors.grey[200],
+              foregroundColor: widget.isDarkMode
+                  ? Colors.white
+                  : Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+                side: BorderSide(color: stateColor.withOpacity(0.4)),
               ),
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: (state == LooperState.paused)
-                      ? Colors.grey[700]
-                      : (widget.isDarkMode
-                            ? Colors.black.withOpacity(0.4)
-                            : Colors.grey[200]),
-                  foregroundColor: widget.isDarkMode
-                      ? Colors.white
-                      : Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    side: BorderSide(
-                      color: (state == LooperState.paused)
-                          ? Colors.grey[600]!
-                          : stateColor.withOpacity(0.4),
-                      width: (state == LooperState.paused) ? 2 : 1,
-                    ),
-                  ),
-                ),
-                onPressed: () {
-                  widget.looperController.setActiveLooper(widget.pedal);
-                  // OFF: Pause/mute the loop
-                  if (state == LooperState.playing) {
-                    widget.looperController.pauseLoop(loopNum);
-                  } else if (state == LooperState.paused) {
-                    // Already off, do nothing
-                  } else {
-                    // Send raw 0.0 to hardware
-                    widget.webSocketService.setParamValue(
-                      instance: widget.pedal.instance,
-                      port: 'loop$loopNum',
-                      value: 0.0,
-                    );
-                  }
-                },
-                child: const Text(
-                  'OFF',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
-                ),
-              ),
+            onPressed: () {
+              widget.looperController.setActiveLooper(widget.pedal);
+              widget.looperController.manualTrigger(loopNum);
+            },
+            child: const Text(
+              'CLICK',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.isDarkMode
-                      ? Colors.black.withOpacity(0.4)
-                      : Colors.grey[200],
-                  foregroundColor: widget.isDarkMode
-                      ? Colors.white
-                      : Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    side: BorderSide(color: stateColor.withOpacity(0.4)),
-                  ),
-                ),
-                onPressed: () {
-                  widget.looperController.setActiveLooper(widget.pedal);
-                  // CLICK: Trigger a single switch press (like a foot switch tap)
-                  widget.looperController.manualTrigger(loopNum);
-                },
-                child: const Text(
-                  'CLICK',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );
@@ -883,7 +741,7 @@ class _LooperCardState extends State<LooperCard> {
                     border: Border(
                       right: barIndex < 3
                           ? BorderSide(
-                              color: stateColor.withOpacity(0.25),
+                              color: stateColor.withOpacity(0.65), // Brighter beat bars
                               width: 1.5,
                             )
                           : BorderSide.none,
@@ -962,6 +820,189 @@ class _LooperCardState extends State<LooperCard> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAllTracksTimeline(Color accentColor) {
+    return Container(
+      height: 72.0,
+      decoration: BoxDecoration(
+        color: widget.isDarkMode
+            ? Colors.black.withOpacity(0.5)
+            : Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: widget.isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              children: [
+                _buildMiniTrackRow(0, accentColor, true),
+                _buildMiniTrackRow(1, accentColor, false),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            color: widget.isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                _buildMiniTrackRow(2, accentColor, true),
+                _buildMiniTrackRow(3, accentColor, false),
+              ],
+            ),
+          ),
+          Container(
+            width: 1,
+            color: widget.isDarkMode ? Colors.grey[900]! : Colors.grey[300]!,
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                _buildMiniTrackRow(4, accentColor, true),
+                _buildMiniTrackRow(5, accentColor, false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniTrackRow(int loopIndex, Color accentColor, bool showBottomBorder) {
+    final loopNum = loopIndex + 1;
+    final state = widget.looperController.getState(loopNum);
+    final progress = widget.looperController.getSweepProgress(loopNum);
+    final isSelected = widget.looperController.selectedLoopNum == loopNum;
+
+    Color trackColor;
+    bool isActive = false;
+
+    switch (state) {
+      case LooperState.empty:
+        trackColor = Colors.grey[800]!;
+        isActive = false;
+        break;
+      case LooperState.countIn:
+        trackColor = Colors.orange;
+        isActive = true;
+        break;
+      case LooperState.recording:
+        trackColor = const Color(0xFFFF0055);
+        isActive = true;
+        break;
+      case LooperState.playing:
+        trackColor = accentColor;
+        isActive = true;
+        break;
+      case LooperState.paused:
+        trackColor = Colors.blueGrey;
+        isActive = false;
+        break;
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          widget.looperController.setActiveLooper(widget.pedal);
+          widget.looperController.selectLoop(loopNum);
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected
+                ? accentColor.withOpacity(widget.isDarkMode ? 0.15 : 0.1)
+                : null,
+            border: isSelected
+                ? Border.all(color: accentColor, width: 2.0)
+                : Border(
+                    bottom: showBottomBorder
+                        ? BorderSide(
+                            color: widget.isDarkMode
+                                ? Colors.grey[900]!
+                                : Colors.grey[350]!,
+                            width: 1,
+                          )
+                        : BorderSide.none,
+                  ),
+          ),
+          child: Stack(
+            children: [
+              if (isActive)
+                Positioned.fill(
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: progress,
+                    child: Container(color: trackColor.withOpacity(0.5)),
+                  ),
+                ),
+
+              if (isActive)
+                Positioned.fill(
+                  child: Row(
+                    children: List.generate(4, (barIndex) {
+                      return Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              right: barIndex < 3
+                                  ? BorderSide(
+                                      color: trackColor.withOpacity(0.65), // Brighter beat bars
+                                      width: 1.0,
+                                    )
+                                  : BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'L$loopNum',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: trackColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    if (isActive)
+                      Icon(
+                        state == LooperState.recording
+                            ? Icons.fiber_manual_record
+                            : state == LooperState.countIn
+                            ? Icons.hourglass_top
+                            : Icons.play_arrow,
+                        size: 11,
+                        color: trackColor,
+                      )
+                    else
+                      Icon(
+                        state == LooperState.paused
+                            ? Icons.volume_off
+                            : Icons.music_note_outlined,
+                        size: 11,
+                        color: trackColor,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

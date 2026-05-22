@@ -114,9 +114,19 @@ class LooperController extends ChangeNotifier {
         if (_states[i] != LooperState.empty) {
           final double elapsed = _stopwatches[i].elapsedMilliseconds.toDouble();
           if (_states[i] == LooperState.countIn) {
-            // Count-in is now just waiting for next beat (handled by Future.delayed)
-            // If it's still here, just show the sweep progress
-            _sweepProgress[i] = 1.0; 
+            if (elapsed >= total) {
+              _stopwatches[i].reset();
+              _sendLooperValue(i + 1, 1.0);
+              _states[i] = LooperState.recording;
+            } else {
+              _sweepProgress[i] = elapsed / total;
+              _currentBeatIndex[i] = (elapsed / beatDurationMs).floor().clamp(
+                0,
+                15,
+              );
+              _currentBar[i] = (_currentBeatIndex[i] / 4).floor() + 1;
+              _currentBeatInBar[i] = (_currentBeatIndex[i] % 4) + 1;
+            }
           } else if (_states[i] == LooperState.recording) {
             if (elapsed >= total) {
               _stopwatches[i].reset();
@@ -171,8 +181,8 @@ class LooperController extends ChangeNotifier {
       value: 1.0,
     );
 
-    // Release after 100ms
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Release after 50ms
+    await Future.delayed(const Duration(milliseconds: 50));
     webSocketService.setParamValue(
       instance: _activeLooper!.instance,
       port: port,
@@ -211,9 +221,7 @@ class LooperController extends ChangeNotifier {
     
     Future.delayed(Duration(milliseconds: waitTimeMs.toInt()), () {
       if (_states[idx] == LooperState.countIn) {
-        _sendLooperValue(loopNum, 1.0);
         _stopwatches[idx].start();
-        _states[idx] = LooperState.recording;
         _startSweepTimer();
         notifyListeners();
       }

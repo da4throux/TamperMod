@@ -76,8 +76,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     double height = 46.0;
     if (isActive) {
       if (isLooper) {
-        width = eWidth;
-        height = 56.0;
+        if (size == 'regular') {
+          width = rWidth;
+          height = 48.0;
+        } else {
+          width = eWidth;
+          height = 56.0;
+        }
       } else if (size == 'compact') {
         width = cWidth;
         height = 40.0;

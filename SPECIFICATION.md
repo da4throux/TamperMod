@@ -200,14 +200,6 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 * [x] Small timeline track rows in ALO compact card are now interactive (clickable) to select the loop, with active selection highlighting (v1.3.22).
 
 ### Todo Tasks (Grouped by Category)
-## ALO bugs and improvements
-* [ ] Alo looper recorder logic was changed. It start recording almost instantly, it should first roll all the bars (for the player to prepare for the recording) and then start recording the bars, and then shift to play mode (each should have a different color as for when it s on Mute)
-* [ ] In Alo Looper the on / off / click buttons are not working. I must have specified them badly. Now I am thinking of just: Click (1 50ms 0) - and it is always available.
-* [ ] Alo Looper regular card, does not show the correct size in the organizational drawer.
-* [ ] In Alo, I would like the playing vertical bars to be brighter (to clearly see when the cursor is passing by the timeline beat)
-* [ ] The Alo extended card should also include the little timeline views (3 columns of 2 rows), clicking on one should swith the tab to this loop number (probably do not need the tab selector anymore). The currently selected loop would have its timeline outlined
-* [ ] In Alo regular card, let s remove the tab selector and buttons, to have bigger timeline (same width but higher rows). Tapping one either start recording or Mute depending. 
-
 ## Advanced Configuration
 * [ ] There was development to keep the configuration for a pedalboard locally per pedalboard, so that if the applicaiton and a pedalboard is reload, so same layout is presented (in particular: cards size, position, color, special setup) v1.3.18 was handling the parts were several workspace configuration for the same pedalboard (like using it for different songs). However, when I update the application (flutter install --release) I never see the configuration I have set before...
 * [ ] I do not see a menu dealing with those elements
