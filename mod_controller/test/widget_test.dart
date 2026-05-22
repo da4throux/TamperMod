@@ -1,3 +1,4 @@
+// ignore_for_file: depend_on_referenced_packages, override_on_non_overriding_member, use_super_parameters
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';

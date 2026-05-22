@@ -25,6 +25,7 @@ class SettingsDrawer extends StatefulWidget {
   final VoidCallback onConfigDuplicate;
   final VoidCallback onConfigRename;
   final VoidCallback onConfigDelete;
+  final VoidCallback onBackupRestore;
 
   const SettingsDrawer({
     super.key,
@@ -46,6 +47,7 @@ class SettingsDrawer extends StatefulWidget {
     required this.onConfigDuplicate,
     required this.onConfigRename,
     required this.onConfigDelete,
+    required this.onBackupRestore,
   });
 
   @override
@@ -489,6 +491,46 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: widget.currentConfig == 'default' ? null : widget.onConfigDelete,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                // Backup & Restore Action Button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onBackupRestore,
+                          icon: const Icon(Icons.settings_backup_restore_rounded, size: 14),
+                          label: const Text(
+                            'BACKUP & RESTORE CONFIGURATIONS',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: widget.isDarkMode
+                                ? const Color(0xFF00FFCC)
+                                : const Color(0xFF00B3FF),
+                            side: BorderSide(
+                              color: (widget.isDarkMode
+                                      ? const Color(0xFF00FFCC)
+                                      : const Color(0xFF00B3FF))
+                                  .withOpacity(0.5),
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

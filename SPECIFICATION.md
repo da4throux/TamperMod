@@ -198,11 +198,9 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 * [x] Remove edit icon from ALO cards title; long press on title text/icon or size toggle button opens rename/color dialog (v1.3.22).
 * [x] Record button in ALO compact mode now dynamically toggles to "CANCEL" if counting-in or recording, calling clearLoop to cancel (v1.3.22).
 * [x] Small timeline track rows in ALO compact card are now interactive (clickable) to select the loop, with active selection highlighting (v1.3.22).
+* [x] Backup & Restore Layout Configurations (v1.3.24): added trigger button in Settings Drawer, custom interactive dialog showing database summary statistics, Google Drive backup/restore via native system Share Sheet and Document Picker, and raw JSON clipboard copy/paste fallback.
 
 ### Todo Tasks (Grouped by Category)
-## Advanced Configuration
-* [ ] There was development to keep the configuration for a pedalboard locally per pedalboard, so that if the applicaiton and a pedalboard is reload, so same layout is presented (in particular: cards size, position, color, special setup) v1.3.18 was handling the parts were several workspace configuration for the same pedalboard (like using it for different songs). However, when I update the application (flutter install --release) I never see the configuration I have set before...
-* [ ] I do not see a menu dealing with those elements
 
 ## Advanced Discovery
 * [ ] When a new device is present, for which a specific card was not created, an extended card will be created. It will display all the available parameters for that device in the form of a grid of sliders and buttons. The device will also be present in the drawer, with the name it has on the network. I can see the parameters ranges and so on in the info button of the device.

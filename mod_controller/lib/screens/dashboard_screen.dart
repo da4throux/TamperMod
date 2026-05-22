@@ -10,6 +10,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../services/websocket_service.dart';
 import '../models/plugin_instance.dart';
@@ -1108,6 +1110,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               onShowColorPicker: _showColorPickerDialog,
               onCyclePedalSize: _cyclePedalSize,
               onScrollToCard: _scrollToCard,
+              onBackupRestore: _showBackupRestoreDialog,
             ),
           ),
 
@@ -2822,6 +2825,600 @@ class _DashboardScreenState extends State<DashboardScreen>
     } catch (e) {
       debugPrint('Error saving layout settings: $e');
     }
+  }
+
+  Future<Map<String, dynamic>> _getDatabaseSummary() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final Set<String> keys = prefs.getKeys();
+      final Set<String> pedalboards = {};
+      final Set<String> configs = {};
+      int keyCount = 0;
+
+      for (final key in keys) {
+        if (key.startsWith('pedalboard_')) {
+          keyCount++;
+          final parts = key.split('_');
+          if (parts.length >= 2) {
+            final pbId = parts[1];
+            pedalboards.add('pedalboard_$pbId');
+          }
+          if (key.contains('_configs_list')) {
+            final list = prefs.getStringList(key);
+            if (list != null) {
+              configs.addAll(list);
+            }
+          }
+        }
+      }
+
+      return {
+        'pedalboardsCount': pedalboards.length,
+        'configsCount': configs.isEmpty ? 1 : configs.length,
+        'keysCount': keyCount,
+      };
+    } catch (e) {
+      debugPrint('Error getting database summary: $e');
+      return {
+        'pedalboardsCount': 0,
+        'configsCount': 0,
+        'keysCount': 0,
+      };
+    }
+  }
+
+  Future<void> _exportConfigurationsToFile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final Set<String> keys = prefs.getKeys();
+      final Map<String, dynamic> backupData = {};
+
+      for (final key in keys) {
+        if (key.startsWith('pedalboard_') || key == 'is_dark_mode') {
+          final value = prefs.get(key);
+          backupData[key] = value;
+        }
+      }
+
+      final jsonString = jsonEncode(backupData);
+      final tempDir = Directory.systemTemp;
+      final tempFile = File('${tempDir.path}/tampermod_layouts_backup.json');
+      await tempFile.writeAsString(jsonString);
+
+      await Share.shareXFiles(
+        [XFile(tempFile.path)],
+        subject: 'TamperMod Layout Backup',
+        text: 'TamperMod Layout configurations backup JSON file.',
+      );
+    } catch (e) {
+      debugPrint('Error exporting configurations: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error exporting configurations: $e'),
+            backgroundColor: const Color(0xFFFF007F),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _importConfigurationsFromFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (result == null || result.files.single.path == null) {
+        return; // User cancelled
+      }
+
+      final file = File(result.files.single.path!);
+      final jsonString = await file.readAsString();
+      final Map<String, dynamic> decoded = jsonDecode(jsonString);
+
+      if (decoded.isEmpty || !decoded.keys.any((k) => k.startsWith('pedalboard_'))) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid backup file structure!'),
+              backgroundColor: Color(0xFFFF007F),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Ask for confirmation
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+            title: const Text(
+              'CONFIRM RESTORE',
+              style: TextStyle(
+                color: Color(0xFFFF007F),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                letterSpacing: 1.2,
+              ),
+            ),
+            content: Text(
+              'This will overwrite all your current pedalboard layouts and settings. Are you sure you want to continue?',
+              style: TextStyle(
+                color: _isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'CANCEL',
+                  style: TextStyle(
+                    color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF007F),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'RESTORE',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirm != true) return;
+
+      final prefs = await SharedPreferences.getInstance();
+
+      // Clear existing pedalboard configurations
+      final Set<String> currentKeys = prefs.getKeys();
+      for (final key in currentKeys) {
+        if (key.startsWith('pedalboard_')) {
+          await prefs.remove(key);
+        }
+      }
+
+      // Write new configuration keys
+      for (final entry in decoded.entries) {
+        final key = entry.key;
+        final val = entry.value;
+        if (val is bool) {
+          await prefs.setBool(key, val);
+        } else if (val is int) {
+          await prefs.setInt(key, val);
+        } else if (val is double) {
+          await prefs.setDouble(key, val);
+        } else if (val is String) {
+          await prefs.setString(key, val);
+        } else if (val is List) {
+          await prefs.setStringList(key, val.map((e) => e.toString()).toList());
+        }
+      }
+
+      // Reload
+      await _syncAndLoadLayoutSettings();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Layout configurations restored successfully!'),
+            backgroundColor: Color(0xFF00FFCC),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error importing configurations: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error importing configurations: $e'),
+            backgroundColor: const Color(0xFFFF007F),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showBackupRestoreDialog() async {
+    final summary = await _getDatabaseSummary();
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final TextEditingController jsonTextController = TextEditingController();
+
+            return AlertDialog(
+              backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: _isDarkMode
+                      ? const Color(0xFF00FFCC).withOpacity(0.3)
+                      : const Color(0xFF00B3FF).withOpacity(0.3),
+                  width: 1.5,
+                ),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.settings_backup_restore_rounded,
+                    color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'BACKUP & RESTORE',
+                    style: TextStyle(
+                      color: _isDarkMode ? Colors.white : Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 450,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Database Summary Panel
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: _isDarkMode
+                              ? const Color(0xFF070A0F)
+                              : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _isDarkMode ? Colors.grey[850]! : Colors.grey[300]!,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem('Pedalboards', '${summary['pedalboardsCount']}'),
+                            _buildStatItem('Configurations', '${summary['configsCount']}'),
+                            _buildStatItem('Total Keys', '${summary['keysCount']}'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Instructions
+                      Text(
+                        'Layout configurations are deleted when the application is uninstalled. Use these tools to back up and restore your settings.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Two Action Cards
+                      Row(
+                        children: [
+                          // Export Card
+                          Expanded(
+                            child: _buildBackupCard(
+                              title: 'EXPORT TO DRIVE',
+                              subtitle: 'Save JSON file via system Share Sheet',
+                              icon: Icons.cloud_upload_rounded,
+                              color: const Color(0xFF00FFCC),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _exportConfigurationsToFile();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Import Card
+                          Expanded(
+                            child: _buildBackupCard(
+                              title: 'IMPORT FROM DRIVE',
+                              subtitle: 'Pick JSON file from system folders',
+                              icon: Icons.folder_open_rounded,
+                              color: const Color(0xFFFF007F),
+                              onTap: () {
+                                Navigator.pop(context);
+                                _importConfigurationsFromFile();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Collapsible Raw Text Options
+                      ExpansionTile(
+                        iconColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                        collapsedIconColor: Colors.grey,
+                        title: Text(
+                          'Advanced: Raw Clipboard JSON',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                          ),
+                        ),
+                        children: [
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: jsonTextController,
+                            maxLines: 4,
+                            decoration: InputDecoration(
+                              hintText: 'Paste layout backup JSON string here...',
+                              hintStyle: const TextStyle(fontSize: 11, color: Colors.grey),
+                              fillColor: _isDarkMode ? const Color(0xFF070A0F) : Colors.grey[50],
+                              filled: true,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00FFCC),
+                                  foregroundColor: Colors.black,
+                                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                                icon: const Icon(Icons.copy_rounded, size: 14),
+                                label: const Text('COPY CURRENT JSON'),
+                                onPressed: () async {
+                                  try {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final Set<String> keys = prefs.getKeys();
+                                    final Map<String, dynamic> backupData = {};
+                                    for (final key in keys) {
+                                      if (key.startsWith('pedalboard_') || key == 'is_dark_mode') {
+                                        backupData[key] = prefs.get(key);
+                                      }
+                                    }
+                                    final jsonStr = jsonEncode(backupData);
+                                    await Clipboard.setData(ClipboardData(text: jsonStr));
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('JSON copied to clipboard!'),
+                                          backgroundColor: Color(0xFF00FFCC),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    debugPrint('Error copying JSON: $e');
+                                  }
+                                },
+                              ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFFF007F),
+                                  foregroundColor: Colors.white,
+                                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                                icon: const Icon(Icons.paste_rounded, size: 14),
+                                label: const Text('IMPORT FROM TEXT'),
+                                onPressed: () async {
+                                  final text = jsonTextController.text.trim();
+                                  if (text.isEmpty) return;
+                                  Navigator.pop(context);
+                                  
+                                  try {
+                                    final Map<String, dynamic> decoded = jsonDecode(text);
+                                    if (decoded.isEmpty || !decoded.keys.any((k) => k.startsWith('pedalboard_'))) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Invalid backup JSON!'),
+                                          backgroundColor: Color(0xFFFF007F),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    
+                                    final bool? confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) {
+                                        return AlertDialog(
+                                          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+                                          title: const Text('CONFIRM RESTORE', style: TextStyle(color: Color(0xFFFF007F), fontWeight: FontWeight.bold, fontSize: 16)),
+                                          content: const Text('Are you sure you want to overwrite all configurations with this JSON?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context, false),
+                                              child: Text('CANCEL', style: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[600])),
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF007F), foregroundColor: Colors.white),
+                                              onPressed: () => Navigator.pop(context, true),
+                                              child: const Text('RESTORE', style: TextStyle(fontWeight: FontWeight.bold)),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    
+                                    if (confirm != true) return;
+                                    
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final Set<String> currentKeys = prefs.getKeys();
+                                    for (final key in currentKeys) {
+                                      if (key.startsWith('pedalboard_')) {
+                                        await prefs.remove(key);
+                                      }
+                                    }
+                                    for (final entry in decoded.entries) {
+                                      final key = entry.key;
+                                      final val = entry.value;
+                                      if (val is bool) {
+                                        await prefs.setBool(key, val);
+                                      } else if (val is int) {
+                                        await prefs.setInt(key, val);
+                                      } else if (val is double) {
+                                        await prefs.setDouble(key, val);
+                                      } else if (val is String) {
+                                        await prefs.setString(key, val);
+                                      } else if (val is List) {
+                                        await prefs.setStringList(key, val.map((e) => e.toString()).toList());
+                                      }
+                                    }
+                                    await _syncAndLoadLayoutSettings();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Layout configurations restored successfully!'),
+                                        backgroundColor: Color(0xFF00FFCC),
+                                      ),
+                                    );
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error restoring JSON: $e'),
+                                        backgroundColor: const Color(0xFFFF007F),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'CLOSE',
+                    style: TextStyle(
+                      color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
+            fontWeight: FontWeight.w600,
+            fontSize: 8,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackupCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _isDarkMode ? const Color(0xFF131924) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.08),
+            blurRadius: 8,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          splashColor: color.withOpacity(0.2),
+          highlightColor: color.withOpacity(0.1),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: color,
+                  size: 32,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _isDarkMode ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _isDarkMode ? Colors.grey[500] : Colors.grey[600],
+                    fontSize: 8.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String _getDefaultColorForInstanceId(String instanceId) {
