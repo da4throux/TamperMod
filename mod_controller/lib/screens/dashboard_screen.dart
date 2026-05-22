@@ -1379,8 +1379,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                   double? cardHeight = 240.0;
 
                   if (isLooper) {
-                    cardWidth = expandedWidth;
-                    cardHeight = null; // Auto-expand to fit all content
+                    // ALO loopers: check size setting
+                    if (size == 'regular') {
+                      cardWidth = regularWidth;
+                      cardHeight = 240.0;
+                    } else {
+                      // Default to expanded mode
+                      cardWidth = expandedWidth;
+                      cardHeight = null; // Auto-expand to fit all content
+                    }
                   } else {
                     if (size == 'compact') {
                       // Same height as regular — fade buttons take full width

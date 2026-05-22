@@ -26,38 +26,36 @@ class FadeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: ElevatedButton.icon(
-          onPressed: isBypassed ? null : onTap,
-          icon: Icon(
-            icon,
-            size: isCompact ? 10 : 13,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      child: ElevatedButton.icon(
+        onPressed: isBypassed ? null : onTap,
+        icon: Icon(
+          icon,
+          size: isCompact ? 10 : 13,
+          color: isFading ? const Color(0xFFFF007F) : Colors.black,
+        ),
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: isCompact ? 9 : 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: isCompact ? 0.5 : 1.0,
             color: isFading ? const Color(0xFFFF007F) : Colors.black,
           ),
-          label: Text(
-            label,
-            style: TextStyle(
-              fontSize: isCompact ? 9 : 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: isCompact ? 0.5 : 1.0,
-              color: isFading ? const Color(0xFFFF007F) : Colors.black,
-            ),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isFading
-                ? const Color(0xFFFF007F).withOpacity(0.12)
-                : accentColor,
-            disabledBackgroundColor: Colors.grey[800],
-            padding: EdgeInsets.symmetric(vertical: isCompact ? 4 : 8),
-            elevation: isFading ? 4 : 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: isFading
-                  ? const BorderSide(color: Color(0xFFFF007F), width: 1.5)
-                  : BorderSide.none,
-            ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isFading
+              ? const Color(0xFFFF007F).withOpacity(0.12)
+              : accentColor,
+          disabledBackgroundColor: Colors.grey[800],
+          padding: EdgeInsets.symmetric(vertical: isCompact ? 4 : 8),
+          elevation: isFading ? 4 : 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: isFading
+                ? const BorderSide(color: Color(0xFFFF007F), width: 1.5)
+                : BorderSide.none,
           ),
         ),
       ),
