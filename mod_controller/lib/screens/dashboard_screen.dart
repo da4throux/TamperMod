@@ -28,6 +28,7 @@ import '../widgets/cards/looper_card.dart';
 import '../widgets/cards/looper_regular_card.dart';
 import '../widgets/cards/placeholder_card.dart';
 import '../utils/color_utils.dart';
+import '../models/parameter_metadata.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String appVersion;
@@ -246,6 +247,151 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  void _handleDiscoveryData(String jsonString) {
+    try {
+      final List<dynamic> decoded = json.decode(jsonString);
+      for (final item in decoded) {
+        if (item is Map<String, dynamic>) {
+          final String? instance = item['instance'];
+          final List<dynamic>? portsData = item['ports'];
+          if (instance != null && portsData != null) {
+            final List<ParameterMetadata> metadataList = portsData
+                .map((p) => ParameterMetadata.fromJson(p as Map<String, dynamic>))
+                .toList();
+            _webSocketService.updatePluginMetadata(instance, metadataList);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error parsing discovery data: $e');
+    }
+  }
+
+  void _injectMetadataDiscovery() {
+    const String jsCode = r'''
+      (function() {
+        function scrapeMetadata() {
+          var plugins = [];
+          
+          // 1. Try Backbone.js first
+          try {
+            if (window.pedalboard && typeof window.pedalboard.get === 'function') {
+              var pluginsColl = window.pedalboard.get('plugins');
+              if (pluginsColl && typeof pluginsColl.each === 'function') {
+                pluginsColl.each(function(plugin) {
+                  var ports = [];
+                  var controlPorts = plugin.get('ports');
+                  if (controlPorts && controlPorts.control && controlPorts.control.input) {
+                    controlPorts.control.input.forEach(function(port) {
+                      var sym = port.get('symbol') || '';
+                      if (sym === ':bypass' || sym === 'bypass') return;
+                      ports.push({
+                        symbol: sym,
+                        name: port.get('name') || sym,
+                        min: parseFloat(port.get('min')) !== undefined ? parseFloat(port.get('min')) : 0.0,
+                        max: parseFloat(port.get('max')) !== undefined ? parseFloat(port.get('max')) : 1.0,
+                        step: parseFloat(port.get('step')) !== undefined ? parseFloat(port.get('step')) : 0.01,
+                        is_toggle: !!port.get('is_toggle') || (port.get('min') === 0 && port.get('max') === 1 && port.get('step') === 1)
+                      });
+                    });
+                  }
+                  plugins.push({
+                    instance: plugin.get('instance'),
+                    uri: plugin.get('uri'),
+                    ports: ports
+                  });
+                });
+                if (plugins.length > 0) return JSON.stringify(plugins);
+              }
+            }
+          } catch(e) {
+            console.error("Backbone scraping failed: ", e);
+          }
+
+          // 2. Fallback: DOM scraping
+          try {
+            var pedalNodes = document.querySelectorAll('.mod-pedal');
+            pedalNodes.forEach(function(pedalNode) {
+              var instance = pedalNode.getAttribute('mod-instance');
+              var uri = pedalNode.getAttribute('mod-uri') || '';
+              if (!instance) return;
+              
+              var ports = [];
+              var controlNodes = pedalNode.querySelectorAll('[mod-port]');
+              controlNodes.forEach(function(controlNode) {
+                var portSymbol = controlNode.getAttribute('mod-port-symbol');
+                if (!portSymbol) {
+                  var portAttr = controlNode.getAttribute('mod-port') || '';
+                  portSymbol = portAttr.split('/').pop();
+                }
+                if (!portSymbol || portSymbol === ':bypass' || portSymbol === 'bypass') return;
+                
+                var minVal = 0.0;
+                var maxVal = 1.0;
+                var stepVal = 0.01;
+                var isToggle = false;
+                
+                var settingsPanel = document.querySelector('.mod-settings[mod-instance="' + instance + '"]');
+                if (settingsPanel) {
+                  var inputControl = settingsPanel.querySelector('[mod-port-symbol="' + portSymbol + '"] input');
+                  if (inputControl) {
+                    minVal = parseFloat(inputControl.getAttribute('min')) || 0.0;
+                    maxVal = parseFloat(inputControl.getAttribute('max')) || 1.0;
+                    stepVal = parseFloat(inputControl.getAttribute('step')) || 0.01;
+                  }
+                }
+                
+                if (controlNode.classList.contains('mod-switch') || controlNode.classList.contains('mod-footswitch')) {
+                  isToggle = true;
+                  minVal = 0.0;
+                  maxVal = 1.0;
+                  stepVal = 1.0;
+                }
+                
+                ports.push({
+                  symbol: portSymbol,
+                  name: portSymbol,
+                  min: minVal,
+                  max: maxVal,
+                  step: stepVal,
+                  is_toggle: isToggle
+                });
+              });
+              
+              plugins.push({
+                instance: instance,
+                uri: uri,
+                ports: ports
+              });
+            });
+          } catch(e) {
+            console.error("DOM scraping failed: ", e);
+          }
+          
+          return JSON.stringify(plugins);
+        }
+
+        if (window.discoveryIntervalId) {
+          clearInterval(window.discoveryIntervalId);
+        }
+        window.discoveryIntervalId = setInterval(function() {
+          try {
+            var data = scrapeMetadata();
+            if (data && window.DiscoveryChannel) {
+              window.DiscoveryChannel.postMessage(data);
+            }
+          } catch(e) {}
+        }, 3000);
+      })();
+    ''';
+
+    try {
+      _webViewController.runJavaScript(jsCode);
+    } catch (e) {
+      debugPrint('Error injecting discovery monitor: $e');
+    }
+  }
+
 
   // Fading and BPM Parameter State
   double _bpm = 120.0;
@@ -265,6 +411,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // User custom display titles for plugin cards (renaming support)
   final Map<String, String> _customTitles = {};
+
+  // Custom regular card visible parameters for unrecognized devices
+  final Map<String, List<String>> _customCardVisibleParams = {};
 
   bool _isMuted(PluginInstance pedal) {
     final double currentValue =
@@ -336,6 +485,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           }
         },
       )
+      ..addJavaScriptChannel(
+        'DiscoveryChannel',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleDiscoveryData(message.message);
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (String url) {
@@ -343,6 +498,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             _updateAllGlowsInWebView();
             // Inject BPM monitor script
             _injectBpmMonitor();
+            // Inject Metadata discovery scraper
+            _injectMetadataDiscovery();
           },
         ),
       );
@@ -530,6 +687,22 @@ class _DashboardScreenState extends State<DashboardScreen>
         });
       }
 
+      // 5.5. Custom Card Visible Params
+      final String? savedCustomVisibleParamsJson = prefs.getString('${key}_custom_card_visible_params');
+      final Map<String, List<String>> newCustomVisibleParams = {};
+      if (savedCustomVisibleParamsJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(savedCustomVisibleParamsJson);
+          decoded.forEach((k, v) {
+            if (v is List) {
+              newCustomVisibleParams[k] = List<String>.from(v.map((e) => e.toString()));
+            }
+          });
+        } catch (e) {
+          debugPrint('Error decoding custom_card_visible_params: $e');
+        }
+      }
+
       // 6. Glow Enabled
       final Map<String, bool> newGlowEnabled = {};
       if (savedGlowEnabledJson != null) {
@@ -586,6 +759,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
           _customTitles.clear();
           _customTitles.addAll(newCustomTitles);
+
+          _customCardVisibleParams.clear();
+          _customCardVisibleParams.addAll(newCustomVisibleParams);
 
           _pedalGlowEnabled.clear();
           _pedalGlowEnabled.addAll(newGlowEnabled);
@@ -1816,6 +1992,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       isDarkMode: _isDarkMode,
                       glowColor: glowColor,
                       displayName: displayName,
+                      visibleParams: _customCardVisibleParams[pedal.instance] ?? [],
                       onBypassToggle: (val) => _webSocketService.toggleBypass(
                         instance: pedal.instance,
                         bypass: val,
@@ -1823,6 +2000,36 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onRenamePressed: () => _showRenameDialog(pedal),
                       onHighlightPressed: () => _highlightPedalInWebView(pedal),
                       onColorPickerPressed: () => _showColorPickerDialog(pedal),
+                      onSizeToggled: () {
+                        setState(() {
+                          final current = _pedalSizes[pedal.instance] ?? 'regular';
+                          if (current == 'compact') {
+                            _pedalSizes[pedal.instance] = 'regular';
+                          } else if (current == 'regular') {
+                            _pedalSizes[pedal.instance] = 'expanded';
+                          } else {
+                            _pedalSizes[pedal.instance] = 'compact';
+                          }
+                        });
+                        _saveLayoutSettings();
+                      },
+                      onParamChanged: (port, val) => _webSocketService.setParamValue(
+                        instance: pedal.instance,
+                        port: port,
+                        value: val,
+                      ),
+                      onParamVisibilityToggled: (symbol, visible) {
+                        setState(() {
+                          final list = _customCardVisibleParams[pedal.instance] ?? [];
+                          if (visible) {
+                            if (!list.contains(symbol)) list.add(symbol);
+                          } else {
+                            list.remove(symbol);
+                          }
+                          _customCardVisibleParams[pedal.instance] = list;
+                        });
+                        _saveLayoutSettings();
+                      },
                       onOpenUri: _openPluginUri,
                     );
                   }
@@ -2657,6 +2864,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     final String? glowEnabled = prefs.getString('${oldKey}_glow_enabled');
     if (glowEnabled != null) await prefs.setString('${newKey}_glow_enabled', glowEnabled);
 
+    final String? customCardVisible = prefs.getString('${oldKey}_custom_card_visible_params');
+    if (customCardVisible != null) await prefs.setString('${newKey}_custom_card_visible_params', customCardVisible);
+
     final int? fadeBars = prefs.getInt('${oldKey}_fade_bars');
     if (fadeBars != null) await prefs.setInt('${newKey}_fade_bars', fadeBars);
 
@@ -2682,6 +2892,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     await prefs.remove('${oldKey}_colors');
     await prefs.remove('${oldKey}_sizes');
     await prefs.remove('${oldKey}_custom_titles');
+    await prefs.remove('${oldKey}_custom_card_visible_params');
     await prefs.remove('${oldKey}_glow_enabled');
     await prefs.remove('${oldKey}_fade_bars');
     await prefs.remove('${oldKey}_fadeRangeStart');
@@ -2764,6 +2975,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     await prefs.remove('${oldKey}_colors');
     await prefs.remove('${oldKey}_sizes');
     await prefs.remove('${oldKey}_custom_titles');
+    await prefs.remove('${oldKey}_custom_card_visible_params');
     await prefs.remove('${oldKey}_glow_enabled');
     await prefs.remove('${oldKey}_fade_bars');
     await prefs.remove('${oldKey}_fadeRangeStart');
@@ -2804,6 +3016,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setString('${key}_colors', jsonEncode(_pedalGlowColors));
       await prefs.setString('${key}_sizes', jsonEncode(_pedalSizes));
       await prefs.setString('${key}_custom_titles', jsonEncode(_customTitles));
+      await prefs.setString('${key}_custom_card_visible_params', jsonEncode(_customCardVisibleParams));
       await prefs.setString('${key}_glow_enabled', jsonEncode(_pedalGlowEnabled));
       await prefs.setInt('${key}_fade_bars', _fadeBars);
       // Fade settings

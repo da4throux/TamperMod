@@ -74,6 +74,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     final isSwitch =
         uriLower.contains('switch') || titleLower.contains('switch');
 
+    final isGainOrVolume =
+        uriLower.contains('gain') ||
+        uriLower.contains('volume') ||
+        uriLower.contains('amp') ||
+        titleLower.contains('gain') ||
+        titleLower.contains('volume');
+
     double width = rWidth;
     double height = 46.0;
     if (isActive) {
@@ -106,12 +113,12 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         getLeastUsedColor(widget.pedalGlowColors);
     final Color glowColor = hexToColor(colorHex);
 
-    IconData typeIcon = Icons.help_outline;
+    IconData typeIcon = Icons.tune;
     if (isLooper) {
       typeIcon = Icons.fiber_manual_record; // red looper dot
     } else if (isSwitch) {
       typeIcon = Icons.swap_horiz;
-    } else {
+    } else if (isGainOrVolume) {
       typeIcon = Icons.adjust; // rotary volume knob
     }
 

@@ -1,3 +1,5 @@
+import 'parameter_metadata.dart';
+
 class PluginInstance {
   final String instance;
   final String uri;
@@ -8,6 +10,9 @@ class PluginInstance {
 
   // Track parameters of this instance in real-time
   final Map<String, double> parameters = {};
+
+  // Metadata cache for parameters discovered via WebView scraping
+  final Map<String, ParameterMetadata> parameterMetadata = {};
 
   // Bypass state (true if bypassed/disabled, false if active/enabled)
   bool isBypassed = false;

@@ -13,3 +13,8 @@
 * [x] Add fallback text-based JSON copy/paste clipboard mechanism in a collapsible advanced section.
 * [x] Display current pedalboard configuration statistics (number of pedalboards, configurations, and total keys) in the backup dialog.
 
+## Advanced Discovery (v1.3.25)
+* [x] Implement generic PlaceholderCard rendering for unrecognized devices with support for compact, regular, and expanded sizes.
+* [x] Add dynamic Backbone/DOM-based parameter metadata scraping in the WebView to update parameter ranges and steps in real time.
+* [x] Support visible parameter checklists in Expanded mode to custom construct Regular card layouts, persisting settings in SharedPreferences.
+* [x] Display a fallback tune icon (Icons.tune) for generic plugins in the Settings Drawer.

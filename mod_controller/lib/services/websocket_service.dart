@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/plugin_instance.dart';
+import '../models/parameter_metadata.dart';
 
 enum ConnectionStatus {
   disconnected,
@@ -409,6 +410,41 @@ class ModWebSocketService extends ChangeNotifier {
     }
     debugPrint('SENDING RAW: $message');
     _channel!.sink.add(message);
+  }
+
+  // Updates the parameter metadata cache for a specific plugin instance
+  void updatePluginMetadata(String instance, List<ParameterMetadata> metadataList) {
+    final List<PluginInstance> currentAll = allPlugins.value;
+    final int index = currentAll.indexWhere((p) => p.instance == instance);
+    if (index != -1) {
+      final plugin = currentAll[index];
+      // Check if metadata actually changed to avoid triggering unnecessary redraws
+      bool changed = plugin.parameterMetadata.length != metadataList.length;
+      if (!changed) {
+        for (var meta in metadataList) {
+          final existing = plugin.parameterMetadata[meta.symbol];
+          if (existing == null || 
+              existing.name != meta.name || 
+              existing.min != meta.min || 
+              existing.max != meta.max || 
+              existing.step != meta.step || 
+              existing.isToggle != meta.isToggle) {
+            changed = true;
+            break;
+          }
+        }
+      }
+      
+      if (changed) {
+        plugin.parameterMetadata.clear();
+        for (var meta in metadataList) {
+          plugin.parameterMetadata[meta.symbol] = meta;
+        }
+        allPlugins.value = List.from(currentAll);
+        gainPedals.value = List.from(gainPedals.value);
+        notifyListeners();
+      }
+    }
   }
 
   @override

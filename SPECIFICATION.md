@@ -202,10 +202,6 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 
 ### Todo Tasks (Grouped by Category)
 
-## Advanced Discovery
-* [ ] When a new device is present, for which a specific card was not created, an extended card will be created. It will display all the available parameters for that device in the form of a grid of sliders and buttons. The device will also be present in the drawer, with the name it has on the network. I can see the parameters ranges and so on in the info button of the device.
-* [ ] For each parameter there would be a check box to toggle its presence in the regular card for that device. So I can create my own custom regular cards.
-
 ---
 
 ## GROUP A: UI/UX Improvements (High Priority - 6 tasks)
