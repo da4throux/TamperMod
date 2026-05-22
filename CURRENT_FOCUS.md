@@ -1,5 +1,11 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.18)
+- **Multi-Configuration Support per Pedalboard**:
+  - Implemented local persistence layout configuration mechanism isolated per pedalboard via mathematical hash base key and user configurations.
+  - Added a Layout Configuration section at the top of the Settings Drawer allowing user to switch, duplicate, rename, and delete configurations.
+  - Config state updates are automatically saved to SharedPreferences under the active config.
+
 ## ✅ Completed (v1.3.17)
 - **WebView Reload Button**:
   - Added an explicit reload button (using `Icons.cached`) to the bottom toolbar.
@@ -61,12 +67,11 @@
 
 ## 📋 Remaining Tasks
 - **GROUP A Task A2**: WebView Controls Enhancement (Remaining: full screen and separation scaling)
-- **GROUP D Task D1**: Local Database for Pedalboard Configurations
 - **GROUP E Task E2**: Default Fadeout Values
 - **GROUP F Tasks**: Future enhancements
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.17
-- **Last commit:** Gemini2.5Flash(v1.3.17) - Add WebView reload button and BPM rotary knob
+- **App Version:** v1.3.18
+- **Last commit:** Gemini2.5Flash(v1.3.18) - Add multi-configuration support per pedalboard
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All v1.3.17 features complete and fully functional
+- **Status:** All v1.3.18 features complete and fully functional

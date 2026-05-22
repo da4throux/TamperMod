@@ -250,6 +250,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _fadeBars =
       8; // Default fade speed period in bars (configurable: 1, 2, 4, 8, 16)
 
+  String _activeConfig = 'default';
+  List<String> _configsList = ['default'];
+
   final Map<String, double> _preFadeVolumes = {};
   final Map<String, Timer?> _fadeTimers = {};
   final Map<String, bool> _fadeDirections =
@@ -393,15 +396,31 @@ class _DashboardScreenState extends State<DashboardScreen>
     final plugins = _webSocketService.allPlugins.value;
     if (plugins.isEmpty) return;
 
-    final key = _getPedalboardKey();
+    final baseKey = _getPedalboardBaseKey();
     final List<String> currentIds = plugins.map((p) => p.instance).toList();
 
     try {
       final prefs = await SharedPreferences.getInstance();
+      final String activeConfig = prefs.getString('${baseKey}_active_config') ?? 'default';
+      final List<String> configsList = prefs.getStringList('${baseKey}_configs_list') ?? ['default'];
+
+      _activeConfig = activeConfig;
+      if (!configsList.contains(_activeConfig)) {
+        _activeConfig = 'default';
+      }
+      _configsList = configsList;
+      if (!_configsList.contains('default')) {
+        _configsList.insert(0, 'default');
+      }
+
+      final key = _getPedalboardKey();
       final List<String>? savedOrder = prefs.getStringList('${key}_order');
       final List<String>? savedEnabled = prefs.getStringList('${key}_enabled');
       final String? savedColorsJson = prefs.getString('${key}_colors');
       final String? savedSizesJson = prefs.getString('${key}_sizes');
+      final String? savedTitlesJson = prefs.getString('${key}_custom_titles');
+      final String? savedGlowEnabledJson = prefs.getString('${key}_glow_enabled');
+      final int? savedFadeBars = prefs.getInt('${key}_fade_bars');
 
       // 1. Order
       List<String> newOrder = [];
@@ -468,11 +487,18 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
 
       // 3. Colors
+      final Map<String, String> newColors = {};
       if (savedColorsJson != null) {
         final Map<String, dynamic> decoded = jsonDecode(savedColorsJson);
         decoded.forEach((k, v) {
-          _pedalGlowColors[k] = v.toString();
+          newColors[k] = v.toString();
         });
+      }
+      // Populate defaults if any plugin doesn't have a color assigned yet
+      for (final p in plugins) {
+        if (!newColors.containsKey(p.instance)) {
+          newColors[p.instance] = getLeastUsedColor(newColors);
+        }
       }
 
       // 4. Sizes
@@ -493,43 +519,89 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
 
-      if (mounted) {
-        setState(() {
-          _orderedPluginInstances = newOrder;
-          _enabledPluginInstances = newEnabled;
-          _pedalSizes.clear();
-          _pedalSizes.addAll(newSizes);
+      // 5. Custom Titles
+      final Map<String, String> newCustomTitles = {};
+      if (savedTitlesJson != null) {
+        final Map<String, dynamic> decoded = jsonDecode(savedTitlesJson);
+        decoded.forEach((k, v) {
+          newCustomTitles[k] = v.toString();
         });
-        _updateAllGlowsInWebView();
       }
 
-      // 5. Fade range cursors
+      // 6. Glow Enabled
+      final Map<String, bool> newGlowEnabled = {};
+      if (savedGlowEnabledJson != null) {
+        final Map<String, dynamic> decoded = jsonDecode(savedGlowEnabledJson);
+        decoded.forEach((k, v) {
+          newGlowEnabled[k] = v as bool;
+        });
+      }
+
+      // 7. Fade range cursors
       final String? savedFadeStart = prefs.getString('${key}_fadeRangeStart');
       final String? savedFadeEnd = prefs.getString('${key}_fadeRangeEnd');
       final String? savedFadeShapes = prefs.getString('${key}_fadeShapes');
       final String? savedFadeCustom = prefs.getString(
         '${key}_fadeCustomParams',
       );
+      final Map<String, double> newFadeStart = {};
+      final Map<String, double> newFadeEnd = {};
+      final Map<String, String> newFadeShapes = {};
+      final Map<String, Map<String, double>> newFadeCustomParams = {};
+
       if (savedFadeStart != null) {
         final Map<String, dynamic> dec = jsonDecode(savedFadeStart);
-        dec.forEach((k, v) => _fadeRangeStart[k] = (v as num).toDouble());
+        dec.forEach((k, v) => newFadeStart[k] = (v as num).toDouble());
       }
       if (savedFadeEnd != null) {
         final Map<String, dynamic> dec = jsonDecode(savedFadeEnd);
-        dec.forEach((k, v) => _fadeRangeEnd[k] = (v as num).toDouble());
+        dec.forEach((k, v) => newFadeEnd[k] = (v as num).toDouble());
       }
       if (savedFadeShapes != null) {
         final Map<String, dynamic> dec = jsonDecode(savedFadeShapes);
-        dec.forEach((k, v) => _fadeShapes[k] = v.toString());
+        dec.forEach((k, v) => newFadeShapes[k] = v.toString());
       }
       if (savedFadeCustom != null) {
         final Map<String, dynamic> outer = jsonDecode(savedFadeCustom);
         outer.forEach((k, v) {
           final Map<String, dynamic> inner = jsonDecode(v.toString());
-          _fadeCustomParams[k] = inner.map(
+          newFadeCustomParams[k] = inner.map(
             (ik, iv) => MapEntry(ik, (iv as num).toDouble()),
           );
         });
+      }
+
+      if (mounted) {
+        setState(() {
+          _orderedPluginInstances = newOrder;
+          _enabledPluginInstances = newEnabled;
+          
+          _pedalSizes.clear();
+          _pedalSizes.addAll(newSizes);
+
+          _pedalGlowColors.clear();
+          _pedalGlowColors.addAll(newColors);
+
+          _customTitles.clear();
+          _customTitles.addAll(newCustomTitles);
+
+          _pedalGlowEnabled.clear();
+          _pedalGlowEnabled.addAll(newGlowEnabled);
+
+          _fadeRangeStart.clear();
+          _fadeRangeStart.addAll(newFadeStart);
+          _fadeRangeEnd.clear();
+          _fadeRangeEnd.addAll(newFadeEnd);
+          _fadeShapes.clear();
+          _fadeShapes.addAll(newFadeShapes);
+          _fadeCustomParams.clear();
+          _fadeCustomParams.addAll(newFadeCustomParams);
+
+          if (savedFadeBars != null) {
+            _fadeBars = savedFadeBars;
+          }
+        });
+        _updateAllGlowsInWebView();
       }
     } catch (e) {
       debugPrint('Error loading layout settings: $e');
@@ -970,6 +1042,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               pedalSizes: _pedalSizes,
               pedalGlowColors: _pedalGlowColors,
               customTitles: _customTitles,
+              currentConfig: _activeConfig,
+              configsList: _configsList,
+              onConfigChanged: _switchConfig,
+              onConfigDuplicate: _duplicateCurrentConfig,
+              onConfigRename: _renameCurrentConfig,
+              onConfigDelete: _deleteCurrentConfig,
               onLayoutSettingsChanged: () {
                 _updateAllGlowsInWebView();
                 _saveLayoutSettings();
@@ -1123,6 +1201,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     setState(() {
                       _fadeBars = val;
                     });
+                    _saveLayoutSettings();
                   },
                   isTransportRolling: _webSocketService.isTransportRolling,
                   transportSyncMode: _webSocketService.transportSyncMode,
@@ -1255,6 +1334,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         setState(() {
                           _fadeBars = val;
                         });
+                        _saveLayoutSettings();
                       },
                       isTransportRolling: _webSocketService.isTransportRolling,
                       transportSyncMode: _webSocketService.transportSyncMode,
@@ -2254,12 +2334,407 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  String _getPedalboardKey() {
+  int _stableStringHash(String s) {
+    int hash = 5381;
+    for (int i = 0; i < s.length; i++) {
+      hash = ((hash << 5) + hash) + s.codeUnitAt(i);
+      hash = hash & 0xFFFFFFFF; // Force 32-bit unsigned integer
+    }
+    return hash;
+  }
+
+  String _getPedalboardBaseKey() {
     final plugins = _webSocketService.allPlugins.value;
     if (plugins.isEmpty) return 'default_pedalboard';
     final List<String> instances = plugins.map((p) => p.instance).toList()
       ..sort();
-    return 'pedalboard_${instances.join(',').hashCode}';
+    final String joint = instances.join(',');
+    final int hash = _stableStringHash(joint);
+    return 'pedalboard_$hash';
+  }
+
+  String _getPedalboardKey() {
+    final base = _getPedalboardBaseKey();
+    if (base == 'default_pedalboard') return 'default_pedalboard';
+    return '${base}_$_activeConfig';
+  }
+
+  Future<void> _duplicateCurrentConfig() async {
+    final baseKey = _getPedalboardBaseKey();
+    if (baseKey == 'default_pedalboard') return;
+
+    final TextEditingController nameController = TextEditingController();
+    final String? newName = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+          title: Text(
+            'DUPLICATE CONFIGURATION',
+            style: TextStyle(
+              color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              letterSpacing: 1.2,
+            ),
+          ),
+          content: TextField(
+            controller: nameController,
+            decoration: InputDecoration(
+              labelText: 'New Configuration Name',
+              labelStyle: TextStyle(
+                color: _isDarkMode ? Colors.grey : Colors.grey[700],
+              ),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                ),
+              ),
+            ),
+            style: TextStyle(
+              color: _isDarkMode ? Colors.white : Colors.black,
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                foregroundColor: _isDarkMode ? Colors.black : Colors.white,
+              ),
+              onPressed: () {
+                final text = nameController.text.trim();
+                if (text.isNotEmpty) {
+                  Navigator.pop(context, text);
+                }
+              },
+              child: const Text(
+                'DUPLICATE',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newName == null || newName.isEmpty) return;
+
+    // Save current configuration first to ensure everything is saved
+    await _saveLayoutSettings();
+
+    final prefs = await SharedPreferences.getInstance();
+    final oldKey = _getPedalboardKey();
+    
+    setState(() {
+      _activeConfig = newName;
+      if (!_configsList.contains(newName)) {
+        _configsList.add(newName);
+      }
+    });
+
+    final newKey = _getPedalboardKey();
+
+    // Copy all settings from oldKey to newKey in SharedPreferences
+    final List<String>? order = prefs.getStringList('${oldKey}_order');
+    if (order != null) await prefs.setStringList('${newKey}_order', order);
+
+    final List<String>? enabled = prefs.getStringList('${oldKey}_enabled');
+    if (enabled != null) await prefs.setStringList('${newKey}_enabled', enabled);
+
+    final String? colors = prefs.getString('${oldKey}_colors');
+    if (colors != null) await prefs.setString('${newKey}_colors', colors);
+
+    final String? sizes = prefs.getString('${oldKey}_sizes');
+    if (sizes != null) await prefs.setString('${newKey}_sizes', sizes);
+
+    final String? customTitles = prefs.getString('${oldKey}_custom_titles');
+    if (customTitles != null) await prefs.setString('${newKey}_custom_titles', customTitles);
+
+    final String? glowEnabled = prefs.getString('${oldKey}_glow_enabled');
+    if (glowEnabled != null) await prefs.setString('${newKey}_glow_enabled', glowEnabled);
+
+    final int? fadeBars = prefs.getInt('${oldKey}_fade_bars');
+    if (fadeBars != null) await prefs.setInt('${newKey}_fade_bars', fadeBars);
+
+    final String? fadeRangeStart = prefs.getString('${oldKey}_fadeRangeStart');
+    if (fadeRangeStart != null) await prefs.setString('${newKey}_fadeRangeStart', fadeRangeStart);
+
+    final String? fadeRangeEnd = prefs.getString('${oldKey}_fadeRangeEnd');
+    if (fadeRangeEnd != null) await prefs.setString('${newKey}_fadeRangeEnd', fadeRangeEnd);
+
+    final String? fadeShapes = prefs.getString('${oldKey}_fadeShapes');
+    if (fadeShapes != null) await prefs.setString('${newKey}_fadeShapes', fadeShapes);
+
+    final String? fadeCustomParams = prefs.getString('${oldKey}_fadeCustomParams');
+    if (fadeCustomParams != null) await prefs.setString('${newKey}_fadeCustomParams', fadeCustomParams);
+
+    // Save configurations list & active config metadata
+    await prefs.setStringList('${baseKey}_configs_list', _configsList);
+    await prefs.setString('${baseKey}_active_config', _activeConfig);
+
+    // Reload settings
+    await _syncAndLoadLayoutSettings();
+  }
+
+  Future<void> _renameCurrentConfig() async {
+    final baseKey = _getPedalboardBaseKey();
+    if (baseKey == 'default_pedalboard') return;
+    if (_activeConfig == 'default') return; // Cannot rename default
+
+    final TextEditingController nameController = TextEditingController(text: _activeConfig);
+    final String? newName = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+          title: Text(
+            'RENAME CONFIGURATION',
+            style: TextStyle(
+              color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              letterSpacing: 1.2,
+            ),
+          ),
+          content: TextField(
+            controller: nameController,
+            decoration: InputDecoration(
+              labelText: 'Configuration Name',
+              labelStyle: TextStyle(
+                color: _isDarkMode ? Colors.grey : Colors.grey[700],
+              ),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(
+                  color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                ),
+              ),
+            ),
+            style: TextStyle(
+              color: _isDarkMode ? Colors.white : Colors.black,
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                foregroundColor: _isDarkMode ? Colors.black : Colors.white,
+              ),
+              onPressed: () {
+                final text = nameController.text.trim();
+                if (text.isNotEmpty) {
+                  Navigator.pop(context, text);
+                }
+              },
+              child: const Text(
+                'RENAME',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newName == null || newName.isEmpty || newName == _activeConfig) return;
+
+    // Save first
+    await _saveLayoutSettings();
+
+    final prefs = await SharedPreferences.getInstance();
+    final oldConfigName = _activeConfig;
+    final oldKey = _getPedalboardKey();
+
+    setState(() {
+      final index = _configsList.indexOf(oldConfigName);
+      if (index != -1) {
+        _configsList[index] = newName;
+      } else {
+        _configsList.add(newName);
+      }
+      _activeConfig = newName;
+    });
+
+    final newKey = _getPedalboardKey();
+
+    // Copy all settings from oldKey to newKey in SharedPreferences
+    final List<String>? order = prefs.getStringList('${oldKey}_order');
+    if (order != null) await prefs.setStringList('${newKey}_order', order);
+
+    final List<String>? enabled = prefs.getStringList('${oldKey}_enabled');
+    if (enabled != null) await prefs.setStringList('${newKey}_enabled', enabled);
+
+    final String? colors = prefs.getString('${oldKey}_colors');
+    if (colors != null) await prefs.setString('${newKey}_colors', colors);
+
+    final String? sizes = prefs.getString('${oldKey}_sizes');
+    if (sizes != null) await prefs.setString('${newKey}_sizes', sizes);
+
+    final String? customTitles = prefs.getString('${oldKey}_custom_titles');
+    if (customTitles != null) await prefs.setString('${newKey}_custom_titles', customTitles);
+
+    final String? glowEnabled = prefs.getString('${oldKey}_glow_enabled');
+    if (glowEnabled != null) await prefs.setString('${newKey}_glow_enabled', glowEnabled);
+
+    final int? fadeBars = prefs.getInt('${oldKey}_fade_bars');
+    if (fadeBars != null) await prefs.setInt('${newKey}_fade_bars', fadeBars);
+
+    final String? fadeRangeStart = prefs.getString('${oldKey}_fadeRangeStart');
+    if (fadeRangeStart != null) await prefs.setString('${newKey}_fadeRangeStart', fadeRangeStart);
+
+    final String? fadeRangeEnd = prefs.getString('${oldKey}_fadeRangeEnd');
+    if (fadeRangeEnd != null) await prefs.setString('${newKey}_fadeRangeEnd', fadeRangeEnd);
+
+    final String? fadeShapes = prefs.getString('${oldKey}_fadeShapes');
+    if (fadeShapes != null) await prefs.setString('${newKey}_fadeShapes', fadeShapes);
+
+    final String? fadeCustomParams = prefs.getString('${oldKey}_fadeCustomParams');
+    if (fadeCustomParams != null) await prefs.setString('${newKey}_fadeCustomParams', fadeCustomParams);
+
+    // Save configurations list & active config metadata
+    await prefs.setStringList('${baseKey}_configs_list', _configsList);
+    await prefs.setString('${baseKey}_active_config', _activeConfig);
+
+    // Delete old configurations keys
+    await prefs.remove('${oldKey}_order');
+    await prefs.remove('${oldKey}_enabled');
+    await prefs.remove('${oldKey}_colors');
+    await prefs.remove('${oldKey}_sizes');
+    await prefs.remove('${oldKey}_custom_titles');
+    await prefs.remove('${oldKey}_glow_enabled');
+    await prefs.remove('${oldKey}_fade_bars');
+    await prefs.remove('${oldKey}_fadeRangeStart');
+    await prefs.remove('${oldKey}_fadeRangeEnd');
+    await prefs.remove('${oldKey}_fadeShapes');
+    await prefs.remove('${oldKey}_fadeCustomParams');
+
+    await _syncAndLoadLayoutSettings();
+  }
+
+  Future<void> _deleteCurrentConfig() async {
+    final baseKey = _getPedalboardBaseKey();
+    if (baseKey == 'default_pedalboard') return;
+    if (_activeConfig == 'default') return; // Cannot delete default
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+          title: const Text(
+            'DELETE CONFIGURATION',
+            style: TextStyle(
+              color: Color(0xFFFF007F),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              letterSpacing: 1.2,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to permanently delete the configuration "${_activeConfig}"?',
+            style: TextStyle(
+              color: _isDarkMode ? Colors.white : Colors.black,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF007F),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'DELETE',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final oldConfigName = _activeConfig;
+    final oldKey = _getPedalboardKey();
+
+    setState(() {
+      _configsList.remove(oldConfigName);
+      _activeConfig = 'default';
+    });
+
+    // Save configurations list & active config metadata
+    await prefs.setStringList('${baseKey}_configs_list', _configsList);
+    await prefs.setString('${baseKey}_active_config', _activeConfig);
+
+    // Delete old configurations keys
+    await prefs.remove('${oldKey}_order');
+    await prefs.remove('${oldKey}_enabled');
+    await prefs.remove('${oldKey}_colors');
+    await prefs.remove('${oldKey}_sizes');
+    await prefs.remove('${oldKey}_custom_titles');
+    await prefs.remove('${oldKey}_glow_enabled');
+    await prefs.remove('${oldKey}_fade_bars');
+    await prefs.remove('${oldKey}_fadeRangeStart');
+    await prefs.remove('${oldKey}_fadeRangeEnd');
+    await prefs.remove('${oldKey}_fadeShapes');
+    await prefs.remove('${oldKey}_fadeCustomParams');
+
+    await _syncAndLoadLayoutSettings();
+  }
+
+  Future<void> _switchConfig(String targetConfigName) async {
+    if (targetConfigName == _activeConfig) return;
+
+    // Save current settings first
+    await _saveLayoutSettings();
+
+    final baseKey = _getPedalboardBaseKey();
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      _activeConfig = targetConfigName;
+    });
+
+    await prefs.setString('${baseKey}_active_config', _activeConfig);
+
+    // Load layout settings for the new configuration
+    await _syncAndLoadLayoutSettings();
   }
 
   Future<void> _saveLayoutSettings() async {
@@ -2272,6 +2747,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setStringList('${key}_enabled', _enabledPluginInstances);
       await prefs.setString('${key}_colors', jsonEncode(_pedalGlowColors));
       await prefs.setString('${key}_sizes', jsonEncode(_pedalSizes));
+      await prefs.setString('${key}_custom_titles', jsonEncode(_customTitles));
+      await prefs.setString('${key}_glow_enabled', jsonEncode(_pedalGlowEnabled));
+      await prefs.setInt('${key}_fade_bars', _fadeBars);
       // Fade settings
       await prefs.setString(
         '${key}_fadeRangeStart',

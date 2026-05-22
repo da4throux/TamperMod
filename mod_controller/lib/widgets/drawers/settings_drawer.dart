@@ -19,6 +19,12 @@ class SettingsDrawer extends StatefulWidget {
   final Function(PluginInstance) onShowColorPicker;
   final Function(String) onCyclePedalSize;
   final Function(String) onScrollToCard;
+  final String currentConfig;
+  final List<String> configsList;
+  final Function(String) onConfigChanged;
+  final VoidCallback onConfigDuplicate;
+  final VoidCallback onConfigRename;
+  final VoidCallback onConfigDelete;
 
   const SettingsDrawer({
     super.key,
@@ -34,6 +40,12 @@ class SettingsDrawer extends StatefulWidget {
     required this.onShowColorPicker,
     required this.onCyclePedalSize,
     required this.onScrollToCard,
+    required this.currentConfig,
+    required this.configsList,
+    required this.onConfigChanged,
+    required this.onConfigDuplicate,
+    required this.onConfigRename,
+    required this.onConfigDelete,
   });
 
   @override
@@ -321,6 +333,163 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
             return Column(
               children: [
+                // CONFIGURATIONS SECTION
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.settings_suggest,
+                        size: 15,
+                        color: widget.isDarkMode
+                            ? const Color(0xFF00FFCC)
+                            : const Color(0xFF00B3FF),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'LAYOUT CONFIGURATION',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10.5,
+                          color: widget.isDarkMode
+                              ? Colors.grey
+                              : Colors.grey[700],
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: widget.isDarkMode
+                        ? const Color(0xFF0F141C).withOpacity(0.5)
+                        : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: (widget.isDarkMode
+                          ? Colors.grey[850]
+                          : Colors.grey[300])!,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Active Config Name Dropdown/Popup Button
+                      Expanded(
+                        child: PopupMenuButton<String>(
+                          initialValue: widget.currentConfig,
+                          tooltip: 'Switch configuration',
+                          onSelected: widget.onConfigChanged,
+                          itemBuilder: (BuildContext context) {
+                            return widget.configsList.map((String config) {
+                              final bool isCurrent = config == widget.currentConfig;
+                              return PopupMenuItem<String>(
+                                value: config,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isCurrent ? Icons.radio_button_checked : Icons.radio_button_off,
+                                      size: 14,
+                                      color: isCurrent
+                                          ? (widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                                          : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      config.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                                        color: widget.isDarkMode ? Colors.white : Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.layers_outlined,
+                                  size: 16,
+                                  color: widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    widget.currentConfig.toUpperCase(),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: widget.isDarkMode ? Colors.white : Colors.black,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: widget.isDarkMode ? Colors.grey : Colors.grey[700],
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      // Duplicate
+                      IconButton(
+                        icon: const Icon(Icons.copy_all_rounded, size: 18),
+                        color: widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                        tooltip: 'Duplicate current configuration',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.onConfigDuplicate,
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Rename
+                      IconButton(
+                        icon: const Icon(Icons.drive_file_rename_outline_rounded, size: 18),
+                        color: widget.currentConfig == 'default'
+                            ? Colors.grey
+                            : (widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF)),
+                        tooltip: widget.currentConfig == 'default'
+                            ? 'Cannot rename default'
+                            : 'Rename current configuration',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.currentConfig == 'default' ? null : widget.onConfigRename,
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Delete
+                      IconButton(
+                        icon: const Icon(Icons.delete_sweep_rounded, size: 18),
+                        color: widget.currentConfig == 'default'
+                            ? Colors.grey
+                            : const Color(0xFFFF007F),
+                        tooltip: widget.currentConfig == 'default'
+                            ? 'Cannot delete default'
+                            : 'Delete current configuration',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: widget.currentConfig == 'default' ? null : widget.onConfigDelete,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+
                 // ACTIVE PUZZLE CANVAS
                 Padding(
                   padding: const EdgeInsets.symmetric(

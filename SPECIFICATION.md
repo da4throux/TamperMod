@@ -265,7 +265,7 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 *Complexity: High | Est. Time: 3-4 hours | Suitable for: Advanced models*
 
 ### D1. Local Database for Pedalboard Configurations
-* [ ] Save in a local database the different configuration made for the application (by pedalboard name, as I could switch from a pedalboard to another).
+* [x] Save in a local database the different configuration made for the application (by pedalboard name, as I could switch from a pedalboard to another).
 
 ---
 
