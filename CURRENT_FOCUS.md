@@ -1,5 +1,13 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.20)
+- **Synchronized Interactive BPM Popup Dialog**:
+  - Tapping on the BPM display (top bar or ALO card badges) opens a dialog containing side-by-side exact typing text field and rotary `BpmKnob`.
+  - Added a tap listener on `BpmKnob` that rounds the BPM to the nearest multiple of 5 (ending in 0 or 5), clamped to `[20.0, 280.0]`.
+  - Bi-directional real-time sync between the text field and the knob ensures updates are immediately visible without cursor or focus disruption.
+- **Clickable ALO Badge**:
+  - Wrapped ALO looper card metronome badges with GestureDetector invoking the BPM dialog.
+
 ## ✅ Completed (v1.3.19)
 - **ALO Compact Card Loop Timeline Columns**:
   - Reorganized the loop playback progress bar rows into 3 columns (2 rows each) instead of 2 columns (3 rows each).
@@ -76,7 +84,7 @@
 - **GROUP F Tasks**: Future enhancements
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.19
-- **Last commit:** Gemini2.5Flash(v1.3.19) - Reorganize compact looper card timeline into 3 columns
+- **App Version:** v1.3.20
+- **Last commit:** Gemini2.5Flash(v1.3.20) - Interactive BPM popup dialog, tap-to-round knob, and ALO badge wire-up
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All v1.3.19 features complete and fully functional
+- **Status:** All v1.3.20 features complete and fully functional

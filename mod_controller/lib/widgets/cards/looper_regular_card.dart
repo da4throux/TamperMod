@@ -22,6 +22,7 @@ class LooperRegularCard extends StatefulWidget {
   final VoidCallback onColorPickerPressed;
   final VoidCallback onHighlightPressed;
   final VoidCallback onSizeToggled;
+  final VoidCallback onBpmTap;
 
   const LooperRegularCard({
     super.key,
@@ -36,6 +37,7 @@ class LooperRegularCard extends StatefulWidget {
     required this.onColorPickerPressed,
     required this.onHighlightPressed,
     required this.onSizeToggled,
+    required this.onBpmTap,
   });
 
   @override
@@ -149,39 +151,45 @@ class _LooperRegularCardState extends State<LooperRegularCard> {
                     ),
 
                     // Metronome BPM indicator/badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: widget.isDarkMode
-                            ? Colors.black
-                            : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: primaryThemeColor.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.query_builder,
-                            size: 12,
-                            color: primaryThemeColor,
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: widget.onBpmTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${widget.bpm.toStringAsFixed(1)} BPM',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'monospace',
-                              color: primaryThemeColor,
+                          decoration: BoxDecoration(
+                            color: widget.isDarkMode
+                                ? Colors.black
+                                : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: primaryThemeColor.withOpacity(0.3),
                             ),
                           ),
-                        ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.query_builder,
+                                size: 12,
+                                color: primaryThemeColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${widget.bpm.toStringAsFixed(1)} BPM',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  fontFamily: 'monospace',
+                                  color: primaryThemeColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ],

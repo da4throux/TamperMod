@@ -190,6 +190,9 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 * [x] Fix BPM fetching and setting via websocket transport commands, parsing transport broadcast and sending transport-bpm (v1.3.16).
 * [x] Add WebView reload button to bottom toolbar (v1.3.17).
 * [x] Add premium interactive BPM rotary knob (range: 20-280) next to the BPM display (v1.3.17).
+* [x] Synchronized interactive BPM popup dialog with text input and rotary BpmKnob (v1.3.20).
+* [x] Tap gesture on BpmKnob to round current BPM to nearest multiple of 5 (v1.3.20).
+* [x] Clickable metronome BPM badges on ALO cards (v1.3.20).
 
 ### Todo Tasks (Grouped by Category)
 

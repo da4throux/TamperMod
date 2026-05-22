@@ -230,6 +230,10 @@ class BpmKnob extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTap: () {
+        final double rounded = ((bpm / 5).roundToDouble() * 5).clamp(minBpm, maxBpm);
+        onChanged(double.parse(rounded.toStringAsFixed(1)));
+      },
       onDoubleTap: () => onChanged(120.0), // Reset to 120.0 BPM on double-tap
       onPanUpdate: (details) {
         // Vertical drag adjusts BPM. Dragging up (negative dy) increases BPM.

@@ -681,7 +681,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _showBpmDialog() {
-    final controller = TextEditingController(text: _bpm.toStringAsFixed(1));
+    double currentBpm = _bpm;
+    final controller = TextEditingController(text: currentBpm.toStringAsFixed(1));
     showDialog(
       context: context,
       builder: (context) {
@@ -698,29 +699,81 @@ class _DashboardScreenState extends State<DashboardScreen>
               fontSize: 16,
             ),
           ),
-          content: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: 'Tempo (BPM)',
-              labelStyle: TextStyle(
-                color: _isDarkMode ? Colors.grey : Colors.grey[700],
-              ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey),
-              ),
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(
-                  color: _isDarkMode
-                      ? const Color(0xFF00FFCC)
-                      : const Color(0xFF00B3FF),
-                ),
-              ),
-            ),
-            style: TextStyle(
-              color: _isDarkMode ? Colors.white : Colors.black,
-              fontFamily: 'monospace',
-            ),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Tempo (BPM)',
+                        labelStyle: TextStyle(
+                          color: _isDarkMode ? Colors.grey : Colors.grey[700],
+                        ),
+                        enabledBorder: const UnderlineInputBorder(
+                          borderSide: BorderSide(color: Colors.grey),
+                        ),
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(
+                            color: _isDarkMode
+                                ? const Color(0xFF00FFCC)
+                                : const Color(0xFF00B3FF),
+                          ),
+                        ),
+                      ),
+                      style: TextStyle(
+                        color: _isDarkMode ? Colors.white : Colors.black,
+                        fontFamily: 'monospace',
+                        fontSize: 16,
+                      ),
+                      onChanged: (text) {
+                        final double? parsed = double.tryParse(text);
+                        if (parsed != null) {
+                          setState(() {
+                            currentBpm = parsed.clamp(20.0, 280.0);
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      BpmKnob(
+                        bpm: currentBpm,
+                        minBpm: 20.0,
+                        maxBpm: 280.0,
+                        isDarkMode: _isDarkMode,
+                        onChanged: (newVal) {
+                          setState(() {
+                            currentBpm = newVal.clamp(20.0, 280.0);
+                            final newText = currentBpm.toStringAsFixed(1);
+                            controller.value = TextEditingValue(
+                              text: newText,
+                              selection: TextSelection.collapsed(offset: newText.length),
+                            );
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'KNOB',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode ? Colors.grey[600] : Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
           actions: [
             TextButton(
@@ -740,10 +793,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 foregroundColor: _isDarkMode ? Colors.black : Colors.white,
               ),
               onPressed: () {
-                final double? newBpm = double.tryParse(controller.text);
-                if (newBpm != null && newBpm > 20.0 && newBpm < 300.0) {
-                  _webSocketService.setBpm(newBpm);
-                }
+                double finalBpm = double.tryParse(controller.text) ?? currentBpm;
+                finalBpm = finalBpm.clamp(20.0, 280.0);
+                _webSocketService.setBpm(double.parse(finalBpm.toStringAsFixed(1)));
                 Navigator.pop(context);
               },
               child: const Text(
@@ -1612,6 +1664,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         onHighlightPressed: () =>
                             _highlightPedalInWebView(pedal),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
+                        onBpmTap: _showBpmDialog,
                       );
                     } else {
                       // Default to extended mode
@@ -1629,6 +1682,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         onHighlightPressed: () =>
                             _highlightPedalInWebView(pedal),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
+                        onBpmTap: _showBpmDialog,
                       );
                     }
                   } else if (isSwitch) {
