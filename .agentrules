@@ -28,6 +28,7 @@ You are an autonomous agent with terminal and file system access. You must manag
 2. Update `CURRENT_FOCUS.md`: record what was just completed, what is currently in progress, and what the next recommended step is.
 3. Update `README.md`: maintain at current level the general philosophy, structure of the project (flutter application is in mod_controller/) and architecture of the application.
 Both files MUST be included in the same commit as the feature work. Not updating them is a protocol violation.
+4. Always keep the implementation plans or other working document in the project folder
 * Do not jump ahead to other features until current checkboxes are completed.
 
 ---

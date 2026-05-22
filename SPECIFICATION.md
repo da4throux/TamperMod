@@ -193,6 +193,11 @@ The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-
 * [x] Synchronized interactive BPM popup dialog with text input and rotary BpmKnob (v1.3.20).
 * [x] Tap gesture on BpmKnob to round current BPM to nearest multiple of 5 (v1.3.20).
 * [x] Clickable metronome BPM badges on ALO cards (v1.3.20).
+* [x] Fix color picker state scoping and bind long press on size toggle button to rename/customize dialog (v1.3.21).
+* [x] Fix ALO Regular card button layout overflow by reducing timeline height to 48px and compacting vertical spacing (v1.3.22).
+* [x] Remove edit icon from ALO cards title; long press on title text/icon or size toggle button opens rename/color dialog (v1.3.22).
+* [x] Record button in ALO compact mode now dynamically toggles to "CANCEL" if counting-in or recording, calling clearLoop to cancel (v1.3.22).
+* [x] Small timeline track rows in ALO compact card are now interactive (clickable) to select the loop, with active selection highlighting (v1.3.22).
 
 ### Todo Tasks (Grouped by Category)
 

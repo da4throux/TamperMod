@@ -1,5 +1,17 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.22)
+- **ALO Compact Card UI Optimization & Interactivity**:
+  - Reduced the small timeline height from 60px to 48px and compacted card margins/padding to completely prevent vertical layout overflow within the 240px card height.
+  - Removed the edit icon from the ALO cards title; long pressing the title text/icon or the size toggle button opens the rename/color customization dialog.
+  - Made the Record button dynamic: it toggles to "CANCEL" mode (showing Cancel text and icon) when counting-in or recording, calling clearLoop to cancel.
+  - Made the small timeline track rows interactive: clicking a row selects the corresponding loop, and the active loop row displays a highlighted background.
+
+## ✅ Completed (v1.3.21)
+- **Card Customization & Long Press Bindings**:
+  - Fixed the color selection state scoping bug in the rename/customize dialog.
+  - Bound the size toggle button (scaler) long-press gesture to trigger the rename/customize dialog.
+
 ## ✅ Completed (v1.3.20)
 - **Synchronized Interactive BPM Popup Dialog**:
   - Tapping on the BPM display (top bar or ALO card badges) opens a dialog containing side-by-side exact typing text field and rotary `BpmKnob`.
@@ -84,7 +96,7 @@
 - **GROUP F Tasks**: Future enhancements
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.20
-- **Last commit:** Gemini2.5Flash(v1.3.20) - Interactive BPM popup dialog, tap-to-round knob, and ALO badge wire-up
+- **App Version:** v1.3.22
+- **Last commit:** Gemini2.5Flash(v1.3.22) - Optimize compact ALO Card layout, remove edit icon, and make small timeline interactive
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI
-- **Status:** All v1.3.20 features complete and fully functional
+- **Status:** All v1.3.22 features complete and fully functional

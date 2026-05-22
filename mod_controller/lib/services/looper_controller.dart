@@ -83,6 +83,7 @@ class LooperController extends ChangeNotifier {
   }
 
   void setActiveLooper(PluginInstance looper) {
+    if (_activeLooper?.instance == looper.instance) return;
     _activeLooper = looper;
     _resetState();
     _selectedLoopIndex = 0; // Default to loop 1

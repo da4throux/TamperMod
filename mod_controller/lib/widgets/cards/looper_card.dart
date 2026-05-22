@@ -116,6 +116,7 @@ class _LooperCardState extends State<LooperCard> {
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: widget.onHighlightPressed,
+                        onLongPress: widget.onRenamePressed,
                         child: Row(
                           children: [
                             Icon(
@@ -137,19 +138,6 @@ class _LooperCardState extends State<LooperCard> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              icon: Icon(
-                                Icons.edit,
-                                size: 13,
-                                color: widget.isDarkMode
-                                    ? Colors.grey[500]
-                                    : Colors.grey[600],
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: widget.onRenamePressed,
                             ),
                             const SizedBox(width: 4),
                             IconButton(
@@ -257,6 +245,7 @@ class _LooperCardState extends State<LooperCard> {
                             ),
                           ),
                           onPressed: () {
+                            widget.looperController.setActiveLooper(widget.pedal);
                             widget.looperController.selectLoop(loopNum);
                           },
                           child: Text(
@@ -546,6 +535,7 @@ class _LooperCardState extends State<LooperCard> {
                   ),
                 ),
                 onPressed: () {
+                  widget.looperController.setActiveLooper(widget.pedal);
                   if (state == LooperState.countIn ||
                       state == LooperState.recording) {
                     widget.looperController.clearLoop(loopNum);
@@ -581,9 +571,15 @@ class _LooperCardState extends State<LooperCard> {
                   ),
                 ),
                 onPressed: (state == LooperState.playing)
-                    ? () => widget.looperController.pauseLoop(loopNum)
+                    ? () {
+                        widget.looperController.setActiveLooper(widget.pedal);
+                        widget.looperController.pauseLoop(loopNum);
+                      }
                     : (state == LooperState.paused)
-                    ? () => widget.looperController.playLoop(loopNum)
+                    ? () {
+                        widget.looperController.setActiveLooper(widget.pedal);
+                        widget.looperController.playLoop(loopNum);
+                      }
                     : null,
                 icon: Icon(
                   (state == LooperState.paused)
@@ -617,7 +613,10 @@ class _LooperCardState extends State<LooperCard> {
                     side: const BorderSide(color: Colors.amber),
                   ),
                 ),
-                onPressed: () => widget.looperController.clearLoop(loopNum),
+                onPressed: () {
+                  widget.looperController.setActiveLooper(widget.pedal);
+                  widget.looperController.clearLoop(loopNum);
+                },
                 icon: const Icon(Icons.delete_outline, size: 12),
                 label: const Text(
                   'CLEAR',
@@ -655,6 +654,7 @@ class _LooperCardState extends State<LooperCard> {
                   ),
                 ),
                 onPressed: () {
+                  widget.looperController.setActiveLooper(widget.pedal);
                   // ON: Set loop to playing state (if it has content)
                   if (state == LooperState.paused) {
                     widget.looperController.playLoop(loopNum);
@@ -701,6 +701,7 @@ class _LooperCardState extends State<LooperCard> {
                   ),
                 ),
                 onPressed: () {
+                  widget.looperController.setActiveLooper(widget.pedal);
                   // OFF: Pause/mute the loop
                   if (state == LooperState.playing) {
                     widget.looperController.pauseLoop(loopNum);
@@ -738,6 +739,7 @@ class _LooperCardState extends State<LooperCard> {
                   ),
                 ),
                 onPressed: () {
+                  widget.looperController.setActiveLooper(widget.pedal);
                   // CLICK: Trigger a single switch press (like a foot switch tap)
                   widget.looperController.manualTrigger(loopNum);
                 },
