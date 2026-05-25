@@ -254,12 +254,19 @@ class _DashboardScreenState extends State<DashboardScreen>
       for (final item in decoded) {
         if (item is Map<String, dynamic>) {
           final String? instance = item['instance'];
+          final String? name = item['name'];
+          final String? label = item['label'];
           final List<dynamic>? portsData = item['ports'];
           if (instance != null && portsData != null) {
             final List<ParameterMetadata> metadataList = portsData
                 .map((p) => ParameterMetadata.fromJson(p as Map<String, dynamic>))
                 .toList();
-            _webSocketService.updatePluginMetadata(instance, metadataList);
+            _webSocketService.updatePluginMetadata(
+              instance: instance,
+              name: name,
+              label: label,
+              metadataList: metadataList,
+            );
           }
         }
       }
@@ -281,24 +288,44 @@ class _DashboardScreenState extends State<DashboardScreen>
               if (pluginsColl && typeof pluginsColl.each === 'function') {
                 pluginsColl.each(function(plugin) {
                   var ports = [];
-                  var controlPorts = plugin.get('ports');
+                  var controlPorts = typeof plugin.get === 'function' ? plugin.get('ports') : plugin.ports;
                   if (controlPorts && controlPorts.control && controlPorts.control.input) {
                     controlPorts.control.input.forEach(function(port) {
-                      var sym = port.get('symbol') || '';
-                      if (sym === ':bypass' || sym === 'bypass') return;
+                      var sym = (typeof port.get === 'function' ? port.get('symbol') : port.symbol) || '';
+                      if (!sym || sym === ':bypass' || sym === 'bypass') return;
+                      
+                      var name = (typeof port.get === 'function' ? port.get('name') : port.name) || sym;
+                      var minVal = typeof port.get === 'function' ? port.get('min') : port.min;
+                      var maxVal = typeof port.get === 'function' ? port.get('max') : port.max;
+                      var stepVal = typeof port.get === 'function' ? port.get('step') : port.step;
+                      var isToggle = typeof port.get === 'function' ? port.get('is_toggle') : port.is_toggle;
+                      
+                      minVal = parseFloat(minVal);
+                      if (isNaN(minVal)) minVal = 0.0;
+                      maxVal = parseFloat(maxVal);
+                      if (isNaN(maxVal)) maxVal = 1.0;
+                      stepVal = parseFloat(stepVal);
+                      if (isNaN(stepVal)) stepVal = 0.01;
+                      
                       ports.push({
                         symbol: sym,
-                        name: port.get('name') || sym,
-                        min: parseFloat(port.get('min')) !== undefined ? parseFloat(port.get('min')) : 0.0,
-                        max: parseFloat(port.get('max')) !== undefined ? parseFloat(port.get('max')) : 1.0,
-                        step: parseFloat(port.get('step')) !== undefined ? parseFloat(port.get('step')) : 0.01,
-                        is_toggle: !!port.get('is_toggle') || (port.get('min') === 0 && port.get('max') === 1 && port.get('step') === 1)
+                        name: name,
+                        min: minVal,
+                        max: maxVal,
+                        step: stepVal,
+                        is_toggle: !!isToggle || (minVal === 0 && maxVal === 1 && stepVal === 1)
                       });
                     });
                   }
+                  
+                  var pluginName = typeof plugin.get === 'function' ? plugin.get('name') : plugin.name;
+                  var pluginLabel = typeof plugin.get === 'function' ? plugin.get('label') : plugin.label;
+                  
                   plugins.push({
-                    instance: plugin.get('instance'),
-                    uri: plugin.get('uri'),
+                    instance: typeof plugin.get === 'function' ? plugin.get('instance') : plugin.instance,
+                    uri: typeof plugin.get === 'function' ? plugin.get('uri') : plugin.uri,
+                    name: pluginName || '',
+                    label: pluginLabel || '',
                     ports: ports
                   });
                 });
@@ -316,6 +343,14 @@ class _DashboardScreenState extends State<DashboardScreen>
               var instance = pedalNode.getAttribute('mod-instance');
               var uri = pedalNode.getAttribute('mod-uri') || '';
               if (!instance) return;
+              
+              var labelVal = '';
+              var nameVal = '';
+              var brandNode = pedalNode.querySelector('.mod-plugin-brand h1') || pedalNode.querySelector('.mod-pedal-title');
+              if (brandNode) {
+                labelVal = brandNode.textContent.trim();
+                nameVal = labelVal;
+              }
               
               var ports = [];
               var controlNodes = pedalNode.querySelectorAll('[mod-port]');
@@ -362,6 +397,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               plugins.push({
                 instance: instance,
                 uri: uri,
+                name: nameVal,
+                label: labelVal,
                 ports: ports
               });
             });
@@ -415,6 +452,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Custom regular card visible parameters for unrecognized devices
   final Map<String, List<String>> _customCardVisibleParams = {};
+
+  // Custom compact card visible parameters for unrecognized devices
+  final Map<String, List<String>> _customCardVisibleCompactParams = {};
 
   bool _isMuted(PluginInstance pedal) {
     final double currentValue =
@@ -704,6 +744,22 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
 
+      // 5.6. Custom Compact Card Visible Params
+      final String? savedCustomVisibleCompactParamsJson = prefs.getString('${key}_custom_card_visible_compact_params');
+      final Map<String, List<String>> newCustomVisibleCompactParams = {};
+      if (savedCustomVisibleCompactParamsJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(savedCustomVisibleCompactParamsJson);
+          decoded.forEach((k, v) {
+            if (v is List) {
+              newCustomVisibleCompactParams[k] = List<String>.from(v.map((e) => e.toString()));
+            }
+          });
+        } catch (e) {
+          debugPrint('Error decoding custom_card_visible_compact_params: $e');
+        }
+      }
+
       // 6. Glow Enabled
       final Map<String, bool> newGlowEnabled = {};
       if (savedGlowEnabledJson != null) {
@@ -763,6 +819,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
           _customCardVisibleParams.clear();
           _customCardVisibleParams.addAll(newCustomVisibleParams);
+
+          _customCardVisibleCompactParams.clear();
+          _customCardVisibleCompactParams.addAll(newCustomVisibleCompactParams);
 
           _pedalGlowEnabled.clear();
           _pedalGlowEnabled.addAll(newGlowEnabled);
@@ -2021,6 +2080,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       glowColor: glowColor,
                       displayName: displayName,
                       visibleParams: _customCardVisibleParams[pedal.instance] ?? [],
+                      visibleCompactParams: _customCardVisibleCompactParams[pedal.instance] ?? [],
                       onBypassToggle: (val) => _webSocketService.toggleBypass(
                         instance: pedal.instance,
                         bypass: val,
@@ -2041,11 +2101,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                         });
                         _saveLayoutSettings();
                       },
-                      onParamChanged: (port, val) => _webSocketService.setParamValue(
-                        instance: pedal.instance,
-                        port: port,
-                        value: val,
-                      ),
+                      onParamChanged: (port, val) {
+                        setState(() {
+                          pedal.parameters[port] = val;
+                        });
+                        _webSocketService.setParamValue(
+                          instance: pedal.instance,
+                          port: port,
+                          value: val,
+                        );
+                      },
                       onParamVisibilityToggled: (symbol, visible) {
                         setState(() {
                           final list = _customCardVisibleParams[pedal.instance] ?? [];
@@ -2055,6 +2120,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                             list.remove(symbol);
                           }
                           _customCardVisibleParams[pedal.instance] = list;
+                        });
+                        _saveLayoutSettings();
+                      },
+                      onParamVisibilityCompactToggled: (symbol, visible) {
+                        setState(() {
+                          final list = _customCardVisibleCompactParams[pedal.instance] ?? [];
+                          if (visible) {
+                            if (!list.contains(symbol)) list.add(symbol);
+                          } else {
+                            list.remove(symbol);
+                          }
+                          _customCardVisibleCompactParams[pedal.instance] = list;
                         });
                         _saveLayoutSettings();
                       },
@@ -2897,6 +2974,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     final String? customCardVisible = prefs.getString('${oldKey}_custom_card_visible_params');
     if (customCardVisible != null) await prefs.setString('${newKey}_custom_card_visible_params', customCardVisible);
 
+    final String? customCardVisibleCompact = prefs.getString('${oldKey}_custom_card_visible_compact_params');
+    if (customCardVisibleCompact != null) await prefs.setString('${newKey}_custom_card_visible_compact_params', customCardVisibleCompact);
+
     final int? fadeBars = prefs.getInt('${oldKey}_fade_bars');
     if (fadeBars != null) await prefs.setInt('${newKey}_fade_bars', fadeBars);
 
@@ -2923,6 +3003,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     await prefs.remove('${oldKey}_sizes');
     await prefs.remove('${oldKey}_custom_titles');
     await prefs.remove('${oldKey}_custom_card_visible_params');
+    await prefs.remove('${oldKey}_custom_card_visible_compact_params');
     await prefs.remove('${oldKey}_glow_enabled');
     await prefs.remove('${oldKey}_fade_bars');
     await prefs.remove('${oldKey}_fadeRangeStart');
@@ -3006,6 +3087,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     await prefs.remove('${oldKey}_sizes');
     await prefs.remove('${oldKey}_custom_titles');
     await prefs.remove('${oldKey}_custom_card_visible_params');
+    await prefs.remove('${oldKey}_custom_card_visible_compact_params');
     await prefs.remove('${oldKey}_glow_enabled');
     await prefs.remove('${oldKey}_fade_bars');
     await prefs.remove('${oldKey}_fadeRangeStart');
@@ -3047,6 +3129,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setString('${key}_sizes', jsonEncode(_pedalSizes));
       await prefs.setString('${key}_custom_titles', jsonEncode(_customTitles));
       await prefs.setString('${key}_custom_card_visible_params', jsonEncode(_customCardVisibleParams));
+      await prefs.setString('${key}_custom_card_visible_compact_params', jsonEncode(_customCardVisibleCompactParams));
       await prefs.setString('${key}_glow_enabled', jsonEncode(_pedalGlowEnabled));
       await prefs.setInt('${key}_fade_bars', _fadeBars);
       // Fade settings

@@ -161,44 +161,58 @@ class ModWebSocketService extends ChangeNotifier {
           }
         }
       } else if (cmd == 'param_set') {
-        // Format: param_set <instance> <portsymbol> <value>
+        // Format can be:
+        // 1. param_set <instance> <portsymbol> <value>
+        // 2. param_set <instance>/<portsymbol> <value>
         final List<String> parts = data.split(' ');
+        String? instance;
+        String? portsymbol;
+        double? value;
+
         if (parts.length >= 3) {
-          final String instance = parts[0];
-          final String portsymbol = parts[1];
-          final double? value = double.tryParse(parts[2]);
-          
-          if (value != null) {
-            final List<PluginInstance> targetList = _isRefreshing ? _tempPlugins : allPlugins.value;
-            final int index = targetList.indexWhere((p) => p.instance == instance);
-            if (index != -1) {
-              final plugin = targetList[index];
-              plugin.parameters[portsymbol] = value;
+          instance = parts[0];
+          portsymbol = parts[1];
+          value = double.tryParse(parts[2]);
+        } else if (parts.length == 2) {
+          final String instanceAndPort = parts[0];
+          value = double.tryParse(parts[1]);
+          final int lastSlash = instanceAndPort.lastIndexOf('/');
+          if (lastSlash != -1) {
+            instance = instanceAndPort.substring(0, lastSlash);
+            portsymbol = instanceAndPort.substring(lastSlash + 1);
+          }
+        }
+
+        if (instance != null && portsymbol != null && value != null) {
+          final List<PluginInstance> targetList = _isRefreshing ? _tempPlugins : allPlugins.value;
+          final int index = targetList.indexWhere((p) => p.instance == instance);
+          if (index != -1) {
+            final plugin = targetList[index];
+            plugin.parameters[portsymbol] = value;
               
-              // Handle bypass status parameter
-              if (portsymbol == ':bypass') {
-                plugin.isBypassed = value == 1.0;
-                debugPrint('BYPASS STATE CHANGE FOR ${plugin.instance}: bypassed=${plugin.isBypassed}');
+            // Handle bypass status parameter
+            if (portsymbol == ':bypass') {
+              plugin.isBypassed = value == 1.0;
+              debugPrint('BYPASS STATE CHANGE FOR ${plugin.instance}: bypassed=${plugin.isBypassed}');
+            }
+            
+            // Dynamic gain symbol detection
+            if (plugin.gainPortSymbol == null) {
+              final String symbolLower = portsymbol.toLowerCase();
+              if (symbolLower.contains('gain') || 
+                  symbolLower.contains('volume') || 
+                  symbolLower.contains('level')) {
+                plugin.gainPortSymbol = portsymbol;
+                debugPrint('DISCOVERED GAIN PORT SYMBOL FOR ${plugin.instance}: $portsymbol');
               }
-              
-              // Dynamic gain symbol detection
-              if (plugin.gainPortSymbol == null) {
-                final String symbolLower = portsymbol.toLowerCase();
-                if (symbolLower.contains('gain') || 
-                    symbolLower.contains('volume') || 
-                    symbolLower.contains('level')) {
-                  plugin.gainPortSymbol = portsymbol;
-                  debugPrint('DISCOVERED GAIN PORT SYMBOL FOR ${plugin.instance}: $portsymbol');
-                }
-              }
-              
-              if (_isRefreshing) {
-                // Keep parsing, do not update ValueNotifier yet to avoid UI flicker
-              } else {
-                allPlugins.value = List.from(allPlugins.value);
-                gainPedals.value = List.from(gainPedals.value);
-                notifyListeners();
-              }
+            }
+            
+            if (_isRefreshing) {
+              // Keep parsing, do not update ValueNotifier yet to avoid UI flicker
+            } else {
+              allPlugins.value = List.from(allPlugins.value);
+              gainPedals.value = List.from(gainPedals.value);
+              notifyListeners();
             }
           }
         }
@@ -413,28 +427,52 @@ class ModWebSocketService extends ChangeNotifier {
   }
 
   // Updates the parameter metadata cache for a specific plugin instance
-  void updatePluginMetadata(String instance, List<ParameterMetadata> metadataList) {
+  void updatePluginMetadata({
+    required String instance,
+    String? name,
+    String? label,
+    required List<ParameterMetadata> metadataList,
+  }) {
     final List<PluginInstance> currentAll = allPlugins.value;
     final int index = currentAll.indexWhere((p) => p.instance == instance);
     if (index != -1) {
       final plugin = currentAll[index];
+      bool changed = false;
+
+      // Update title if we have a better name and current title is generic
+      if (name != null && name.isNotEmpty) {
+        final titleLower = plugin.title.toLowerCase();
+        final isGeneric = titleLower.startsWith('mono') ||
+                          titleLower.startsWith('gain') ||
+                          titleLower.startsWith('switch') ||
+                          titleLower.startsWith('volume') ||
+                          titleLower.startsWith('level') ||
+                          plugin.title == plugin.instance.split('/').last;
+        if (isGeneric && plugin.title != name) {
+          plugin.title = name;
+          changed = true;
+        }
+      }
+
       // Check if metadata actually changed to avoid triggering unnecessary redraws
-      bool changed = plugin.parameterMetadata.length != metadataList.length;
       if (!changed) {
-        for (var meta in metadataList) {
-          final existing = plugin.parameterMetadata[meta.symbol];
-          if (existing == null || 
-              existing.name != meta.name || 
-              existing.min != meta.min || 
-              existing.max != meta.max || 
-              existing.step != meta.step || 
-              existing.isToggle != meta.isToggle) {
-            changed = true;
-            break;
+        changed = plugin.parameterMetadata.length != metadataList.length;
+        if (!changed) {
+          for (var meta in metadataList) {
+            final existing = plugin.parameterMetadata[meta.symbol];
+            if (existing == null || 
+                existing.name != meta.name || 
+                existing.min != meta.min || 
+                existing.max != meta.max || 
+                existing.step != meta.step || 
+                existing.isToggle != meta.isToggle) {
+              changed = true;
+              break;
+            }
           }
         }
       }
-      
+
       if (changed) {
         plugin.parameterMetadata.clear();
         for (var meta in metadataList) {

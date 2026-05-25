@@ -10,7 +10,7 @@ A native Flutter application for controlling the MOD Dwarf guitar pedal board in
 - **Hardware Target:** Pixel Tablet (portrait & landscape)
 - **Connection:** WiFi to MOD Dwarf (`192.168.51.1`)
 - **Protocol:** WebSocket JSON-RPC 2.0
-- **Current Version:** `1.3.26`
+- **Current Version:** `1.3.27`
 
 ## 🏗 Architecture
 
@@ -44,7 +44,7 @@ Tampermonkey Script (visual highlights on web GUI)
 ### Workspace Dashboard
 - **Dynamic Grid Layout:** Scrollable `Wrap` widget with custom control cards
 - **Card Types:**
-  - **Compact (C):** Minimal parameters (height: 110)
+  - **Compact (C):** Minimal parameters (height: 240, customizable controls list for generic cards)
   - **Regular (R):** Standard sliders & switches (height: 240, 2 per row)
   - **Expanded (E):** Full-width detailed controls (height: 240)
   - **ALO Looper:** Full-width looper tracks (height: 450)

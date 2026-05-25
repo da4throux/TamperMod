@@ -45,7 +45,7 @@ Please read and apply .agenrules
 ### 3.1 Workspace Dashboard Layout
 * **Dynamic Grid:** Built using a scrollable `Wrap` widget containing custom card instances.
 * **Card Sizing System:**
-  * **Compact (C):** Compact card (height: 240) representing minimal parameters. Size-toggle icon (left of name)/Name, gain dB, volume slider, speaker mute icon. Fade IN and OUT buttons stacked vertically side-by-side with a mini range indicator bar.
+  * **Compact (C):** Compact card (height: 240) representing minimal parameters. For recognized gain cards, shows size-toggle, volume slider, and stacked fade buttons. For unrecognized generic cards, shows title, size-toggle, bypass switch, and either a scrollable list of selected parameter controls (configured in the Expanded view compact parameters configuration checklist) or a default description of the device.
   * **Regular (R):** Standard card (height:240). Long-press on title = rename. Speaker icon (rightmost) = mute toggle. Size-toggle icon (left of title) cycles compact→regular→expanded→compact. Fixed-width 72px dB box. Mini range indicator in the min/max row. No power button.
   * **Expanded (E):** Full-width card (height: 520). Includes all Regular features plus: Size-toggle icon (left of title), RangeSlider for fade start/end cursors, fade shape selector (Linear/S1/S2/S3/Custom), custom S-curve sliders with clipboard EXPORT, and a live CustomPainter fade curve visualiser with moving dot.
   * **Spacer Cards:** Blank, transparent slot placeholders (height: 240) of size Compact, Regular, or Expanded used to force alignments, create empty gaps, or control line wrapping.

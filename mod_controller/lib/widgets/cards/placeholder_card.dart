@@ -15,6 +15,7 @@ class PlaceholderCard extends StatelessWidget {
   final Color glowColor;
   final String displayName;
   final List<String> visibleParams;
+  final List<String> visibleCompactParams;
   final ValueChanged<bool> onBypassToggle;
   final VoidCallback onRenamePressed;
   final VoidCallback onHighlightPressed;
@@ -22,6 +23,7 @@ class PlaceholderCard extends StatelessWidget {
   final VoidCallback onSizeToggled;
   final void Function(String port, double value) onParamChanged;
   final void Function(String symbol, bool visible) onParamVisibilityToggled;
+  final void Function(String symbol, bool visible) onParamVisibilityCompactToggled;
   final ValueChanged<String> onOpenUri;
 
   const PlaceholderCard({
@@ -32,6 +34,7 @@ class PlaceholderCard extends StatelessWidget {
     required this.glowColor,
     required this.displayName,
     required this.visibleParams,
+    required this.visibleCompactParams,
     required this.onBypassToggle,
     required this.onRenamePressed,
     required this.onHighlightPressed,
@@ -39,13 +42,18 @@ class PlaceholderCard extends StatelessWidget {
     required this.onSizeToggled,
     required this.onParamChanged,
     required this.onParamVisibilityToggled,
+    required this.onParamVisibilityCompactToggled,
     required this.onOpenUri,
   });
 
   // Resolve metadata, falling back to safe defaults if not found
   List<ParameterMetadata> _getResolvedMetadata() {
     final List<ParameterMetadata> list = [];
-    final keys = pedal.parameters.keys.toList()..sort();
+    final Set<String> allSymbols = {
+      ...pedal.parameters.keys,
+      ...pedal.parameterMetadata.keys,
+    };
+    final keys = allSymbols.toList()..sort();
     for (final sym in keys) {
       if (pedal.parameterMetadata.containsKey(sym)) {
         list.add(pedal.parameterMetadata[sym]!);
@@ -287,6 +295,117 @@ class PlaceholderCard extends StatelessWidget {
     }
   }
 
+  Widget _buildCompactParamControl(ParameterMetadata meta, Color accentColor, BuildContext context) {
+    final double currentVal = pedal.parameters[meta.symbol] ?? meta.min;
+    
+    if (meta.isToggle) {
+      final bool isSwitchedOn = currentVal >= 0.5;
+      return Container(
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: isDarkMode ? Colors.black.withOpacity(0.15) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isDarkMode ? Colors.grey[900]! : Colors.grey[300]!),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                meta.name.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              height: 18,
+              width: 32,
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: Switch(
+                  value: isSwitchedOn,
+                  activeColor: accentColor,
+                  onChanged: pedal.isBypassed
+                      ? null
+                      : (val) {
+                          onParamChanged(meta.symbol, val ? 1.0 : 0.0);
+                        },
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: isDarkMode ? Colors.black.withOpacity(0.15) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: isDarkMode ? Colors.grey[900]! : Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 50,
+              child: Text(
+                meta.name.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 9.0,
+                  fontWeight: FontWeight.bold,
+                  color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: accentColor,
+                  inactiveTrackColor: isDarkMode ? Colors.grey[900] : Colors.grey[300],
+                  trackHeight: 2.0,
+                  thumbColor: isDarkMode ? Colors.white : Colors.grey[800],
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4.0),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 8.0),
+                ),
+                child: Slider(
+                  value: currentVal.clamp(meta.min, meta.max),
+                  min: meta.min,
+                  max: meta.max,
+                  onChanged: pedal.isBypassed
+                      ? null
+                      : (val) {
+                          onParamChanged(meta.symbol, val);
+                        },
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 24,
+              child: Text(
+                currentVal.toStringAsFixed(1),
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.bold,
+                  color: accentColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isBypassed = pedal.isBypassed;
@@ -307,6 +426,10 @@ class PlaceholderCard extends StatelessWidget {
     }
 
     if (size == 'compact') {
+      final displayCompactList = allMetadata.where((meta) {
+        return visibleCompactParams.contains(meta.symbol);
+      }).toList();
+
       return BaseCard(
         glowColor: glowColor,
         isBypassed: isBypassed,
@@ -349,33 +472,46 @@ class PlaceholderCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Generic device with ${allMetadata.length} parameters',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                        fontStyle: FontStyle.italic,
+              if (displayCompactList.isNotEmpty) ...[
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.only(top: 8),
+                    itemCount: displayCompactList.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 4),
+                    itemBuilder: (context, index) {
+                      return _buildCompactParamControl(displayCompactList[index], accentColor, context);
+                    },
+                  ),
+                ),
+              ] else ...[
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Generic device with ${allMetadata.length} parameters',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.info_outline,
-                      color: accentColor.withOpacity(0.8),
-                      size: 18,
+                    IconButton(
+                      icon: Icon(
+                        Icons.info_outline,
+                        color: accentColor.withOpacity(0.8),
+                        size: 18,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _showInfoDialog(context),
                     ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _showInfoDialog(context),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -570,6 +706,69 @@ class PlaceholderCard extends StatelessWidget {
                   return GestureDetector(
                     onTap: () {
                       onParamVisibilityToggled(meta.symbol, !isChecked);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isChecked ? glowColor.withOpacity(0.12) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: isChecked ? glowColor : (isDarkMode ? Colors.grey[800]! : Colors.grey[400]!),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isChecked ? Icons.check_box : Icons.check_box_outline_blank,
+                            color: isChecked ? glowColor : Colors.grey[600],
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            meta.name.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isChecked ? glowColor : Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Section 1.5: Checklist of visible parameters in compact card
+            Text(
+              'COMPACT CARD PARAMETERS CONFIGURATION',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: accentColor.withOpacity(0.8),
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.black.withOpacity(0.3) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDarkMode ? Colors.grey[850]! : Colors.grey[300]!),
+              ),
+              width: double.infinity,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: allMetadata.map((meta) {
+                  final isChecked = visibleCompactParams.contains(meta.symbol);
+                  return GestureDetector(
+                    onTap: () {
+                      onParamVisibilityCompactToggled(meta.symbol, !isChecked);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
