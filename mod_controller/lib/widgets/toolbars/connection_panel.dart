@@ -13,6 +13,8 @@ class ConnectionPanel extends StatelessWidget {
   final VoidCallback onOpenBrowser;
   final Color Function(ConnectionStatus) getStatusColor;
 
+  final ValueChanged<String>? onIpSelected;
+
   const ConnectionPanel({
     super.key,
     required this.isDarkMode,
@@ -21,6 +23,7 @@ class ConnectionPanel extends StatelessWidget {
     required this.onConnectDisconnect,
     required this.onOpenBrowser,
     required this.getStatusColor,
+    this.onIpSelected,
   });
 
   @override
@@ -34,14 +37,14 @@ class ConnectionPanel extends StatelessWidget {
         color: isDarkMode ? const Color(0xFF161B22) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: getStatusColor(connectionStatus).withOpacity(0.2),
+          color: getStatusColor(connectionStatus).withValues(alpha: 0.2),
           width: 1,
         ),
         boxShadow: isDarkMode
             ? null
             : [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withValues(alpha: 0.1),
                   blurRadius: 8,
                   spreadRadius: 2,
                 ),
@@ -64,6 +67,95 @@ class ConnectionPanel extends StatelessWidget {
                   color: isDarkMode ? Colors.grey : Colors.grey[600],
                   size: 18,
                 ),
+                suffixIcon: isDisconnected
+                    ? PopupMenuButton<String>(
+                        icon: Icon(
+                          Icons.arrow_drop_down_circle_outlined,
+                          color: isDarkMode
+                              ? const Color(0xFF00FFCC)
+                              : const Color(0xFF00B3FF),
+                          size: 20,
+                        ),
+                        tooltip: 'Select IP Preset',
+                        onSelected: (String value) {
+                          ipController.text = value;
+                          if (onIpSelected != null) {
+                            onIpSelected!(value);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          const PopupMenuItem(
+                            value: '192.168.51.1',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Direct USB (Pixel Tablet)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  '192.168.51.1',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: '100.115.92.201',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Chromebook (Hatch / ARC Bridge)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  '100.115.92.201',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'moddwarf.local',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Wi-Fi / mDNS',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  'moddwarf.local',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : null,
               ),
               style: TextStyle(
                 color: isDarkMode ? Colors.white : Colors.black,

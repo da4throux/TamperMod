@@ -548,8 +548,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Load initial URL
     _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
 
-    // Load saved theme settings
+    // Load saved theme settings and IP
     _loadThemeSettings();
+    _loadSavedIp();
 
     // Connect automatically on launch
     _webSocketService.connect(ip: _ipController.text);
@@ -1226,6 +1227,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Proceed with connection regardless — user may have WiFi on for other
     // reasons and still wants to try (e.g. WiFi on but already disabled
     // for routing before this check ran).
+    _saveIp(targetIp);
     _webSocketService.connect(ip: _ipController.text);
     _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
   }
@@ -1614,6 +1616,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   },
                   onOpenBrowser: _openWebInterface,
                   getStatusColor: _getStatusColor,
+                  onIpSelected: (selectedIp) {
+                    _saveIp(selectedIp);
+                  },
                 ),
 
                 // BPM inline widget on tiny screens to avoid AppBar overcrowding
@@ -2710,6 +2715,33 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setBool('is_dark_mode', _isDarkMode);
     } catch (e) {
       debugPrint('Error saving theme settings: $e');
+    }
+  }
+
+  Future<void> _loadSavedIp() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedIp = prefs.getString('saved_mod_dwarf_ip');
+      if (savedIp != null && savedIp.isNotEmpty && mounted) {
+        setState(() {
+          _ipController.text = savedIp;
+        });
+        if (_webSocketService.status == ConnectionStatus.disconnected) {
+          _webSocketService.connect(ip: savedIp);
+          _webViewController.loadRequest(Uri.parse('http://$savedIp'));
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved IP: $e');
+    }
+  }
+
+  Future<void> _saveIp(String ip) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('saved_mod_dwarf_ip', ip);
+    } catch (e) {
+      debugPrint('Error saving IP: $e');
     }
   }
 
