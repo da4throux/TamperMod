@@ -63,9 +63,9 @@ Please read and apply .agenrules
 
 ### 3.3 Bottom Toolbar & Connection Setup Bar
 * Positioned **inside the body Column**, above the IP connection bar (connection panel) at the top of the body Column.
-* **Collapsible Connection Setup Bar:** Can be smoothly folded / unfolded to maximize workspace real estate by tapping either the top AppBar title/status chip or the cable toggle icon in the toolbar.
+* **Collapsible Toolbars (Dual-Row Collapse):** Both the Toolbar (layout view toggles, radar, reload, theme, version) and the Connection Setup Bar can be smoothly folded / unfolded simultaneously by tapping either the top AppBar title/status chip or the cable toggle button in the top bar, recovering maximum screen real estate for cards.
 * Functionalities:
-  * Layout view selectors (Controls, Web, Split, Connection Panel toggle).
+  * Layout view selectors (Controls, Web, Split).
   * Radar locate trigger button (pulses all active pedal glows in the Web GUI).
   * Refresh/Reload pedalboard trigger.
   * Reload WebView trigger (resets/reloads web interface to manual sync BPM and layout updates).

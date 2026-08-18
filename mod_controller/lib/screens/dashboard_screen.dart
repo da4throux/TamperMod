@@ -1625,75 +1625,82 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             child: Column(
               children: [
-                // Bottom toolbar (UI bar) sits above connection bar
-                BottomToolbar(
-                  isDarkMode: _isDarkMode,
-                  showControls: _showControls,
-                  showWeb: _showWeb,
-                  isConnected:
-                      _webSocketService.status == ConnectionStatus.connected,
-                  onToggleControls: () {
-                    if (_showControls && !_showWeb) return;
-                    setState(() {
-                      _showControls = !_showControls;
-                    });
-                  },
-                  onToggleWeb: () {
-                    if (_showWeb && !_showControls) return;
-                    setState(() {
-                      _showWeb = !_showWeb;
-                    });
-                  },
-                  onControlsOnly: () {
-                    setState(() {
-                      _showControls = true;
-                      _showWeb = false;
-                    });
-                  },
-                  onWebOnly: () {
-                    setState(() {
-                      _showWeb = true;
-                      _showControls = false;
-                    });
-                  },
-                  onRadarTap: _highlightAllPedalsInWebView,
-                  onRefreshTap: _reloadPedalboard,
-                  onWebReload: () {
-                    _webViewController.reload();
-                  },
-                  onThemeToggle: () {
-                    setState(() {
-                      _isDarkMode = !_isDarkMode;
-                    });
-                    _saveThemeSettings();
-                  },
-                  appVersion: widget.appVersion,
-                ),
-
-                // Inline Connection / IP bar (Collapsible / Foldable)
+                // Collapsible Toolbar & Connection Setup Bars (Folds both rows)
                 AnimatedSize(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
                   child: _showConnectionPanel
-                      ? ConnectionPanel(
-                          isDarkMode: _isDarkMode,
-                          ipController: _ipController,
-                          connectionStatus: _webSocketService.status,
-                          onConnectDisconnect: () {
-                            final bool isDisconnected =
-                                _webSocketService.status ==
-                                ConnectionStatus.disconnected;
-                            if (isDisconnected) {
-                              _connectWithWifiCheck();
-                            } else {
-                              _webSocketService.disconnect();
-                            }
-                          },
-                          onOpenBrowser: _openWebInterface,
-                          getStatusColor: _getStatusColor,
-                          onIpSelected: (selectedIp) {
-                            _saveIp(selectedIp);
-                          },
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Toolbar (View selectors, Radar, Reload, Theme, Version)
+                            BottomToolbar(
+                              isDarkMode: _isDarkMode,
+                              showControls: _showControls,
+                              showWeb: _showWeb,
+                              isConnected:
+                                  _webSocketService.status ==
+                                  ConnectionStatus.connected,
+                              onToggleControls: () {
+                                if (_showControls && !_showWeb) return;
+                                setState(() {
+                                  _showControls = !_showControls;
+                                });
+                              },
+                              onToggleWeb: () {
+                                if (_showWeb && !_showControls) return;
+                                setState(() {
+                                  _showWeb = !_showWeb;
+                                });
+                              },
+                              onControlsOnly: () {
+                                setState(() {
+                                  _showControls = true;
+                                  _showWeb = false;
+                                });
+                              },
+                              onWebOnly: () {
+                                setState(() {
+                                  _showWeb = true;
+                                  _showControls = false;
+                                });
+                              },
+                              onRadarTap: _highlightAllPedalsInWebView,
+                              onRefreshTap: _reloadPedalboard,
+                              onWebReload: () {
+                                _webViewController.reload();
+                              },
+                              onThemeToggle: () {
+                                setState(() {
+                                  _isDarkMode = !_isDarkMode;
+                                });
+                                _saveThemeSettings();
+                              },
+                              appVersion: widget.appVersion,
+                            ),
+
+                            // Inline Connection / IP bar
+                            ConnectionPanel(
+                              isDarkMode: _isDarkMode,
+                              ipController: _ipController,
+                              connectionStatus: _webSocketService.status,
+                              onConnectDisconnect: () {
+                                final bool isDisconnected =
+                                    _webSocketService.status ==
+                                    ConnectionStatus.disconnected;
+                                if (isDisconnected) {
+                                  _connectWithWifiCheck();
+                                } else {
+                                  _webSocketService.disconnect();
+                                }
+                              },
+                              onOpenBrowser: _openWebInterface,
+                              getStatusColor: _getStatusColor,
+                              onIpSelected: (selectedIp) {
+                                _saveIp(selectedIp);
+                              },
+                            ),
+                          ],
                         )
                       : const SizedBox.shrink(),
                 ),
