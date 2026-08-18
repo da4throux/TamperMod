@@ -10,7 +10,7 @@ A native Flutter application for controlling the MOD Dwarf guitar pedal board in
 - **Hardware Target:** Pixel Tablet (portrait & landscape)
 - **Connection:** WiFi to MOD Dwarf (`192.168.51.1`)
 - **Protocol:** WebSocket JSON-RPC 2.0
-- **Current Version:** `1.3.27`
+- **Current Version:** `1.3.28`
 
 ## 🏗 Architecture
 
@@ -30,9 +30,9 @@ A native Flutter application for controlling the MOD Dwarf guitar pedal board in
 ### Data Flow
 
 ```
-Flutter App (Pixel Tablet)
+Flutter App (Pixel Tablet / Chromebook ARC)
     ↓ (WebSocket JSON-RPC)
-MOD Dwarf (192.168.51.1)
+MOD Dwarf (192.168.51.1 / 100.115.92.201)
     ↓ (WebSocket broadcast)
 Flutter App (parameter updates, BPM, transport)
     ↓ (JavaScript injection)
@@ -72,10 +72,10 @@ Tampermonkey Script (visual highlights on web GUI)
 
 ### Prerequisites
 - Flutter SDK (latest stable)
-- Android SDK / Pixel Tablet
-- MOD Dwarf on the same WiFi network
+- Android SDK / Pixel Tablet or Chromebook with Android (ARCVM) enabled
+- MOD Dwarf connected via USB or Wi-Fi network
 
-### Installation
+### Installation & Deployment
 
 1. Clone the repository:
    ```bash
@@ -89,15 +89,32 @@ Tampermonkey Script (visual highlights on web GUI)
    flutter pub get
    ```
 
-3. Connect your Pixel Tablet via ADB:
-   ```bash
-   adb devices
-   ```
+3. Deploying to Devices:
 
-4. Deploy to device:
-   ```bash
-   flutter run -d <device_id>
-   ```
+   - **Target A: Pixel Tablet (Primary Target)**
+     1. Enable USB or Wireless Debugging on the tablet.
+     2. Verify connection: `adb devices`
+     3. Deploy:
+        ```bash
+        flutter run -d <tablet_device_id>
+        ```
+
+   - **Target B: Chromebook Android Subsystem (Hatch / ARCVM)**
+     1. In ChromeOS Settings → Developers → Develop Android apps → Enable ADB debugging.
+     2. Connect ADB to ARC container:
+        ```bash
+        adb connect arc
+        # or adb connect 100.115.92.2:5555
+        ```
+     3. Start the MOD Dwarf USB bridge (forwards `192.168.51.1:80` to Crostini `100.115.92.201:80`):
+        ```bash
+        ./scripts/bridge_dwarf.sh
+        ```
+     4. Launch the app on Hatch:
+        ```bash
+        flutter run -d arc:5555
+        ```
+     5. In the TamperMod app IP bar, enter `100.115.92.201` and tap **CONNECT**.
 
 ### Tampermonkey Setup
 
@@ -121,6 +138,8 @@ TamperMod/
 │   │       └── looper_controller.dart
 │   ├── pubspec.yaml            # Dependencies & version
 │   └── ...
+├── scripts/
+│   └── bridge_dwarf.sh         # ChromeOS ARC network bridge helper
 ├── TamperMod.user.js           # Tampermonkey injection script
 ├── SPECIFICATION.md            # Architecture & UI/UX rules
 ├── CURRENT_FOCUS.md            # Agent handoff document
@@ -186,4 +205,4 @@ Personal project. For more information, see the original repository.
 
 ---
 
-**Last Updated:** v1.3.26 (May 2026)
+**Last Updated:** v1.3.28 (May 2026)
