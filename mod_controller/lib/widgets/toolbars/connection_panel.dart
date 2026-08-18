@@ -52,7 +52,109 @@ class ConnectionPanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
+          // Left-side preset dropdown menu button
+          if (isDisconnected)
+            PopupMenuButton<String>(
+              icon: Icon(
+                Icons.arrow_drop_down_circle_outlined,
+                color: isDarkMode
+                    ? const Color(0xFF00FFCC)
+                    : const Color(0xFF00B3FF),
+                size: 20,
+              ),
+              tooltip: 'Select IP Preset',
+              onSelected: (String value) {
+                ipController.text = value;
+                if (onIpSelected != null) {
+                  onIpSelected!(value);
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem(
+                  value: '192.168.51.1',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Direct USB (Pixel Tablet)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        '192.168.51.1',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: '100.115.92.201',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Chromebook (Hatch / ARC Bridge)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        '100.115.92.201',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'moddwarf.local',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Wi-Fi / mDNS',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      Text(
+                        'moddwarf.local',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(right: 6, left: 4),
+              child: Icon(
+                Icons.lan,
+                color: getStatusColor(connectionStatus),
+                size: 18,
+              ),
+            ),
+          const SizedBox(width: 4),
+
+          // IP input box (compact width so buttons stay nearby)
+          SizedBox(
+            width: 175,
             child: TextField(
               controller: ipController,
               decoration: InputDecoration(
@@ -62,110 +164,21 @@ class ConnectionPanel extends StatelessWidget {
                   fontSize: 11,
                 ),
                 border: InputBorder.none,
-                prefixIcon: Icon(
-                  Icons.lan,
-                  color: isDarkMode ? Colors.grey : Colors.grey[600],
-                  size: 18,
-                ),
-                suffixIcon: isDisconnected
-                    ? PopupMenuButton<String>(
-                        icon: Icon(
-                          Icons.arrow_drop_down_circle_outlined,
-                          color: isDarkMode
-                              ? const Color(0xFF00FFCC)
-                              : const Color(0xFF00B3FF),
-                          size: 20,
-                        ),
-                        tooltip: 'Select IP Preset',
-                        onSelected: (String value) {
-                          ipController.text = value;
-                          if (onIpSelected != null) {
-                            onIpSelected!(value);
-                          }
-                        },
-                        itemBuilder: (BuildContext context) => [
-                          const PopupMenuItem(
-                            value: '192.168.51.1',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Direct USB (Pixel Tablet)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                Text(
-                                  '192.168.51.1',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: '100.115.92.201',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Chromebook (Hatch / ARC Bridge)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                Text(
-                                  '100.115.92.201',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'moddwarf.local',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Wi-Fi / mDNS',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                Text(
-                                  'moddwarf.local',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )
-                    : null,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
               ),
               style: TextStyle(
                 color: isDarkMode ? Colors.white : Colors.black,
                 fontFamily: 'monospace',
                 fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
               enabled: isDisconnected,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
+
+          // Connect / Disconnect button directly next to IP
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: isDisconnected
@@ -185,7 +198,7 @@ class ConnectionPanel extends StatelessWidget {
                                 ? const Color(0xFF00FFCC)
                                 : const Color(0xFF00B3FF))
                           : const Color(0xFFFF007F))
-                      .withOpacity(0.5),
+                      .withValues(alpha: 0.5),
             ),
             onPressed: onConnectDisconnect,
             child: Text(
@@ -194,7 +207,8 @@ class ConnectionPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          const SizedBox(width: 4),
+
+          // Open in Browser button
           IconButton(
             icon: Icon(
               Icons.open_in_browser,
@@ -206,6 +220,8 @@ class ConnectionPanel extends StatelessWidget {
             tooltip: 'Open in Chrome / Browser',
             onPressed: onOpenBrowser,
           ),
+
+          const Spacer(),
         ],
       ),
     );
