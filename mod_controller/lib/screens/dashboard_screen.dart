@@ -1447,19 +1447,19 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
             titleSpacing: 12,
-            title: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () {
-                setState(() {
-                  _showConnectionPanel = !_showConnectionPanel;
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Column(
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () {
+                    setState(() {
+                      _showConnectionPanel = !_showConnectionPanel;
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -1498,17 +1498,67 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(width: 6),
-                    Icon(
-                      _showConnectionPanel
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 16,
-                      color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: _showConnectionPanel
+                      ? 'Fold Connection Setup bar'
+                      : 'Unfold Connection Setup bar',
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showConnectionPanel = !_showConnectionPanel;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _showConnectionPanel
+                            ? (_isDarkMode
+                                ? const Color(0xFF00FFCC).withValues(alpha: 0.15)
+                                : const Color(0xFF00B3FF).withValues(alpha: 0.15))
+                            : Colors.transparent,
+                        border: Border.all(
+                          color: _showConnectionPanel
+                              ? (_isDarkMode
+                                  ? const Color(0xFF00FFCC).withValues(alpha: 0.4)
+                                  : const Color(0xFF00B3FF).withValues(alpha: 0.4))
+                              : (_isDarkMode ? Colors.white24 : Colors.black26),
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.cable,
+                            color: _showConnectionPanel
+                                ? (_isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF))
+                                : (_isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                            size: 15,
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _showConnectionPanel
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 14,
+                            color: _showConnectionPanel
+                                ? (_isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF))
+                                : (_isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             actions: [
               // Premium Integrated BPM & Fade Controller
@@ -1616,12 +1666,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _isDarkMode = !_isDarkMode;
                     });
                     _saveThemeSettings();
-                  },
-                  showConnectionPanel: _showConnectionPanel,
-                  onToggleConnectionPanel: () {
-                    setState(() {
-                      _showConnectionPanel = !_showConnectionPanel;
-                    });
                   },
                   appVersion: widget.appVersion,
                 ),

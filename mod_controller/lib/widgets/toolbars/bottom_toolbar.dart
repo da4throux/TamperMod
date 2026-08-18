@@ -17,8 +17,6 @@ class BottomToolbar extends StatelessWidget {
   final VoidCallback onRefreshTap;
   final VoidCallback onWebReload;
   final VoidCallback onThemeToggle;
-  final bool showConnectionPanel;
-  final VoidCallback onToggleConnectionPanel;
   final String appVersion;
 
   const BottomToolbar({
@@ -35,8 +33,6 @@ class BottomToolbar extends StatelessWidget {
     required this.onRefreshTap,
     required this.onWebReload,
     required this.onThemeToggle,
-    required this.showConnectionPanel,
-    required this.onToggleConnectionPanel,
     required this.appVersion,
   });
 
@@ -96,7 +92,7 @@ class BottomToolbar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Left: View Mode Selectors & Connection Panel Toggle
+          // Left: View Mode Selectors
           Row(
             children: [
               _buildLayoutButton(
@@ -106,23 +102,13 @@ class BottomToolbar extends StatelessWidget {
                 onTap: onToggleControls,
                 onLongPress: onControlsOnly,
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
               _buildLayoutButton(
                 icon: Icons.language,
                 tooltip: 'Toggle Web interface',
                 isActive: showWeb,
                 onTap: onToggleWeb,
                 onLongPress: onWebOnly,
-              ),
-              const SizedBox(width: 4),
-              _buildLayoutButton(
-                icon: Icons.cable,
-                tooltip: showConnectionPanel
-                    ? 'Fold Connection Setup bar'
-                    : 'Unfold Connection Setup bar',
-                isActive: showConnectionPanel,
-                onTap: onToggleConnectionPanel,
-                onLongPress: onToggleConnectionPanel,
               ),
             ],
           ),
