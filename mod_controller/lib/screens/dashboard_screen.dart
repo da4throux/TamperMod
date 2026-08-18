@@ -1172,11 +1172,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     final List<ConnectivityResult> results = await Connectivity()
         .checkConnectivity();
     final bool wifiActive = results.contains(ConnectivityResult.wifi);
+    final String targetIp = _ipController.text.trim();
+    final bool isDirectUsbIp = targetIp.startsWith('192.168.51.');
 
-    if (wifiActive && mounted) {
+    if (wifiActive && isDirectUsbIp && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          duration: const Duration(seconds: 10),
+          duration: const Duration(seconds: 8),
           backgroundColor: const Color(0xFFCC6600),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(12),
@@ -1184,22 +1186,29 @@ class _DashboardScreenState extends State<DashboardScreen>
             borderRadius: BorderRadius.circular(10),
             side: const BorderSide(color: Color(0xFFFF9900), width: 1.5),
           ),
-          content: const Row(
-            children: [
-              Icon(Icons.wifi_off, color: Colors.white, size: 22),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '⚠️ WiFi is ON — the MOD Dwarf connects via USB Ethernet. '
-                  'WiFi blocks the route. Turn off WiFi, then reconnect.',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+          content: InkWell(
+            onTap: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+            child: const Row(
+              children: [
+                Icon(Icons.wifi_off, color: Colors.white, size: 22),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '⚠️ WiFi is ON — the MOD Dwarf connects via USB Ethernet. '
+                    'WiFi blocks the route. Turn off WiFi, then reconnect.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
+                SizedBox(width: 8),
+                Icon(Icons.close, color: Colors.white70, size: 18),
+              ],
+            ),
           ),
           action: SnackBarAction(
             label: 'SETTINGS',
