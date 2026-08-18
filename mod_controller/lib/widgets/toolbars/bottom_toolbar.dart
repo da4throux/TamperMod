@@ -17,6 +17,8 @@ class BottomToolbar extends StatelessWidget {
   final VoidCallback onRefreshTap;
   final VoidCallback onWebReload;
   final VoidCallback onThemeToggle;
+  final bool showConnectionPanel;
+  final VoidCallback onToggleConnectionPanel;
   final String appVersion;
 
   const BottomToolbar({
@@ -33,6 +35,8 @@ class BottomToolbar extends StatelessWidget {
     required this.onRefreshTap,
     required this.onWebReload,
     required this.onThemeToggle,
+    required this.showConnectionPanel,
+    required this.onToggleConnectionPanel,
     required this.appVersion,
   });
 
@@ -53,11 +57,11 @@ class BottomToolbar extends StatelessWidget {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFF00FFCC).withOpacity(0.12)
+                ? const Color(0xFF00FFCC).withValues(alpha: 0.12)
                 : Colors.transparent,
             border: Border.all(
               color: isActive
-                  ? const Color(0xFF00FFCC).withOpacity(0.4)
+                  ? const Color(0xFF00FFCC).withValues(alpha: 0.4)
                   : Colors.transparent,
               width: 1,
             ),
@@ -85,14 +89,14 @@ class BottomToolbar extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDarkMode ? const Color(0xFF0F141C) : const Color(0xFFE4E6EB),
         border: Border(
-          top: BorderSide(color: primaryColor.withOpacity(0.3), width: 1.5),
+          top: BorderSide(color: primaryColor.withValues(alpha: 0.3), width: 1.5),
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Left: View Mode Selectors
+          // Left: View Mode Selectors & Connection Panel Toggle
           Row(
             children: [
               _buildLayoutButton(
@@ -102,13 +106,23 @@ class BottomToolbar extends StatelessWidget {
                 onTap: onToggleControls,
                 onLongPress: onControlsOnly,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               _buildLayoutButton(
                 icon: Icons.language,
                 tooltip: 'Toggle Web interface',
                 isActive: showWeb,
                 onTap: onToggleWeb,
                 onLongPress: onWebOnly,
+              ),
+              const SizedBox(width: 4),
+              _buildLayoutButton(
+                icon: Icons.cable,
+                tooltip: showConnectionPanel
+                    ? 'Fold Connection Setup bar'
+                    : 'Unfold Connection Setup bar',
+                isActive: showConnectionPanel,
+                onTap: onToggleConnectionPanel,
+                onLongPress: onToggleConnectionPanel,
               ),
             ],
           ),

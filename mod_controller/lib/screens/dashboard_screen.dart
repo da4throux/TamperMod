@@ -49,6 +49,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   bool _showControls = true;
   bool _showWeb = true;
+  bool _showConnectionPanel = true;
   bool _isDarkMode = true;
   List<String> _orderedPluginInstances = [];
 
@@ -1446,48 +1447,68 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             ),
             titleSpacing: 12,
-            title: Row(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            title: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                setState(() {
+                  _showConnectionPanel = !_showConnectionPanel;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'TAMPERMOD LIVE',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                        color: _isDarkMode ? Colors.white : Colors.black,
-                      ),
-                    ),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(_webSocketService.status),
-                            shape: BoxShape.circle,
+                        Text(
+                          'TAMPERMOD LIVE',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.5,
+                            color: _isDarkMode ? Colors.white : Colors.black,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _getStatusText(_webSocketService.status),
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: _isDarkMode
-                                ? _getStatusColor(_webSocketService.status)
-                                : _getStatusColor(
-                                    _webSocketService.status,
-                                  ).withOpacity(0.85),
-                          ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(_webSocketService.status),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _getStatusText(_webSocketService.status),
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: _isDarkMode
+                                    ? _getStatusColor(_webSocketService.status)
+                                    : _getStatusColor(
+                                        _webSocketService.status,
+                                      ).withValues(alpha: 0.85),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      _showConnectionPanel
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 16,
+                      color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                    ),
                   ],
                 ),
-              ],
+              ),
             ),
             actions: [
               // Premium Integrated BPM & Fade Controller
@@ -1596,29 +1617,41 @@ class _DashboardScreenState extends State<DashboardScreen>
                     });
                     _saveThemeSettings();
                   },
+                  showConnectionPanel: _showConnectionPanel,
+                  onToggleConnectionPanel: () {
+                    setState(() {
+                      _showConnectionPanel = !_showConnectionPanel;
+                    });
+                  },
                   appVersion: widget.appVersion,
                 ),
 
-                // Inline Connection / IP bar
-                ConnectionPanel(
-                  isDarkMode: _isDarkMode,
-                  ipController: _ipController,
-                  connectionStatus: _webSocketService.status,
-                  onConnectDisconnect: () {
-                    final bool isDisconnected =
-                        _webSocketService.status ==
-                        ConnectionStatus.disconnected;
-                    if (isDisconnected) {
-                      _connectWithWifiCheck();
-                    } else {
-                      _webSocketService.disconnect();
-                    }
-                  },
-                  onOpenBrowser: _openWebInterface,
-                  getStatusColor: _getStatusColor,
-                  onIpSelected: (selectedIp) {
-                    _saveIp(selectedIp);
-                  },
+                // Inline Connection / IP bar (Collapsible / Foldable)
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: _showConnectionPanel
+                      ? ConnectionPanel(
+                          isDarkMode: _isDarkMode,
+                          ipController: _ipController,
+                          connectionStatus: _webSocketService.status,
+                          onConnectDisconnect: () {
+                            final bool isDisconnected =
+                                _webSocketService.status ==
+                                ConnectionStatus.disconnected;
+                            if (isDisconnected) {
+                              _connectWithWifiCheck();
+                            } else {
+                              _webSocketService.disconnect();
+                            }
+                          },
+                          onOpenBrowser: _openWebInterface,
+                          getStatusColor: _getStatusColor,
+                          onIpSelected: (selectedIp) {
+                            _saveIp(selectedIp);
+                          },
+                        )
+                      : const SizedBox.shrink(),
                 ),
 
                 // BPM inline widget on tiny screens to avoid AppBar overcrowding

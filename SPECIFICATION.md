@@ -61,10 +61,11 @@ Please read and apply .agenrules
   * **Long Press:** Initiates Drag-and-Drop to rearrange cards or change active/inactive status.
 * **Color consistency rule:** Drawer tile colors MUST always match the workspace card color. All plugins use the same color assignment logic — no type-specific default overrides.
 
-### 3.3 Bottom Toolbar
+### 3.3 Bottom Toolbar & Connection Setup Bar
 * Positioned **inside the body Column**, above the IP connection bar (connection panel) at the top of the body Column.
+* **Collapsible Connection Setup Bar:** Can be smoothly folded / unfolded to maximize workspace real estate by tapping either the top AppBar title/status chip or the cable toggle icon in the toolbar.
 * Functionalities:
-  * Layout view selectors (Controls, Web, Split).
+  * Layout view selectors (Controls, Web, Split, Connection Panel toggle).
   * Radar locate trigger button (pulses all active pedal glows in the Web GUI).
   * Refresh/Reload pedalboard trigger.
   * Reload WebView trigger (resets/reloads web interface to manual sync BPM and layout updates).
