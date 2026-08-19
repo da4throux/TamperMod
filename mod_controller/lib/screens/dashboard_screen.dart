@@ -548,6 +548,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Custom compact card visible parameters for unrecognized devices
   final Map<String, List<String>> _customCardVisibleCompactParams = {};
 
+  // Switch card configuration maps
+  final Map<String, String> _switchModes = {}; // 'toggle' or 'route'
+  final Map<String, String> _switchPathANames = {}; // Path A name (0.0/Down)
+  final Map<String, String> _switchPathBNames = {}; // Path B name (1.0/Up)
+  final Map<String, bool> _switchInverted = {}; // false: 1=ON, true: 0=ON
+
   bool _isMuted(PluginInstance pedal) {
     final double currentValue =
         _localVolumes[pedal.instance] ??
@@ -856,6 +862,51 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
 
+      // 5.7. Switch Configs
+      final String? savedSwitchModesJson = prefs.getString('${key}_switch_modes');
+      final Map<String, String> newSwitchModes = {};
+      if (savedSwitchModesJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(savedSwitchModesJson);
+          decoded.forEach((k, v) => newSwitchModes[k] = v.toString());
+        } catch (e) {
+          debugPrint('Error decoding switch_modes: $e');
+        }
+      }
+
+      final String? savedSwitchPathANamesJson = prefs.getString('${key}_switch_path_a_names');
+      final Map<String, String> newSwitchPathANames = {};
+      if (savedSwitchPathANamesJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(savedSwitchPathANamesJson);
+          decoded.forEach((k, v) => newSwitchPathANames[k] = v.toString());
+        } catch (e) {
+          debugPrint('Error decoding switch_path_a_names: $e');
+        }
+      }
+
+      final String? savedSwitchPathBNamesJson = prefs.getString('${key}_switch_path_b_names');
+      final Map<String, String> newSwitchPathBNames = {};
+      if (savedSwitchPathBNamesJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(savedSwitchPathBNamesJson);
+          decoded.forEach((k, v) => newSwitchPathBNames[k] = v.toString());
+        } catch (e) {
+          debugPrint('Error decoding switch_path_b_names: $e');
+        }
+      }
+
+      final String? savedSwitchInvertedJson = prefs.getString('${key}_switch_inverted');
+      final Map<String, bool> newSwitchInverted = {};
+      if (savedSwitchInvertedJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(savedSwitchInvertedJson);
+          decoded.forEach((k, v) => newSwitchInverted[k] = v == true);
+        } catch (e) {
+          debugPrint('Error decoding switch_inverted: $e');
+        }
+      }
+
       // 6. Glow Enabled
       final Map<String, bool> newGlowEnabled = {};
       if (savedGlowEnabledJson != null) {
@@ -918,6 +969,18 @@ class _DashboardScreenState extends State<DashboardScreen>
 
           _customCardVisibleCompactParams.clear();
           _customCardVisibleCompactParams.addAll(newCustomVisibleCompactParams);
+
+          _switchModes.clear();
+          _switchModes.addAll(newSwitchModes);
+
+          _switchPathANames.clear();
+          _switchPathANames.addAll(newSwitchPathANames);
+
+          _switchPathBNames.clear();
+          _switchPathBNames.addAll(newSwitchPathBNames);
+
+          _switchInverted.clear();
+          _switchInverted.addAll(newSwitchInverted);
 
           _pedalGlowEnabled.clear();
           _pedalGlowEnabled.addAll(newGlowEnabled);
@@ -2271,6 +2334,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       isDarkMode: _isDarkMode,
                       glowColor: glowColor,
                       displayName: displayName,
+                      mode: _switchModes[pedal.instance] ?? 'toggle',
+                      pathAName: _switchPathANames[pedal.instance] ?? 'PATH A',
+                      pathBName: _switchPathBNames[pedal.instance] ?? 'PATH B',
+                      isInverted: _switchInverted[pedal.instance] ?? false,
                       onBypassToggle: (val) {
                         _webSocketService.toggleBypass(
                           instance: pedal.instance,
@@ -2282,9 +2349,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           debugPrint('Error invoking tamperSetBypass: $e');
                         }
                       },
-                      onRenamePressed: () => _showRenameDialog(pedal),
+                      onRenamePressed: () => _showSwitchConfigDialog(pedal),
                       onHighlightPressed: () => _highlightPedalInWebView(pedal),
-                      onColorPickerPressed: () => _showColorPickerDialog(pedal),
+                      onColorPickerPressed: () => _showSwitchConfigDialog(pedal),
                       onOpenUri: _openPluginUri,
                       onSwitchPathChanged: (port, val) {
                         _webSocketService.setParamValue(
@@ -2690,6 +2757,374 @@ class _DashboardScreenState extends State<DashboardScreen>
     } catch (e) {
       debugPrint('Error highlighting pedal in WebView: $e');
     }
+  }
+
+  void _showSwitchConfigDialog(PluginInstance pedal) {
+    final String instId = pedal.instance;
+    final String currentTitle = _customTitles[instId] ?? pedal.title;
+    final titleController = TextEditingController(text: currentTitle);
+
+    String currentMode = _switchModes[instId] ?? 'toggle';
+    final pathAController = TextEditingController(
+      text: _switchPathANames[instId] ?? 'PATH A',
+    );
+    final pathBController = TextEditingController(
+      text: _switchPathBNames[instId] ?? 'PATH B',
+    );
+    bool isInverted = _switchInverted[instId] ?? false;
+
+    final String currentColorHex =
+        _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
+    String selectedColorHex = currentColorHex;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: _isDarkMode
+                  ? const Color(0xFF0F141C)
+                  : Colors.white,
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.tune,
+                    color: _isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'SWITCH SETTINGS',
+                    style: TextStyle(
+                      color: _isDarkMode
+                          ? const Color(0xFF00FFCC)
+                          : const Color(0xFF00B3FF),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 1. Display Title
+                      TextField(
+                        controller: titleController,
+                        decoration: InputDecoration(
+                          labelText: 'Custom Display Name',
+                          labelStyle: TextStyle(
+                            color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: _isDarkMode
+                                  ? const Color(0xFF00FFCC)
+                                  : const Color(0xFF00B3FF),
+                            ),
+                          ),
+                        ),
+                        style: TextStyle(
+                          color: _isDarkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 2. Switch Layout Mode Selector
+                      Text(
+                        'SWITCH BEHAVIOR / LAYOUT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: Icon(
+                                Icons.toggle_on,
+                                size: 16,
+                                color: currentMode == 'toggle'
+                                    ? Colors.black
+                                    : (_isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                              ),
+                              label: const Text(
+                                'ON / OFF TOGGLE',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: currentMode == 'toggle'
+                                    ? (_isDarkMode
+                                        ? const Color(0xFF00FFCC)
+                                        : const Color(0xFF00B3FF))
+                                    : (_isDarkMode ? Colors.grey[900] : Colors.grey[200]),
+                                foregroundColor: currentMode == 'toggle'
+                                    ? Colors.black
+                                    : (_isDarkMode ? Colors.white : Colors.black87),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  currentMode = 'toggle';
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: Icon(
+                                Icons.alt_route,
+                                size: 16,
+                                color: currentMode == 'route'
+                                    ? Colors.black
+                                    : (_isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                              ),
+                              label: const Text(
+                                '2-PATH ROUTE',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: currentMode == 'route'
+                                    ? (_isDarkMode
+                                        ? const Color(0xFF00FFCC)
+                                        : const Color(0xFF00B3FF))
+                                    : (_isDarkMode ? Colors.grey[900] : Colors.grey[200]),
+                                foregroundColor: currentMode == 'route'
+                                    ? Colors.black
+                                    : (_isDarkMode ? Colors.white : Colors.black87),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  currentMode = 'route';
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 3. Conditional Mode Options
+                      if (currentMode == 'route') ...[
+                        Text(
+                          '2-PATH CONFIGURATION',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: pathAController,
+                          decoration: InputDecoration(
+                            labelText: 'Path A Name (Down / 0.0)',
+                            helperText: 'e.g. CLEAN, THROUGH, IN A',
+                            helperStyle: const TextStyle(fontSize: 10),
+                            labelStyle: TextStyle(
+                              color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                            ),
+                            enabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.grey),
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: _isDarkMode ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: pathBController,
+                          decoration: InputDecoration(
+                            labelText: 'Path B Name (Up / 1.0)',
+                            helperText: 'e.g. DISTRO, HEAVY, IN B',
+                            helperStyle: const TextStyle(fontSize: 10),
+                            labelStyle: TextStyle(
+                              color: _isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                            ),
+                            enabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(color: Colors.grey),
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: _isDarkMode ? Colors.white : Colors.black,
+                          ),
+                        ),
+                      ] else ...[
+                        // Toggle Mode Options: Active definition
+                        Text(
+                          'ACTIVE STATE DEFINITION',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text('Normal (1 = ON)'),
+                                selected: !isInverted,
+                                onSelected: (sel) {
+                                  if (sel) {
+                                    setDialogState(() {
+                                      isInverted = false;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ChoiceChip(
+                                label: const Text('Inverted (0 = ON)'),
+                                selected: isInverted,
+                                onSelected: (sel) {
+                                  if (sel) {
+                                    setDialogState(() {
+                                      isInverted = true;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+
+                      // 4. Color Picker Section
+                      Text(
+                        'GLOW COLOR',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        alignment: WrapAlignment.start,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: kNeonColors.map((hex) {
+                          final Color dotColor = _hexToColor(hex);
+                          final bool isSelected =
+                              hex.toUpperCase() == selectedColorHex.toUpperCase();
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                selectedColorHex = hex;
+                              });
+                            },
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: dotColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? (_isDarkMode ? Colors.white : Colors.black)
+                                      : Colors.transparent,
+                                  width: 2.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: dotColor.withOpacity(
+                                      isSelected ? 0.6 : 0.2,
+                                    ),
+                                    blurRadius: isSelected ? 10 : 4,
+                                    spreadRadius: isSelected ? 2 : 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'CANCEL',
+                    style: TextStyle(
+                      color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF),
+                    foregroundColor: _isDarkMode ? Colors.black : Colors.white,
+                  ),
+                  onPressed: () {
+                    final trimmed = titleController.text.trim();
+                    setState(() {
+                      if (trimmed.isNotEmpty) {
+                        _customTitles[instId] = trimmed;
+                      } else {
+                        _customTitles.remove(instId);
+                      }
+                      _switchModes[instId] = currentMode;
+                      _switchPathANames[instId] = pathAController.text.trim().isNotEmpty
+                          ? pathAController.text.trim()
+                          : 'PATH A';
+                      _switchPathBNames[instId] = pathBController.text.trim().isNotEmpty
+                          ? pathBController.text.trim()
+                          : 'PATH B';
+                      _switchInverted[instId] = isInverted;
+                      _pedalGlowColors[instId] = selectedColorHex;
+                    });
+                    _saveLayoutSettings();
+                    _updateAllGlowsInWebView();
+                    Navigator.pop(context);
+                  },
+                  child: const Text(
+                    'SAVE',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showRenameDialog(PluginInstance pedal) {
@@ -3509,6 +3944,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setString('${key}_custom_titles', jsonEncode(_customTitles));
       await prefs.setString('${key}_custom_card_visible_params', jsonEncode(_customCardVisibleParams));
       await prefs.setString('${key}_custom_card_visible_compact_params', jsonEncode(_customCardVisibleCompactParams));
+      await prefs.setString('${key}_switch_modes', jsonEncode(_switchModes));
+      await prefs.setString('${key}_switch_path_a_names', jsonEncode(_switchPathANames));
+      await prefs.setString('${key}_switch_path_b_names', jsonEncode(_switchPathBNames));
+      await prefs.setString('${key}_switch_inverted', jsonEncode(_switchInverted));
       await prefs.setString('${key}_glow_enabled', jsonEncode(_pedalGlowEnabled));
       await prefs.setInt('${key}_fade_bars', _fadeBars);
       // Fade settings
