@@ -820,13 +820,17 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   flex: 3,
                   child: DragTarget<String>(
                     onAccept: (draggedId) {
-                      // Drag from Inactive or general drop to activate/reorder to the end
+                      final bool wasAlreadyActive =
+                          widget.enabledPluginInstances.contains(draggedId);
+                      if (wasAlreadyActive) {
+                        // Already active and released in place: preserve exact current position
+                        widget.onLayoutSettingsChanged();
+                        return;
+                      }
+
+                      // Dragged from Inactive pool: activate and append to end of active list
                       setState(() {
-                        if (!widget.enabledPluginInstances.contains(
-                          draggedId,
-                        )) {
-                          widget.enabledPluginInstances.add(draggedId);
-                        }
+                        widget.enabledPluginInstances.add(draggedId);
 
                         // Move to end of active list in widget.orderedPluginInstances
                         final List<String> actives = widget
