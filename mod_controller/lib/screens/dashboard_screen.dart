@@ -1814,17 +1814,16 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                 // Inline Puzzle Organizer panel — slides in from the right,
                 // narrows only the tile board (controls), never touches the WebView.
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeInOut,
-                  width: _isPuzzleOpen ? 270 : 0,
-                  child: ClipRect(
-                    child: OverflowBox(
-                      alignment: Alignment.centerLeft,
-                      minWidth: 270,
-                      maxWidth: 270,
+                // AnimatedAlign + widthFactor avoids OverflowBox layout errors.
+                ClipRect(
+                  child: AnimatedAlign(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.centerRight,
+                    widthFactor: _isPuzzleOpen ? 1.0 : 0.0,
+                    child: SizedBox(
+                      width: 270,
                       child: Container(
-                        width: 270,
                         decoration: BoxDecoration(
                           border: Border(
                             left: BorderSide(
