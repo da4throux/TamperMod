@@ -66,14 +66,12 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
   ValueChanged<Map<String, double>> get _activeOnChanged =>
       _isEditingFadeIn ? widget.onParamsInChanged : widget.onParamsOutChanged;
 
-  double get _x1 => (_activeParams['h1x'] ?? _activeParams['x1'] ?? 0.25).clamp(0.0, 1.0);
-  double get _y1 => (_activeParams['h1y'] ?? _activeParams['y1'] ?? 0.10).clamp(0.0, 1.0);
-  double get _x2 => (_activeParams['h2x'] ?? _activeParams['x2'] ?? 0.75).clamp(0.0, 1.0);
-  double get _y2 => (_activeParams['h2y'] ?? _activeParams['y2'] ?? 0.90).clamp(0.0, 1.0);
-
-  // Exact point on the single continuous cubic Bézier curve at t = 0.5 (X(0.5) = 3/8*(x1+x2) + 1/8, Y(0.5) = 3/8*(y1+y2) + 1/8)
-  double get _mx => ((3.0 / 8.0) * (_x1 + _x2) + 0.125).clamp(0.05, 0.95);
-  double get _my => ((3.0 / 8.0) * (_y1 + _y2) + 0.125).clamp(0.0, 1.0);
+  double get _x1 => (_activeParams['h1x'] ?? _activeParams['x1'] ?? 0.35).clamp(0.0, 1.0);
+  double get _y1 => (_activeParams['h1y'] ?? _activeParams['y1'] ?? 0.15).clamp(0.0, 1.0);
+  double get _mx => (_activeParams['mx'] ?? 0.50).clamp(0.05, 0.95);
+  double get _my => (_activeParams['my'] ?? 0.50).clamp(0.0, 1.0);
+  double get _x2 => (_activeParams['h2x'] ?? _activeParams['x2'] ?? 0.65).clamp(0.0, 1.0);
+  double get _y2 => (_activeParams['h2y'] ?? _activeParams['y2'] ?? 0.85).clamp(0.0, 1.0);
 
   void _recordHistory() {
     final copy = Map<String, double>.from(_activeParams);
@@ -424,28 +422,29 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                 onPanStart: (details) {
                   _recordHistory();
                   final pos = details.localPosition;
-                  const double hitRadius = 26.0;
+                  const double hitRadius = 32.0;
 
-                  if ((pos - pm).distance <= hitRadius) {
-                    setState(() => _dragTarget = _ActiveDragTarget.midpoint);
-                    return;
+                  final double dPm = (pos - pm).distance;
+                  final double dH1 = (pos - h1).distance;
+                  final double dH2 = (pos - h2).distance;
+
+                  double minDistance = hitRadius;
+                  _ActiveDragTarget bestTarget = _ActiveDragTarget.none;
+
+                  if (dH1 <= hitRadius) {
+                    minDistance = dH1;
+                    bestTarget = _ActiveDragTarget.startHandle;
                   }
-                  if ((pos - h1).distance <= hitRadius) {
-                    setState(() => _dragTarget = _ActiveDragTarget.startHandle);
-                    return;
+                  if (dH2 < minDistance) {
+                    minDistance = dH2;
+                    bestTarget = _ActiveDragTarget.endHandle;
                   }
-                  if ((pos - h2).distance <= hitRadius) {
-                    setState(() => _dragTarget = _ActiveDragTarget.endHandle);
-                    return;
+                  // Midpoint M is only selected if touch is strictly closer to M than handles
+                  if (dPm < minDistance && dPm <= 22.0) {
+                    bestTarget = _ActiveDragTarget.midpoint;
                   }
-                  if ((pos - p0).distance <= hitRadius) {
-                    setState(() => _dragTarget = _ActiveDragTarget.startHandle);
-                    return;
-                  }
-                  if ((pos - p1).distance <= hitRadius) {
-                    setState(() => _dragTarget = _ActiveDragTarget.endHandle);
-                    return;
-                  }
+
+                  setState(() => _dragTarget = bestTarget);
                 },
                 onPanUpdate: (details) {
                   final norm = toNormalized(details.localPosition);
@@ -919,20 +918,26 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     canvas.drawLine(Offset(pm.dx, pad), Offset(pm.dx, pad + ch), guidePaint);
     canvas.drawLine(Offset(pad, pm.dy), Offset(pad + cw, pm.dy), guidePaint);
 
-    // 4. Main Continuous Bézier Spline with Gradient Glow
+    // 4. Main Continuous Bézier Spline with Gradient Glow (Exact Parametric Form)
+    final double vh1x = h1x.clamp(0.001, mx - 0.0001);
+    final double vh1y = h1y.clamp(0.0, my);
+    final double c01x = (vh1x * 0.5).clamp(0.0, vh1x);
+    final double c01y = 0.0;
+
+    final double vh2x = h2x.clamp(mx + 0.0001, 0.999);
+    final double vh2y = h2y.clamp(my, 1.0);
+    final double c12x = (vh2x + (1.0 - vh2x) * 0.5).clamp(vh2x, 1.0);
+    final double c12y = 1.0;
+
+    final cp01 = toScreen(c01x, c01y);
+    final cph1 = toScreen(vh1x, vh1y);
+    final cph2 = toScreen(vh2x, vh2y);
+    final cp12 = toScreen(c12x, c12y);
+
     final splinePath = Path();
-    const int steps = 100;
-    for (int i = 0; i <= steps; i++) {
-      final double t = i / steps;
-      final double y = curve.transform(t);
-      if (y.isNaN) continue;
-      final Offset pt = toScreen(t, y);
-      if (i == 0) {
-        splinePath.moveTo(pt.dx, pt.dy);
-      } else {
-        splinePath.lineTo(pt.dx, pt.dy);
-      }
-    }
+    splinePath.moveTo(p0.dx, p0.dy);
+    splinePath.cubicTo(cp01.dx, cp01.dy, cph1.dx, cph1.dy, pm.dx, pm.dy);
+    splinePath.cubicTo(cph2.dx, cph2.dy, cp12.dx, cp12.dy, p1.dx, p1.dy);
 
     // Spline glow
     final glowPaint = Paint()
