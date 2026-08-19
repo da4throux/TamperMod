@@ -667,6 +667,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     _webSocketService.gainPedals.addListener(_initializeLocalVolumes);
     _webSocketService.bpm.addListener(_updateBpmFromService);
     _webSocketService.allPlugins.addListener(_syncOrderedPlugins);
+
+    // Global keyboard listener (Ctrl+S / Cmd+S copy JSON backup)
+    HardwareKeyboard.instance.addHandler(_handleGlobalKeyEvents);
   }
 
   void _initializeLocalVolumes() {
@@ -1648,6 +1651,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKeyEvents);
     WidgetsBinding.instance.removeObserver(this);
     _webSocketService.gainPedals.removeListener(_initializeLocalVolumes);
     _webSocketService.bpm.removeListener(_updateBpmFromService);
@@ -1663,6 +1667,63 @@ class _DashboardScreenState extends State<DashboardScreen>
     _webSocketService.dispose();
     _ipController.dispose();
     super.dispose();
+  }
+
+  bool _handleGlobalKeyEvents(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final bool isCtrlOrCmd = HardwareKeyboard.instance.isControlPressed ||
+          HardwareKeyboard.instance.isMetaPressed;
+      if (isCtrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyS) {
+        _copyCurrentJsonBackupShortcut();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<void> _copyCurrentJsonBackupShortcut() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final Set<String> keys = prefs.getKeys();
+      final Map<String, dynamic> backupData = {};
+      for (final key in keys) {
+        if (key.startsWith('pedalboard_') ||
+            key == 'is_dark_mode' ||
+            key == 'custom_curve_presets') {
+          backupData[key] = prefs.get(key);
+        }
+      }
+      final jsonStr = jsonEncode(backupData);
+      await Clipboard.setData(ClipboardData(text: jsonStr));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle_outline, color: Colors.black, size: 18),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'JSON configuration copied to clipboard! (Ctrl+S)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF00FFCC),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error copying JSON via shortcut: $e');
+    }
   }
 
   Future<void> _openWebInterface() async {

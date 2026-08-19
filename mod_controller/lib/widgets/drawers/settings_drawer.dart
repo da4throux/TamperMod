@@ -63,6 +63,8 @@ class SettingsDrawer extends StatefulWidget {
 }
 
 class _SettingsDrawerState extends State<SettingsDrawer> {
+  bool _isInactivePoolCollapsed = false;
+
   Widget _buildMiniPuzzleTile({
     required PluginInstance pedal,
     required bool isActive,
@@ -309,11 +311,22 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             final item = widget.orderedPluginInstances.removeAt(idxA);
             widget.orderedPluginInstances.insert(idxB, item);
 
-            final activeA = widget.enabledPluginInstances.indexOf(draggedId);
-            final activeB = widget.enabledPluginInstances.indexOf(instanceId);
-            if (activeA != -1 && activeB != -1 && activeA != activeB) {
-              final aItem = widget.enabledPluginInstances.removeAt(activeA);
-              widget.enabledPluginInstances.insert(activeB, aItem);
+            if (isActive) {
+              // Hovering over active grid: activate immediately so space opens up and preview is live
+              if (!widget.enabledPluginInstances.contains(draggedId)) {
+                widget.enabledPluginInstances.add(draggedId);
+              }
+              final activeA = widget.enabledPluginInstances.indexOf(draggedId);
+              final activeB = widget.enabledPluginInstances.indexOf(instanceId);
+              if (activeA != -1 && activeB != -1 && activeA != activeB) {
+                final aItem = widget.enabledPluginInstances.removeAt(activeA);
+                widget.enabledPluginInstances.insert(activeB, aItem);
+              }
+            } else {
+              // Hovering over inactive pool: deactivate so it returns to pool
+              if (widget.enabledPluginInstances.contains(draggedId)) {
+                widget.enabledPluginInstances.remove(draggedId);
+              }
             }
           });
         }
@@ -837,6 +850,16 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 Expanded(
                   flex: 3,
                   child: DragTarget<String>(
+                    onMove: (details) {
+                      final draggedId = details.data;
+                      if (!widget.enabledPluginInstances.contains(draggedId)) {
+                        setState(() {
+                          widget.enabledPluginInstances.add(draggedId);
+                          widget.orderedPluginInstances.remove(draggedId);
+                          widget.orderedPluginInstances.add(draggedId);
+                        });
+                      }
+                    },
                     onAccept: (draggedId) {
                       final bool wasAlreadyActive =
                           widget.enabledPluginInstances.contains(draggedId);
@@ -938,113 +961,164 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ),
                 ),
 
-                // INACTIVE / AVAILABLE POOL
+                // INACTIVE / AVAILABLE POOL (Foldable Header)
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.inventory_2_outlined,
-                        size: 15,
-                        color: inactivePedals.isEmpty
-                            ? Colors.grey
-                            : (widget.isDarkMode
-                                  ? const Color(0xFFFF007F)
-                                  : const Color(0xFFFF0055)),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'AVAILABLE POOL (INACTIVE)',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10.5,
-                            color: widget.isDarkMode
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      setState(() {
+                        _isInactivePoolCollapsed = !_isInactivePoolCollapsed;
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 15,
+                            color: inactivePedals.isEmpty
                                 ? Colors.grey
-                                : Colors.grey[700],
-                            letterSpacing: 1.0,
+                                : (widget.isDarkMode
+                                      ? const Color(0xFFFF007F)
+                                      : const Color(0xFFFF0055)),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'AVAILABLE POOL (INACTIVE)',
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10.5,
+                                      color: widget.isDarkMode
+                                          ? Colors.grey
+                                          : Colors.grey[700],
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: (widget.isDarkMode ? Colors.grey[850] : Colors.grey[300])!,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '${inactivePedals.length}',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: widget.isDarkMode ? Colors.white70 : Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            _isInactivePoolCollapsed
+                                ? Icons.expand_more_rounded
+                                : Icons.expand_less_rounded,
+                            size: 18,
+                            color: widget.isDarkMode ? Colors.grey : Colors.grey[700],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
 
-                Expanded(
-                  flex: 2,
-                  child: DragTarget<String>(
-                    onAccept: (draggedId) {
-                      // Drag from Active to Inactive
-                      if (draggedId.startsWith('__spacer_')) {
-                        widget.onDeleteSpacer(draggedId);
-                        return;
-                      }
-                      if (draggedId.startsWith('__linebreak_')) {
-                        widget.onDeleteLineBreak(draggedId);
-                        return;
-                      }
-                      if (widget.enabledPluginInstances.contains(draggedId)) {
-                        setState(() {
-                          widget.enabledPluginInstances.remove(draggedId);
-                        });
-                        widget.onLayoutSettingsChanged();
-                      }
-                    },
-                    builder: (context, _, __) {
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 2,
-                        ),
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: widget.isDarkMode
-                              ? const Color(0xFF0F141C).withOpacity(0.3)
-                              : Colors.grey[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: (widget.isDarkMode
-                                ? Colors.grey[900]
-                                : Colors.grey[200])!,
-                            style: BorderStyle.solid,
+                if (!_isInactivePoolCollapsed)
+                  Flexible(
+                    flex: 2,
+                    fit: FlexFit.loose,
+                    child: DragTarget<String>(
+                      onMove: (details) {
+                        final draggedId = details.data;
+                        if (widget.enabledPluginInstances.contains(draggedId)) {
+                          setState(() {
+                            widget.enabledPluginInstances.remove(draggedId);
+                          });
+                        }
+                      },
+                      onAccept: (draggedId) {
+                        // Drag from Active to Inactive
+                        if (draggedId.startsWith('__spacer_')) {
+                          widget.onDeleteSpacer(draggedId);
+                          return;
+                        }
+                        if (draggedId.startsWith('__linebreak_')) {
+                          widget.onDeleteLineBreak(draggedId);
+                          return;
+                        }
+                        if (widget.enabledPluginInstances.contains(draggedId)) {
+                          setState(() {
+                            widget.enabledPluginInstances.remove(draggedId);
+                          });
+                          widget.onLayoutSettingsChanged();
+                        }
+                      },
+                      builder: (context, _, __) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 2,
                           ),
-                        ),
-                        child: inactivePedals.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'All components are active.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: widget.isDarkMode
-                                        ? Colors.grey[600]
-                                        : Colors.grey[500],
-                                    fontStyle: FontStyle.italic,
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: widget.isDarkMode
+                                ? const Color(0xFF0F141C).withOpacity(0.3)
+                                : Colors.grey[50],
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: (widget.isDarkMode
+                                  ? Colors.grey[900]
+                                  : Colors.grey[200])!,
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                          child: inactivePedals.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'All components are active.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: widget.isDarkMode
+                                          ? Colors.grey[600]
+                                          : Colors.grey[500],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                )
+                              : SingleChildScrollView(
+                                  child: Wrap(
+                                    spacing: spacing,
+                                    runSpacing: spacing,
+                                    children: inactivePedals.map((pedal) {
+                                      return _buildMiniPuzzleTile(
+                                        pedal: pedal,
+                                        isActive: false,
+                                        cWidth: compactWidth,
+                                        rWidth: regularWidth,
+                                        eWidth: expandedWidth,
+                                      );
+                                    }).toList(),
                                   ),
                                 ),
-                              )
-                            : SingleChildScrollView(
-                                child: Wrap(
-                                  spacing: spacing,
-                                  runSpacing: spacing,
-                                  children: inactivePedals.map((pedal) {
-                                    return _buildMiniPuzzleTile(
-                                      pedal: pedal,
-                                      isActive: false,
-                                      cWidth: compactWidth,
-                                      rWidth: regularWidth,
-                                      eWidth: expandedWidth,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
               ],
             );
           },

@@ -1,5 +1,11 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.81)
+- **Ctrl+S Backup Shortcut & Puzzle Board Real-time Placement / Foldable Pool**:
+  1. **Global `Ctrl+S` / `Cmd+S` Shortcut**: Pressing Ctrl+S instantly copies the complete configurations backup JSON to the clipboard and shows a confirmation toast.
+  2. **Live Drag Placement from Inactive Pool**: Dragging an inactive tile over the active canvas immediately opens up space and previews the tile's placement in real time.
+  3. **Foldable & Flexible Inactive Pool**: Tapping the "AVAILABLE POOL (INACTIVE)" header collapses/expands the section, and the pool naturally yields space to the main active puzzle canvas.
+
 ## ✅ Completed (v1.3.80)
 - **Inline Single-Screen Clipboard JSON Backup & Restore**:
   1. **Zero-Expansion Direct Visibility**: Raw JSON text field, `COPY JSON`, and `PASTE & RESTORE` action buttons are now directly embedded on the Backup & Restore screen without requiring an ExpansionTile.
