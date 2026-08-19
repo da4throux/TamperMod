@@ -93,7 +93,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     final List<Map<String, dynamic>> configs = [];
     for (final instanceId in _enabledPluginInstances) {
-      if (instanceId.startsWith('__spacer_')) continue;
+      if (instanceId.startsWith('__spacer_') || instanceId.startsWith('__linebreak_')) continue;
       final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
       String colorHex = _pedalGlowColors[instanceId] ?? '';
       if (colorHex.isEmpty) {
@@ -735,7 +735,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       List<String> newOrder = [];
       if (savedOrder != null) {
         for (final id in savedOrder) {
-          if (currentIds.contains(id) || id.startsWith('__spacer_')) {
+          if (currentIds.contains(id) || id.startsWith('__spacer_') || id.startsWith('__linebreak_')) {
             newOrder.add(id);
           }
         }
@@ -772,7 +772,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       List<String> newEnabled = [];
       if (savedEnabled != null) {
         newEnabled = savedEnabled
-            .where((id) => currentIds.contains(id) || id.startsWith('__spacer_'))
+            .where((id) => currentIds.contains(id) || id.startsWith('__spacer_') || id.startsWith('__linebreak_'))
             .toList();
       } else {
         // default populate with gains
@@ -1727,7 +1727,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: MetricsDrawer(
                 isDarkMode: _isDarkMode,
                 bpm: _bpm,
-                activeCount: _enabledPluginInstances.where((id) => !id.startsWith('__spacer_')).length,
+                activeCount: _enabledPluginInstances.where((id) => !id.startsWith('__spacer_') && !id.startsWith('__linebreak_')).length,
                 totalCount: _webSocketService.allPlugins.value.length,
                 connectionStatus: _webSocketService.status,
                 onRadarTap: _highlightAllPedalsInWebView,
@@ -2176,6 +2176,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           onBackupRestore: _showBackupRestoreDialog,
                           onAddSpacer: _addSpacer,
                           onDeleteSpacer: _deleteSpacer,
+                          onAddLineBreak: _addLineBreak,
+                          onDeleteLineBreak: _deleteLineBreak,
                         ),
                       ),
                     ),
@@ -2319,6 +2321,14 @@ class _DashboardScreenState extends State<DashboardScreen>
               ));
               continue;
             }
+            if (instanceId.startsWith('__linebreak_')) {
+              enabledPlugins.add(PluginInstance(
+                instance: instanceId,
+                uri: 'linebreak',
+                title: 'LINE BREAK',
+              ));
+              continue;
+            }
             PluginInstance? found;
             for (final p in plugins) {
               if (p.instance == instanceId) {
@@ -2399,6 +2409,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 children: enabledPlugins.map((pedal) {
                   final String size = _pedalSizes[pedal.instance] ?? 'regular';
                   final bool isSpacer = pedal.instance.startsWith('__spacer_');
+                  final bool isLineBreak = pedal.instance.startsWith('__linebreak_');
                   final uriLower = pedal.uri.toLowerCase();
                   final titleLower = pedal.title.toLowerCase();
                   final isLooper =
@@ -2407,7 +2418,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                   double cardWidth = regularWidth;
                   double? cardHeight = 240.0;
 
-                  if (isSpacer) {
+                  if (isLineBreak) {
+                    cardWidth = availableWidth;
+                    cardHeight = 0.0;
+                  } else if (isSpacer) {
                     if (size == 'compact') {
                       cardWidth = compactWidth;
                       cardHeight = 240.0;
@@ -2461,7 +2475,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       titleLower.contains('gain') ||
                       titleLower.contains('volume');
 
-                  if (isSpacer) {
+                  if (isLineBreak) {
+                    cardWidget = SizedBox(
+                      width: availableWidth,
+                      height: 0.0,
+                    );
+                  } else if (isSpacer) {
                     cardWidget = SizedBox(
                       width: cardWidth,
                       height: cardHeight,
@@ -2774,7 +2793,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _highlightAllPedalsInWebView() {
     final List<Map<String, dynamic>> configs = [];
     for (final instanceId in _enabledPluginInstances) {
-      if (instanceId.startsWith('__spacer_')) continue;
+      if (instanceId.startsWith('__spacer_') || instanceId.startsWith('__linebreak_')) continue;
       final bool isEnabled = _pedalGlowEnabled[instanceId] ?? true;
       String colorHex = _pedalGlowColors[instanceId] ?? '';
       if (colorHex.isEmpty) {
@@ -2887,7 +2906,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _highlightPedalInWebView(PluginInstance pedal) {
     final String instId = pedal.instance;
-    if (instId.startsWith('__spacer_')) return;
+    if (instId.startsWith('__spacer_') || instId.startsWith('__linebreak_')) return;
     final String colorHex =
         _pedalGlowColors[instId] ?? _getDefaultColorForPedal(pedal);
     final bool isGlowEnabled = _pedalGlowEnabled[instId] ?? true;
@@ -4906,6 +4925,26 @@ class _DashboardScreenState extends State<DashboardScreen>
       _orderedPluginInstances.remove(spacerId);
       _enabledPluginInstances.remove(spacerId);
       _pedalSizes.remove(spacerId);
+    });
+    _saveLayoutSettings();
+  }
+
+  void _addLineBreak() {
+    final String lineBreakId =
+        '__linebreak_${DateTime.now().millisecondsSinceEpoch}';
+    setState(() {
+      _orderedPluginInstances.add(lineBreakId);
+      _enabledPluginInstances.add(lineBreakId);
+      _pedalSizes[lineBreakId] = 'expanded';
+    });
+    _saveLayoutSettings();
+  }
+
+  void _deleteLineBreak(String lineBreakId) {
+    setState(() {
+      _orderedPluginInstances.remove(lineBreakId);
+      _enabledPluginInstances.remove(lineBreakId);
+      _pedalSizes.remove(lineBreakId);
     });
     _saveLayoutSettings();
   }

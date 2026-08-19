@@ -28,6 +28,8 @@ class SettingsDrawer extends StatefulWidget {
   final VoidCallback onBackupRestore;
   final VoidCallback onAddSpacer;
   final Function(String) onDeleteSpacer;
+  final VoidCallback onAddLineBreak;
+  final Function(String) onDeleteLineBreak;
 
   const SettingsDrawer({
     super.key,
@@ -52,6 +54,8 @@ class SettingsDrawer extends StatefulWidget {
     required this.onBackupRestore,
     required this.onAddSpacer,
     required this.onDeleteSpacer,
+    required this.onAddLineBreak,
+    required this.onDeleteLineBreak,
   });
 
   @override
@@ -68,17 +72,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }) {
     final String instanceId = pedal.instance;
     final bool isSpacer = instanceId.startsWith('__spacer_');
+    final bool isLineBreak = instanceId.startsWith('__linebreak_');
 
-    final uriLower = isSpacer ? '' : pedal.uri.toLowerCase();
-    final titleLower = isSpacer ? '' : pedal.title.toLowerCase();
-    final isLooper = !isSpacer && (
+    final uriLower = (isSpacer || isLineBreak) ? '' : pedal.uri.toLowerCase();
+    final titleLower = (isSpacer || isLineBreak) ? '' : pedal.title.toLowerCase();
+    final isLooper = !isSpacer && !isLineBreak && (
         uriLower.contains('alo') ||
         titleLower.contains('alo') ||
         instanceId.toLowerCase().contains('alo'));
-    final isSwitch = !isSpacer && (
+    final isSwitch = !isSpacer && !isLineBreak && (
         uriLower.contains('switch') || titleLower.contains('switch'));
 
-    final isGainOrVolume = !isSpacer && (
+    final isGainOrVolume = !isSpacer && !isLineBreak && (
         uriLower.contains('gain') ||
         uriLower.contains('volume') ||
         uriLower.contains('amp') ||
@@ -90,7 +95,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     double width = rWidth;
     double height = 46.0;
     if (isActive) {
-      if (isSpacer) {
+      if (isLineBreak) {
+        width = eWidth;
+        height = 28.0;
+      } else if (isSpacer) {
         if (size == 'compact') {
           width = cWidth;
           height = 40.0;
@@ -125,16 +133,20 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       height = 46.0;
     }
 
-    final String colorHex = isSpacer
+    final String colorHex = (isSpacer || isLineBreak)
         ? ''
         : (widget.pedalGlowColors[instanceId] ??
             getLeastUsedColor(widget.pedalGlowColors));
-    final Color glowColor = isSpacer
-        ? (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!)
-        : hexToColor(colorHex);
+    final Color glowColor = isLineBreak
+        ? const Color(0xFF00FFCC)
+        : isSpacer
+            ? (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!)
+            : hexToColor(colorHex);
 
     IconData typeIcon = Icons.tune;
-    if (isSpacer) {
+    if (isLineBreak) {
+      typeIcon = Icons.wrap_text;
+    } else if (isSpacer) {
       typeIcon = Icons.space_bar;
     } else if (isLooper) {
       typeIcon = Icons.fiber_manual_record; // red looper dot
@@ -147,22 +159,29 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     final tileContent = Container(
       width: width,
       height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: 6,
+        vertical: isLineBreak ? 2 : 4,
+      ),
       decoration: BoxDecoration(
         color: isActive
-            ? (isSpacer
-                ? Colors.transparent
-                : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18))
+            ? (isLineBreak
+                ? const Color(0xFF00FFCC).withValues(alpha: widget.isDarkMode ? 0.08 : 0.15)
+                : isSpacer
+                    ? Colors.transparent
+                    : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18))
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isSpacer
-              ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
-              : glowColor.withOpacity(isActive ? 0.9 : 0.4),
+          color: isLineBreak
+              ? const Color(0xFF00FFCC).withValues(alpha: 0.6)
+              : isSpacer
+                  ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
+                  : glowColor.withOpacity(isActive ? 0.9 : 0.4),
           width: isActive ? 1.5 : 1.0,
           style: BorderStyle.solid,
         ),
-        boxShadow: isActive && !isSpacer
+        boxShadow: isActive && !isSpacer && !isLineBreak
             ? [
                 BoxShadow(
                   color: glowColor.withOpacity(0.3),
@@ -177,27 +196,34 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           // Device Type Icon
           Icon(
             typeIcon,
-            size: size == 'compact' && isActive ? 11 : 13,
-            color: isSpacer
-                ? (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600])
-                : (isLooper && isActive ? const Color(0xFFFF0055) : glowColor),
+            size: isLineBreak ? 13 : (size == 'compact' && isActive ? 11 : 13),
+            color: isLineBreak
+                ? const Color(0xFF00FFCC)
+                : isSpacer
+                    ? (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600])
+                    : (isLooper && isActive ? const Color(0xFFFF0055) : glowColor),
           ),
           const SizedBox(width: 4),
 
           // Title
           Expanded(
             child: Text(
-              isSpacer
-                  ? 'SPACER'
-                  : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+              isLineBreak
+                  ? '--- LINE BREAK ---'
+                  : isSpacer
+                      ? 'SPACER'
+                      : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
               style: TextStyle(
-                color: isSpacer
-                    ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
-                    : (isActive
-                        ? (widget.isDarkMode ? Colors.white : Colors.black)
-                        : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700])),
+                color: isLineBreak
+                    ? const Color(0xFF00FFCC)
+                    : isSpacer
+                        ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
+                        : (isActive
+                            ? (widget.isDarkMode ? Colors.white : Colors.black)
+                            : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700])),
                 fontWeight: FontWeight.bold,
-                fontSize: size == 'compact' && isActive ? 8 : 9.5,
+                fontSize: isLineBreak ? 8.5 : (size == 'compact' && isActive ? 8 : 9.5),
+                letterSpacing: isLineBreak ? 1.0 : 0.5,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -205,31 +231,49 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
           // Right panel options
           if (isActive) ...[
-            // Size Toggle C/R/E
-            GestureDetector(
-              onTap: () => widget.onCyclePedalSize(instanceId),
-              child: Container(
-                margin: const EdgeInsets.only(right: 4),
-                padding: const EdgeInsets.all(2.5),
-                decoration: BoxDecoration(
-                  color: widget.isDarkMode
-                      ? Colors.grey[900]
-                      : Colors.grey[300],
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  size[0].toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                    color: widget.isDarkMode ? Colors.white : Colors.black,
+            if (!isLineBreak)
+              // Size Toggle C/R/E
+              GestureDetector(
+                onTap: () => widget.onCyclePedalSize(instanceId),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    color: widget.isDarkMode
+                        ? Colors.grey[900]
+                        : Colors.grey[300],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    size[0].toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      color: widget.isDarkMode ? Colors.white : Colors.black,
+                    ),
                   ),
                 ),
               ),
-            ),
             if (isSpacer)
               GestureDetector(
                 onTap: () => widget.onDeleteSpacer(instanceId),
+                child: Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFF0055),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 8,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            if (isLineBreak)
+              GestureDetector(
+                onTap: () => widget.onDeleteLineBreak(instanceId),
                 child: Container(
                   margin: const EdgeInsets.only(left: 4),
                   padding: const EdgeInsets.all(2.5),
@@ -249,15 +293,35 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       ),
     );
 
-    // Draggable wrapping
+    // Draggable wrapping with live interactive reordering while moving
     return DragTarget<String>(
       onWillAccept: (data) => data != instanceId,
+      onMove: (details) {
+        final draggedId = details.data;
+        if (draggedId == instanceId) return;
+
+        final idxA = widget.orderedPluginInstances.indexOf(draggedId);
+        final idxB = widget.orderedPluginInstances.indexOf(instanceId);
+        if (idxA != -1 && idxB != -1 && idxA != idxB) {
+          setState(() {
+            final item = widget.orderedPluginInstances.removeAt(idxA);
+            widget.orderedPluginInstances.insert(idxB, item);
+
+            final activeA = widget.enabledPluginInstances.indexOf(draggedId);
+            final activeB = widget.enabledPluginInstances.indexOf(instanceId);
+            if (activeA != -1 && activeB != -1 && activeA != activeB) {
+              final aItem = widget.enabledPluginInstances.removeAt(activeA);
+              widget.enabledPluginInstances.insert(activeB, aItem);
+            }
+          });
+        }
+      },
       onAccept: (draggedId) {
         setState(() {
           // Reorder list order
           final idxA = widget.orderedPluginInstances.indexOf(draggedId);
           final idxB = widget.orderedPluginInstances.indexOf(instanceId);
-          if (idxA != -1 && idxB != -1) {
+          if (idxA != -1 && idxB != -1 && idxA != idxB) {
             final item = widget.orderedPluginInstances.removeAt(idxA);
             widget.orderedPluginInstances.insert(idxB, item);
           }
@@ -280,22 +344,33 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       builder: (context, _, __) {
         return LongPressDraggable<String>(
           data: instanceId,
+          delay: const Duration(milliseconds: 150),
+          onDragEnd: (_) => widget.onLayoutSettingsChanged(),
           feedback: Material(
             color: Colors.transparent,
             child: Opacity(
-              opacity: 0.7,
+              opacity: 0.75,
               child: Container(
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
-                  color: glowColor.withOpacity(0.2),
+                  color: isLineBreak
+                      ? const Color(0xFF00FFCC).withValues(alpha: 0.25)
+                      : glowColor.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: glowColor, width: 2.0),
+                  border: Border.all(
+                    color: isLineBreak ? const Color(0xFF00FFCC) : glowColor,
+                    width: 2.0,
+                  ),
                 ),
                 child: Center(
                   child: Text(
-                    (widget.customTitles[instanceId] ?? pedal.title)
-                        .toUpperCase(),
+                    isLineBreak
+                        ? 'LINE BREAK'
+                        : isSpacer
+                            ? 'SPACER'
+                            : (widget.customTitles[instanceId] ?? pedal.title)
+                                .toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -319,16 +394,20 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           ),
           child: GestureDetector(
             onTap: () {
-              widget.onHighlightPedal(pedal);
+              if (!isSpacer && !isLineBreak) {
+                widget.onHighlightPedal(pedal);
+              }
               if (isActive) {
                 widget.onScrollToCard(instanceId);
               }
             },
             onDoubleTap: () {
               if (isActive) {
-                widget.onCyclePedalSize(instanceId);
+                if (!isLineBreak) {
+                  widget.onCyclePedalSize(instanceId);
+                }
               } else {
-                if (!isSpacer) {
+                if (!isSpacer && !isLineBreak) {
                   widget.onShowColorPicker(pedal);
                 }
               }
@@ -372,6 +451,14 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     instance: id,
                     title: 'SPACER',
                     uri: 'spacer',
+                  ));
+                  continue;
+                }
+                if (id.startsWith('__linebreak_')) {
+                  activePedals.add(PluginInstance(
+                    instance: id,
+                    title: 'LINE BREAK',
+                    uri: 'linebreak',
                   ));
                   continue;
                 }
@@ -638,7 +725,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                         onTap: widget.onAddSpacer,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
+                            horizontal: 6,
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
@@ -666,9 +753,55 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                               ),
                               const SizedBox(width: 2),
                               Text(
-                                'ADD SPACER',
+                                'SPACER',
                                 style: TextStyle(
-                                  fontSize: 8.5,
+                                  fontSize: 8.0,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.isDarkMode
+                                      ? const Color(0xFF00FFCC)
+                                      : const Color(0xFF00B3FF),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: widget.onAddLineBreak,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (widget.isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF))
+                                .withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: widget.isDarkMode
+                                  ? const Color(0xFF00FFCC)
+                                  : const Color(0xFF00B3FF),
+                              width: 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.wrap_text,
+                                size: 10,
+                                color: widget.isDarkMode
+                                    ? const Color(0xFF00FFCC)
+                                    : const Color(0xFF00B3FF),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                'LINE BREAK',
+                                style: TextStyle(
+                                  fontSize: 8.0,
                                   fontWeight: FontWeight.bold,
                                   color: widget.isDarkMode
                                       ? const Color(0xFF00FFCC)
@@ -826,6 +959,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       // Drag from Active to Inactive
                       if (draggedId.startsWith('__spacer_')) {
                         widget.onDeleteSpacer(draggedId);
+                        return;
+                      }
+                      if (draggedId.startsWith('__linebreak_')) {
+                        widget.onDeleteLineBreak(draggedId);
                         return;
                       }
                       if (widget.enabledPluginInstances.contains(draggedId)) {

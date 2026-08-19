@@ -209,6 +209,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] C1 Continuous Collinear Tangent Line Across Middle Waypoint Anchor (v1.3.57): unified tangent slope $s = (h_2y - h_1y)/(h_2x - h_1x)$ at center anchor $M$ ensuring single straight continuous tangent line on both sides, strict monotonic bounding boxes preventing dips/overshoots, and canvas visualizer.
 * [x] Pure Continuous Monotonic Cubic Bézier (v1.3.58): eliminated piecewise segment kinks by returning to a single unbroken $C^\infty$ cubic Bézier spline with midpoint dot locked to curve inflection $B(0.5)$.
 * [x] Play/Pause/Stop Fade Transport Controls & Live Curve Animation (v1.3.59): added interactive amber PAUSE/RESUME and red STOP buttons to GainCard when a fade is active, and rendered a live glowing curve-riding progress cursor and gradient sweep fill directly on the VectorBezierEditor canvas.
+* [x] Live Puzzle Drag Reordering & Zero-Height Row Line Breaks (v1.3.60): added live interactive reordering in Puzzle Canvas (`onMove` in `DragTarget`) that dynamically shifts tiles in real time during drag, and introduced `LINE BREAK` (`+ LINE BREAK`) zero-height row dividers forcing subsequent cards onto a new line without consuming vertical space.
 
 ### Todo Tasks (Grouped by Category)
 
