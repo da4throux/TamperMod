@@ -78,6 +78,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, bool> _pedalGlowEnabled = {};
   final Map<String, String> _pedalSizes = {};
 
+  // Inline puzzle organizer panel state (replaces overlay endDrawer)
+  bool _isPuzzleOpen = false;
+
   Color _hexToColor(String hex) => hexToColor(hex);
 
   void _updateAllGlowsInWebView() {
@@ -1170,12 +1173,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   /// interface used to reach the MOD Dwarf (192.168.51.x). If WiFi is
   /// detected as the active connection type, a warning is shown before
   /// proceeding. The user should disable WiFi and reconnect.
+  /// If connected via Chromebook bridge (100.115.92.x), a helper banner is shown.
   Future<void> _connectWithWifiCheck() async {
     final List<ConnectivityResult> results = await Connectivity()
         .checkConnectivity();
     final bool wifiActive = results.contains(ConnectivityResult.wifi);
     final String targetIp = _ipController.text.trim();
     final bool isDirectUsbIp = targetIp.startsWith('192.168.51.');
+    final bool isChromebookBridgeIp = targetIp.startsWith('100.115.92.');
 
     if (wifiActive && isDirectUsbIp && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1223,6 +1228,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
       );
+    } else if (isChromebookBridgeIp && mounted) {
+      _showBridgeInstructionsBanner();
     }
 
     // Proceed with connection regardless — user may have WiFi on for other
@@ -1231,6 +1238,101 @@ class _DashboardScreenState extends State<DashboardScreen>
     _saveIp(targetIp);
     _webSocketService.connect(ip: _ipController.text);
     _webViewController.loadRequest(Uri.parse('http://${_ipController.text}'));
+  }
+
+  /// Displays an orange helper banner explaining the Chromebook / Crostini bridge,
+  /// with a button to copy `./scripts/bridge_dwarf.sh` to clipboard.
+  void _showBridgeInstructionsBanner() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 10),
+        backgroundColor: const Color(0xFFCC6600),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFFFF9900), width: 1.5),
+        ),
+        content: InkWell(
+          onTap: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+          child: const Row(
+            children: [
+              Icon(Icons.terminal, color: Colors.white, size: 22),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '🌉 Chromebook Bridge Mode (Wi-Fi is OK)',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Run ./scripts/bridge_dwarf.sh in Crostini Linux terminal.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(Icons.close, color: Colors.white70, size: 18),
+            ],
+          ),
+        ),
+        action: SnackBarAction(
+          label: 'COPY CMD',
+          textColor: const Color(0xFF00FFCC),
+          onPressed: () {
+            Clipboard.setData(
+              const ClipboardData(text: './scripts/bridge_dwarf.sh'),
+            );
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                duration: const Duration(seconds: 3),
+                backgroundColor: const Color(0xFF1E2638),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Color(0xFF00FFCC), width: 1),
+                ),
+                content: const Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline,
+                      color: Color(0xFF00FFCC),
+                      size: 20,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Copied to clipboard: ./scripts/bridge_dwarf.sh\nPaste & run in Linux terminal.',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   /// Opens WiFi settings on Android
@@ -1329,40 +1431,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         final isLandscape = orientation == Orientation.landscape;
 
         return Scaffold(
-          onEndDrawerChanged: (isOpen) {
-            setState(() {});
-          },
-          // Right-aligned settings drawer (puzzle organizer), occupying the full vertical height
-          endDrawer: Drawer(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: SettingsDrawer(
-              isDarkMode: _isDarkMode,
-              allPluginsNotifier: _webSocketService.allPlugins,
-              enabledPluginInstances: _enabledPluginInstances,
-              orderedPluginInstances: _orderedPluginInstances,
-              pedalSizes: _pedalSizes,
-              pedalGlowColors: _pedalGlowColors,
-              customTitles: _customTitles,
-              currentConfig: _activeConfig,
-              configsList: _configsList,
-              onConfigChanged: _switchConfig,
-              onConfigDuplicate: _duplicateCurrentConfig,
-              onConfigRename: _renameCurrentConfig,
-              onConfigDelete: _deleteCurrentConfig,
-              onLayoutSettingsChanged: () {
-                _updateAllGlowsInWebView();
-                _saveLayoutSettings();
-              },
-              onHighlightPedal: _highlightPedalInWebView,
-              onShowColorPicker: _showColorPickerDialog,
-              onCyclePedalSize: _cyclePedalSize,
-              onScrollToCard: _scrollToCard,
-              onBackupRestore: _showBackupRestoreDialog,
-              onAddSpacer: _addSpacer,
-              onDeleteSpacer: _deleteSpacer,
-            ),
-          ),
 
           // Continuous Left-aligned navigation and metrics drawer
           drawer: Drawer(
@@ -1589,25 +1657,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               const SizedBox(width: 8),
 
-              // Open Settings Drawer
-              Builder(
-                builder: (context) {
-                  final bool isOpen = Scaffold.of(context).isEndDrawerOpen;
-                  return IconButton(
-                    icon: Icon(
-                      isOpen ? Icons.extension : Icons.extension_outlined,
-                      color: const Color(0xFFFF007F),
-                      size: 22,
-                    ),
-                    tooltip: 'Puzzle Organizer',
-                    onPressed: () {
-                      if (isOpen) {
-                        Scaffold.of(context).closeEndDrawer();
-                      } else {
-                        Scaffold.of(context).openEndDrawer();
-                      }
-                    },
-                  );
+              // Open/close inline puzzle organizer panel
+              IconButton(
+                icon: Icon(
+                  _isPuzzleOpen ? Icons.extension : Icons.extension_outlined,
+                  color: const Color(0xFFFF007F),
+                  size: 22,
+                ),
+                tooltip: 'Puzzle Organizer',
+                onPressed: () {
+                  setState(() {
+                    _isPuzzleOpen = !_isPuzzleOpen;
+                  });
                 },
               ),
               const SizedBox(width: 8),
@@ -1623,123 +1684,187 @@ class _DashboardScreenState extends State<DashboardScreen>
                     : [const Color(0xFFF0F2F5), const Color(0xFFE4E6EB)],
               ),
             ),
-            child: Column(
+            child: Row(
               children: [
-                // Collapsible Toolbar & Connection Setup Bars (Folds both rows)
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: _showConnectionPanel
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Toolbar (View selectors, Radar, Reload, Theme, Version)
-                            BottomToolbar(
-                              isDarkMode: _isDarkMode,
-                              showControls: _showControls,
-                              showWeb: _showWeb,
-                              isConnected:
-                                  _webSocketService.status ==
-                                  ConnectionStatus.connected,
-                              onToggleControls: () {
-                                if (_showControls && !_showWeb) return;
-                                setState(() {
-                                  _showControls = !_showControls;
-                                });
-                              },
-                              onToggleWeb: () {
-                                if (_showWeb && !_showControls) return;
-                                setState(() {
-                                  _showWeb = !_showWeb;
-                                });
-                              },
-                              onControlsOnly: () {
-                                setState(() {
-                                  _showControls = true;
-                                  _showWeb = false;
-                                });
-                              },
-                              onWebOnly: () {
-                                setState(() {
-                                  _showWeb = true;
-                                  _showControls = false;
-                                });
-                              },
-                              onRadarTap: _highlightAllPedalsInWebView,
-                              onRefreshTap: _reloadPedalboard,
-                              onWebReload: () {
-                                _webViewController.reload();
-                              },
-                              onThemeToggle: () {
-                                setState(() {
-                                  _isDarkMode = !_isDarkMode;
-                                });
-                                _saveThemeSettings();
-                              },
-                              appVersion: widget.appVersion,
-                            ),
+                // Main content column (shrinks when puzzle panel is open)
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Collapsible Toolbar & Connection Setup Bars (Folds both rows)
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOut,
+                        child: _showConnectionPanel
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Toolbar (View selectors, Radar, Reload, Theme, Version)
+                                  BottomToolbar(
+                                    isDarkMode: _isDarkMode,
+                                    showControls: _showControls,
+                                    showWeb: _showWeb,
+                                    isConnected:
+                                        _webSocketService.status ==
+                                        ConnectionStatus.connected,
+                                    onToggleControls: () {
+                                      if (_showControls && !_showWeb) return;
+                                      setState(() {
+                                        _showControls = !_showControls;
+                                      });
+                                    },
+                                    onToggleWeb: () {
+                                      if (_showWeb && !_showControls) return;
+                                      setState(() {
+                                        _showWeb = !_showWeb;
+                                      });
+                                    },
+                                    onControlsOnly: () {
+                                      setState(() {
+                                        _showControls = true;
+                                        _showWeb = false;
+                                      });
+                                    },
+                                    onWebOnly: () {
+                                      setState(() {
+                                        _showWeb = true;
+                                        _showControls = false;
+                                      });
+                                    },
+                                    onRadarTap: _highlightAllPedalsInWebView,
+                                    onRefreshTap: _reloadPedalboard,
+                                    onWebReload: () {
+                                      _webViewController.reload();
+                                    },
+                                    onThemeToggle: () {
+                                      setState(() {
+                                        _isDarkMode = !_isDarkMode;
+                                      });
+                                      _saveThemeSettings();
+                                    },
+                                    appVersion: widget.appVersion,
+                                  ),
 
-                            // Inline Connection / IP bar
-                            ConnectionPanel(
-                              isDarkMode: _isDarkMode,
-                              ipController: _ipController,
-                              connectionStatus: _webSocketService.status,
-                              onConnectDisconnect: () {
-                                final bool isDisconnected =
-                                    _webSocketService.status ==
-                                    ConnectionStatus.disconnected;
-                                if (isDisconnected) {
-                                  _connectWithWifiCheck();
-                                } else {
-                                  _webSocketService.disconnect();
-                                }
-                              },
-                              onOpenBrowser: _openWebInterface,
-                              getStatusColor: _getStatusColor,
-                              onIpSelected: (selectedIp) {
-                                _saveIp(selectedIp);
-                              },
-                            ),
-                          ],
-                        )
-                      : const SizedBox.shrink(),
+                                  // Inline Connection / IP bar
+                                  ConnectionPanel(
+                                    isDarkMode: _isDarkMode,
+                                    ipController: _ipController,
+                                    connectionStatus: _webSocketService.status,
+                                    onConnectDisconnect: () {
+                                      final bool isDisconnected =
+                                          _webSocketService.status ==
+                                          ConnectionStatus.disconnected;
+                                      if (isDisconnected) {
+                                        _connectWithWifiCheck();
+                                      } else {
+                                        _webSocketService.disconnect();
+                                      }
+                                    },
+                                    onOpenBrowser: _openWebInterface,
+                                    getStatusColor: _getStatusColor,
+                                    onIpSelected: (selectedIp) {
+                                      _saveIp(selectedIp);
+                                      if (selectedIp.startsWith('100.115.92.')) {
+                                        _showBridgeInstructionsBanner();
+                                      }
+                                    },
+                                  ),
+                                ],
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+
+                      // BPM inline widget on tiny screens to avoid AppBar overcrowding
+                      if (screenWidth <= 580)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
+                          child: BpmController(
+                            bpm: _bpm,
+                            fadeBars: _fadeBars,
+                            isDarkMode: _isDarkMode,
+                            onTapTempo: _onTapTempo,
+                            onBpmTap: _showBpmDialog,
+                            onBpmChanged: (val) {
+                              _webSocketService.setBpm(val);
+                            },
+                            onFadeBarsChanged: (val) {
+                              setState(() {
+                                _fadeBars = val;
+                              });
+                              _saveLayoutSettings();
+                            },
+                            isTransportRolling: _webSocketService.isTransportRolling,
+                            transportSyncMode: _webSocketService.transportSyncMode,
+                            onTransportRollingChanged: (val) {
+                              _webSocketService.setRolling(val);
+                            },
+                            onSyncModeChanged: (val) {
+                              _setTransportSyncMode(val);
+                            },
+                          ),
+                        ),
+
+                      // Responsive layout container
+                      Expanded(child: _buildBodyContent(isLandscape)),
+                    ],
+                  ),
                 ),
 
-                // BPM inline widget on tiny screens to avoid AppBar overcrowding
-                if (screenWidth <= 580)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    child: BpmController(
-                      bpm: _bpm,
-                      fadeBars: _fadeBars,
-                      isDarkMode: _isDarkMode,
-                      onTapTempo: _onTapTempo,
-                      onBpmTap: _showBpmDialog,
-                      onBpmChanged: (val) {
-                        _webSocketService.setBpm(val);
-                      },
-                      onFadeBarsChanged: (val) {
-                        setState(() {
-                          _fadeBars = val;
-                        });
-                        _saveLayoutSettings();
-                      },
-                      isTransportRolling: _webSocketService.isTransportRolling,
-                      transportSyncMode: _webSocketService.transportSyncMode,
-                      onTransportRollingChanged: (val) {
-                        _webSocketService.setRolling(val);
-                      },
-                      onSyncModeChanged: (val) {
-                        _setTransportSyncMode(val);
-                      },
+                // Inline Puzzle Organizer panel — slides in from the right,
+                // narrows only the tile board (controls), never touches the WebView.
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOut,
+                  width: _isPuzzleOpen ? 270 : 0,
+                  child: ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.centerLeft,
+                      minWidth: 270,
+                      maxWidth: 270,
+                      child: Container(
+                        width: 270,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: _isDarkMode
+                                  ? const Color(0xFFFF007F)
+                                  : const Color(0xFFCC0055),
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        child: SettingsDrawer(
+                          isDarkMode: _isDarkMode,
+                          allPluginsNotifier: _webSocketService.allPlugins,
+                          enabledPluginInstances: _enabledPluginInstances,
+                          orderedPluginInstances: _orderedPluginInstances,
+                          pedalSizes: _pedalSizes,
+                          pedalGlowColors: _pedalGlowColors,
+                          customTitles: _customTitles,
+                          currentConfig: _activeConfig,
+                          configsList: _configsList,
+                          onConfigChanged: _switchConfig,
+                          onConfigDuplicate: _duplicateCurrentConfig,
+                          onConfigRename: _renameCurrentConfig,
+                          onConfigDelete: _deleteCurrentConfig,
+                          onLayoutSettingsChanged: () {
+                            _updateAllGlowsInWebView();
+                            _saveLayoutSettings();
+                          },
+                          onHighlightPedal: _highlightPedalInWebView,
+                          onShowColorPicker: _showColorPickerDialog,
+                          onCyclePedalSize: _cyclePedalSize,
+                          onScrollToCard: _scrollToCard,
+                          onBackupRestore: _showBackupRestoreDialog,
+                          onAddSpacer: _addSpacer,
+                          onDeleteSpacer: _deleteSpacer,
+                        ),
+                      ),
                     ),
                   ),
-
-                // Responsive layout container
-                Expanded(child: _buildBodyContent(isLandscape)),
+                ),
               ],
             ),
           ),
@@ -2802,6 +2927,20 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  Future<bool> _checkIfChromeOs() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final result = await const MethodChannel('com.example.mod_controller/device')
+          .invokeMethod<Map<dynamic, dynamic>>('getDeviceInfo');
+      if (result != null) {
+        return (result['isChromeOs'] == true) || (result['isHatch'] == true);
+      }
+    } catch (e) {
+      debugPrint('Error checking device info: $e');
+    }
+    return false;
+  }
+
   Future<void> _loadSavedIp() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -2813,6 +2952,18 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (_webSocketService.status == ConnectionStatus.disconnected) {
           _webSocketService.connect(ip: savedIp);
           _webViewController.loadRequest(Uri.parse('http://$savedIp'));
+        }
+      } else {
+        // No saved IP: auto-detect if running on ChromeOS / Hatch
+        final bool isChromeOs = await _checkIfChromeOs();
+        if (isChromeOs && mounted) {
+          setState(() {
+            _ipController.text = '100.115.92.201';
+          });
+          if (_webSocketService.status == ConnectionStatus.disconnected) {
+            _webSocketService.connect(ip: '100.115.92.201');
+            _webViewController.loadRequest(Uri.parse('http://100.115.92.201'));
+          }
         }
       }
     } catch (e) {
