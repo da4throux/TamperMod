@@ -211,6 +211,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Play/Pause/Stop Fade Transport Controls & Live Curve Animation (v1.3.59): added interactive amber PAUSE/RESUME and red STOP buttons to GainCard when a fade is active, and rendered a live glowing curve-riding progress cursor and gradient sweep fill directly on the VectorBezierEditor canvas.
 * [x] Live Puzzle Drag Reordering & Zero-Height Row Line Breaks (v1.3.60): added live interactive reordering in Puzzle Canvas (`onMove` in `DragTarget`) that dynamically shifts tiles in real time during drag, and introduced `LINE BREAK` (`+ LINE BREAK`) zero-height row dividers forcing subsequent cards onto a new line without consuming vertical space.
 * [x] Fixed Middle Anchor with Collinear Tangents & Near-Vertical S-Curve (v1.3.61): anchored middle point $M$ so handles $H_1$ and $H_2$ can be adjusted independently without moving $M$, automatically linked collinear opposite tangent slopes for smooth transitions, and unlocked near-vertical steepness across the middle point.
+* [x] Mathematical Curve Robustness & Launch Crash Defense (v1.3.62): guarded cubic solver against boundary conditions and invalid scale ratios, prevented `NaN`/`Infinity` stalls, and added test suite `curves_test.dart`.
 
 ### Todo Tasks (Grouped by Category)
 

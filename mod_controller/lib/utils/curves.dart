@@ -154,12 +154,20 @@ class VectorBezierCurve extends Curve {
     double y0, double y1, double y2, double y3,
   ) {
     if (targetX.isNaN) return 0.0;
-    // 1. Find parametric parameter u such that BezierX(u) == targetX
-    double u = targetX.clamp(0.0, 1.0);
+    if (targetX <= x0) return y0;
+    if (targetX >= x3) return y3;
+    if ((x3 - x0).abs() < 1e-6) return y0;
+
+    // 1. Initial estimate of u in [0, 1] scaled to segment width
+    double u = ((targetX - x0) / (x3 - x0)).clamp(0.0, 1.0);
+
     // Newton-Raphson iteration
     for (int i = 0; i < 8; i++) {
       final double currentX = _sampleBezier(u, x0, x1, x2, x3);
-      if (currentX.isNaN) { u = targetX; break; }
+      if (currentX.isNaN) {
+        u = ((targetX - x0) / (x3 - x0)).clamp(0.0, 1.0);
+        break;
+      }
       final double diff = currentX - targetX;
       if (diff.abs() < 1e-5) break;
       final double slopeX = _sampleBezierDerivative(u, x0, x1, x2, x3);
@@ -170,7 +178,8 @@ class VectorBezierCurve extends Curve {
     }
 
     // Binary search fallback if Newton didn't converge
-    if ((_sampleBezier(u, x0, x1, x2, x3) - targetX).abs() > 1e-3) {
+    final double err = (_sampleBezier(u, x0, x1, x2, x3) - targetX).abs();
+    if (err.isNaN || err > 1e-3) {
       double low = 0.0;
       double high = 1.0;
       for (int i = 0; i < 16; i++) {
@@ -186,7 +195,7 @@ class VectorBezierCurve extends Curve {
     }
 
     // 2. Evaluate BezierY(u)
-    final double result = _sampleBezier(u, y0, y1, y2, y3);
+    final double result = _sampleBezier(u.clamp(0.0, 1.0), y0, y1, y2, y3);
     if (result.isNaN) return targetX.clamp(0.0, 1.0);
     return result.clamp(0.0, 1.0);
   }
@@ -215,11 +224,11 @@ class CustomSCurve extends VectorBezierCurve {
 
   CustomSCurve({this.cx = 0.5, this.cy = 0.5, this.slope = 1.0})
       : super(
-          x1: cx * 0.5,
-          y1: cy * (1.0 - slope * 0.5),
-          mx: cx,
-          my: cy,
-          x2: cx + (1.0 - cx) * (0.5 + slope * 0.5),
-          y2: cy + (1.0 - cy) * (0.5 + slope * 0.5),
+          x1: (cx - 0.15).clamp(0.0, cx),
+          y1: (cy - 0.15 * slope).clamp(0.0, cy),
+          mx: cx.clamp(0.05, 0.95),
+          my: cy.clamp(0.0, 1.0),
+          x2: (cx + 0.15).clamp(cx, 1.0),
+          y2: (cy + 0.15 * slope).clamp(cy, 1.0),
         );
 }
