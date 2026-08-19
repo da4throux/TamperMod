@@ -403,12 +403,12 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
               }
 
               Offset toNormalized(Offset screenPos) {
-                final double nx = ((screenPos.dx - pad) / cw).clamp(0.0, 1.0);
+                final double nx = (screenPos.dx - pad) / cw;
                 final double ny;
                 if (_isEditingFadeIn) {
-                  ny = (1.0 - (screenPos.dy - pad) / ch).clamp(0.0, 1.0);
+                  ny = 1.0 - (screenPos.dy - pad) / ch;
                 } else {
-                  ny = ((screenPos.dy - pad) / ch).clamp(0.0, 1.0);
+                  ny = (screenPos.dy - pad) / ch;
                 }
                 return Offset(nx, ny);
               }
@@ -450,6 +450,8 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                 },
                 onPanUpdate: (details) {
                   final norm = toNormalized(details.localPosition);
+                  const double baseMaxRadius = 0.35;
+
                   switch (_dragTarget) {
                     case _ActiveDragTarget.startHandle:
                       {
@@ -472,27 +474,26 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
-                        // Physical distance from M to finger
-                        final double totalDist = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
+                        // Physical distance from M to finger in unconstrained space
+                        final double totalDist1 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
 
-                        // Maximum distance before hitting the box edge:
-                        final double maxVisualLen = (_my / math.max(0.001, sinT)).clamp(0.05, _my);
-                        // The visual diamond stays pinned at the edge of the box
-                        final double visualLen1 = math.min(totalDist, maxVisualLen);
+                        // Visible diamond handle stays inside the box frame
+                        final double visualLen1 = math.min(totalDist1, baseMaxRadius);
 
-                        // Strength s1 grows continuously as user pulls further (up to 10.0)
-                        final double newS1 = (totalDist / maxVisualLen).clamp(0.1, 10.0);
+                        // Strength s1 grows continuously as user pulls further beyond the box (up to 10.0)
+                        final double newS1 = (totalDist1 <= baseMaxRadius)
+                            ? (totalDist1 / baseMaxRadius).clamp(0.1, 1.0)
+                            : (1.0 + (totalDist1 - baseMaxRadius) * 4.0).clamp(1.0, 10.0);
 
-                        // Keep opposite handle length and strength
+                        // Opposite handle H2 strictly PRESERVES its existing scalar length!
                         final double curDx2 = math.max(0.0, _x2 - _mx);
                         final double curDy2 = math.max(0.0, _y2 - _my);
-                        final double maxVisualLen2 = ((1.0 - _my) / math.max(0.001, sinT)).clamp(0.05, 1.0 - _my);
-                        final double visualLen2 = math.min(math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2)), maxVisualLen2);
+                        final double preservedLen2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
 
                         final double newH1x = (_mx - visualLen1 * cosT).clamp(0.0, _mx);
                         final double newH1y = (_my - visualLen1 * sinT).clamp(0.0, _my);
-                        final double newH2x = (_mx + visualLen2 * cosT).clamp(_mx, 1.0);
-                        final double newH2y = (_my + visualLen2 * sinT).clamp(_my, 1.0);
+                        final double newH2x = (_mx + preservedLen2 * cosT).clamp(_mx, 1.0);
+                        final double newH2y = (_my + preservedLen2 * sinT).clamp(_my, 1.0);
 
                         _activeOnChanged({
                           ..._activeParams,
@@ -528,22 +529,23 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
-                        final double totalDist = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
-                        final double maxVisualLen = ((1.0 - _my) / math.max(0.001, sinT)).clamp(0.05, 1.0 - _my);
-                        final double visualLen2 = math.min(totalDist, maxVisualLen);
+                        final double totalDist2 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
+                        final double visualLen2 = math.min(totalDist2, baseMaxRadius);
 
-                        // Strength s2 grows continuously as user pulls further (up to 10.0)
-                        final double newS2 = (totalDist / maxVisualLen).clamp(0.1, 10.0);
+                        // Strength s2 grows continuously as user pulls further beyond the box (up to 10.0)
+                        final double newS2 = (totalDist2 <= baseMaxRadius)
+                            ? (totalDist2 / baseMaxRadius).clamp(0.1, 1.0)
+                            : (1.0 + (totalDist2 - baseMaxRadius) * 4.0).clamp(1.0, 10.0);
 
+                        // Opposite handle H1 strictly PRESERVES its existing scalar length!
                         final double curDx1 = math.max(0.0, _mx - _x1);
                         final double curDy1 = math.max(0.0, _my - _y1);
-                        final double maxVisualLen1 = (_my / math.max(0.001, sinT)).clamp(0.05, _my);
-                        final double visualLen1 = math.min(math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1)), maxVisualLen1);
+                        final double preservedLen1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
 
                         final double newH2x = (_mx + visualLen2 * cosT).clamp(_mx, 1.0);
                         final double newH2y = (_my + visualLen2 * sinT).clamp(_my, 1.0);
-                        final double newH1x = (_mx - visualLen1 * cosT).clamp(0.0, _mx);
-                        final double newH1y = (_my - visualLen1 * sinT).clamp(0.0, _my);
+                        final double newH1x = (_mx - preservedLen1 * cosT).clamp(0.0, _mx);
+                        final double newH1y = (_my - preservedLen1 * sinT).clamp(0.0, _my);
 
                         _activeOnChanged({
                           ..._activeParams,
