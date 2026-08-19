@@ -394,7 +394,7 @@ class ModWebSocketService extends ChangeNotifier {
         ? value.toInt().toString()
         : value.toStringAsFixed(2);
     
-    _sendCommand('param_set $instance/$port $valStr');
+    sendRawMessage('param_set $instance/$port $valStr');
   }
 
   // Sends a toggle bypass command via native MOD Dwarf WebSocket
@@ -422,7 +422,7 @@ class ModWebSocketService extends ChangeNotifier {
 
     // 2. Send via native MOD Dwarf WebSocket command
     final int bypassVal = bypass ? 1 : 0;
-    _sendCommand('param_set $instance/:bypass $bypassVal');
+    sendRawMessage('param_set $instance/:bypass $bypassVal');
   }
 
   // Sends a raw string payload to the MOD websocket
