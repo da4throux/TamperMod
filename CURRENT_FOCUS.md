@@ -1,5 +1,10 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.82)
+- **Compact Inactive Pool Hugging & Global `Ctrl+V` JSON Configuration Restore**:
+  1. **Tight Inactive Pool Height**: Removed unnecessary flex expansion on the inactive pool; it now hugs its content tightly (max 155px with scroll) and expands the active puzzle canvas to 100% of remaining screen space with zero empty gap.
+  2. **Global `Ctrl+V` Shortcut**: Pressing `Ctrl+V` (or `Cmd+V`) anywhere (except when typing in a textfield) inspects clipboard for valid TamperMod JSON, prompts a confirmation dialog, and restores/applies configurations immediately.
+
 ## ✅ Completed (v1.3.81)
 - **Ctrl+S Backup Shortcut & Puzzle Board Real-time Placement / Foldable Pool**:
   1. **Global `Ctrl+S` / `Cmd+S` Shortcut**: Pressing Ctrl+S instantly copies the complete configurations backup JSON to the clipboard and shows a confirmation toast.

@@ -1673,12 +1673,168 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (event is KeyDownEvent) {
       final bool isCtrlOrCmd = HardwareKeyboard.instance.isControlPressed ||
           HardwareKeyboard.instance.isMetaPressed;
-      if (isCtrlOrCmd && event.logicalKey == LogicalKeyboardKey.keyS) {
-        _copyCurrentJsonBackupShortcut();
-        return true;
+      if (isCtrlOrCmd) {
+        if (event.logicalKey == LogicalKeyboardKey.keyS) {
+          _copyCurrentJsonBackupShortcut();
+          return true;
+        } else if (event.logicalKey == LogicalKeyboardKey.keyV) {
+          final focusedWidget =
+              FocusManager.instance.primaryFocus?.context?.widget;
+          if (focusedWidget is! EditableText) {
+            _pasteCurrentJsonBackupShortcut();
+            return true;
+          }
+        }
       }
     }
     return false;
+  }
+
+  Future<void> _pasteCurrentJsonBackupShortcut() async {
+    try {
+      final clipboardData = await Clipboard.getData('text/plain');
+      final text = clipboardData?.text?.trim() ?? '';
+      if (text.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Clipboard is empty!'),
+              backgroundColor: Color(0xFFFF007F),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      final Map<String, dynamic> decoded = jsonDecode(text);
+      if (decoded.isEmpty ||
+          !decoded.keys.any((k) => k.startsWith('pedalboard_'))) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Clipboard does not contain a valid TamperMod JSON configuration.',
+              ),
+              backgroundColor: Color(0xFFFF007F),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            backgroundColor:
+                _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+            title: const Text(
+              'CONFIRM RESTORE (Ctrl+V)',
+              style: TextStyle(
+                color: Color(0xFFFF007F),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            content: const Text(
+              'A valid TamperMod layout configuration was found in the clipboard. Do you want to apply and restore it now?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'CANCEL',
+                  style: TextStyle(
+                    color: _isDarkMode ? Colors.grey : Colors.grey[600],
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF007F),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'APPLY & RESTORE',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirm != true || !mounted) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      final Set<String> currentKeys = prefs.getKeys();
+      for (final key in currentKeys) {
+        if (key.startsWith('pedalboard_')) {
+          await prefs.remove(key);
+        }
+      }
+      for (final entry in decoded.entries) {
+        final key = entry.key;
+        final val = entry.value;
+        if (val is bool) {
+          await prefs.setBool(key, val);
+        } else if (val is int) {
+          await prefs.setInt(key, val);
+        } else if (val is double) {
+          await prefs.setDouble(key, val);
+        } else if (val is String) {
+          await prefs.setString(key, val);
+        } else if (val is List) {
+          await prefs.setStringList(
+            key,
+            val.map((e) => e.toString()).toList(),
+          );
+        }
+      }
+      await _syncAndLoadLayoutSettings();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: const [
+                Icon(Icons.check_circle_outline, color: Colors.black, size: 18),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Layout configurations restored from clipboard! (Ctrl+V)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF00FFCC),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error restoring JSON via Ctrl+V shortcut: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error restoring JSON: $e'),
+            backgroundColor: const Color(0xFFFF007F),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _copyCurrentJsonBackupShortcut() async {

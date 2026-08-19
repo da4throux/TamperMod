@@ -848,7 +848,6 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 ),
 
                 Expanded(
-                  flex: 3,
                   child: DragTarget<String>(
                     onMove: (details) {
                       final draggedId = details.data;
@@ -1039,9 +1038,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 ),
 
                 if (!_isInactivePoolCollapsed)
-                  Flexible(
-                    flex: 2,
-                    fit: FlexFit.loose,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 155),
                     child: DragTarget<String>(
                       onMove: (details) {
                         final draggedId = details.data;
@@ -1088,15 +1086,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             ),
                           ),
                           child: inactivePedals.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    'All components are active.',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: widget.isDarkMode
-                                          ? Colors.grey[600]
-                                          : Colors.grey[500],
-                                      fontStyle: FontStyle.italic,
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: Center(
+                                    child: Text(
+                                      'All components are active.',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: widget.isDarkMode
+                                            ? Colors.grey[600]
+                                            : Colors.grey[500],
+                                        fontStyle: FontStyle.italic,
+                                      ),
                                     ),
                                   ),
                                 )
