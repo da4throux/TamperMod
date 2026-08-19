@@ -101,8 +101,37 @@ class VectorBezierCurve extends Curve {
     if (t.isNaN || t <= 0.0) return 0.0;
     if (t >= 1.0) return 1.0;
 
-    // Evaluate single cubic Bézier from (0,0) with control handles (x1, y1) and (x2, y2) to (1,1)
-    final double res = _solveCubic(t, 0.0, x1, x2, 1.0, 0.0, y1, y2, 1.0);
+    final double validMx = mx.clamp(0.05, 0.95);
+    final double validMy = my.clamp(0.0, 1.0);
+
+    final double res;
+    if (t <= validMx) {
+      // Segment 1: from (0,0) with handle (x1, y1) to fixed waypoint M (validMx, validMy)
+      res = _solveCubic(
+        t,
+        0.0,
+        x1.clamp(0.0, validMx),
+        (x1 + validMx) * 0.5,
+        validMx,
+        0.0,
+        y1.clamp(0.0, 1.0),
+        (y1 + validMy) * 0.5,
+        validMy,
+      );
+    } else {
+      // Segment 2: from fixed waypoint M (validMx, validMy) with handle (x2, y2) to (1,1)
+      res = _solveCubic(
+        t,
+        validMx,
+        (validMx + x2) * 0.5,
+        x2.clamp(validMx, 1.0),
+        1.0,
+        validMy,
+        (validMy + y2) * 0.5,
+        y2.clamp(0.0, 1.0),
+        1.0,
+      );
+    }
 
     if (res.isNaN) return t.clamp(0.0, 1.0);
     return res.clamp(0.0, 1.0);
