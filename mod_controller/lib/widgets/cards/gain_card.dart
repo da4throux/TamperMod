@@ -641,7 +641,7 @@ class _GainCardState extends State<GainCard> {
             buildMuteIcon(),
           ],
         ),
-        const Spacer(),
+        const SizedBox(height: 8),
 
         // Plugin URI link
         GestureDetector(

@@ -83,27 +83,27 @@ class VectorBezierCurve extends Curve {
 
   @override
   double transformInternal(double t) {
-    if (t <= 0.0) return 0.0;
+    if (t.isNaN || t <= 0.0) return 0.0;
     if (t >= 1.0) return 1.0;
 
+    double res;
     if (!hasMidpoint) {
-      return _solveCubic(t, 0.0, x1, x2, 1.0, 0.0, y1, y2, 1.0);
-    }
-
-    if (t < mx) {
+      res = _solveCubic(t, 0.0, x1, x2, 1.0, 0.0, y1, y2, 1.0);
+    } else if (t < mx) {
       final double segT = mx > 0.0 ? t / mx : 0.0;
       final double normH1x = mx > 0.0 ? (x1 / mx).clamp(0.0, 1.0) : 0.0;
       final double normMhlx = mx > 0.0 ? (mhlx / mx).clamp(0.0, 1.0) : 1.0;
-      final double segY = _solveCubic(segT, 0.0, normH1x, normMhlx, 1.0, 0.0, y1, mhly, my);
-      return segY.clamp(0.0, 1.0);
+      res = _solveCubic(segT, 0.0, normH1x, normMhlx, 1.0, 0.0, y1, mhly, my);
     } else {
       final double segW = 1.0 - mx;
       final double segT = segW > 0.0 ? (t - mx) / segW : 1.0;
       final double normMhrx = segW > 0.0 ? ((mhrx - mx) / segW).clamp(0.0, 1.0) : 0.0;
       final double normH2x = segW > 0.0 ? ((x2 - mx) / segW).clamp(0.0, 1.0) : 1.0;
-      final double segY = _solveCubic(segT, 0.0, normMhrx, normH2x, 1.0, my, mhry, y2, 1.0);
-      return segY.clamp(0.0, 1.0);
+      res = _solveCubic(segT, 0.0, normMhrx, normH2x, 1.0, my, mhry, y2, 1.0);
     }
+
+    if (res.isNaN) return t.clamp(0.0, 1.0);
+    return res.clamp(0.0, 1.0);
   }
 
   /// Solves a 1D cubic Bézier for Y given target X (time t)
@@ -112,17 +112,20 @@ class VectorBezierCurve extends Curve {
     double x0, double x1, double x2, double x3,
     double y0, double y1, double y2, double y3,
   ) {
+    if (targetX.isNaN) return 0.0;
     // 1. Find parametric parameter u such that BezierX(u) == targetX
-    double u = targetX;
+    double u = targetX.clamp(0.0, 1.0);
     // Newton-Raphson iteration
     for (int i = 0; i < 8; i++) {
       final double currentX = _sampleBezier(u, x0, x1, x2, x3);
+      if (currentX.isNaN) { u = targetX; break; }
       final double diff = currentX - targetX;
       if (diff.abs() < 1e-5) break;
       final double slopeX = _sampleBezierDerivative(u, x0, x1, x2, x3);
-      if (slopeX.abs() < 1e-6) break;
-      u -= diff / slopeX;
-      u = u.clamp(0.0, 1.0);
+      if (slopeX.isNaN || slopeX.abs() < 1e-6) break;
+      final double nextU = u - (diff / slopeX);
+      if (nextU.isNaN) break;
+      u = nextU.clamp(0.0, 1.0);
     }
 
     // Binary search fallback if Newton didn't converge
@@ -132,6 +135,7 @@ class VectorBezierCurve extends Curve {
       for (int i = 0; i < 12; i++) {
         u = (low + high) * 0.5;
         final double currentX = _sampleBezier(u, x0, x1, x2, x3);
+        if (currentX.isNaN) break;
         if (currentX < targetX) {
           low = u;
         } else {
@@ -141,7 +145,9 @@ class VectorBezierCurve extends Curve {
     }
 
     // 2. Evaluate BezierY(u)
-    return _sampleBezier(u, y0, y1, y2, y3).clamp(0.0, 1.0);
+    final double result = _sampleBezier(u, y0, y1, y2, y3);
+    if (result.isNaN) return targetX.clamp(0.0, 1.0);
+    return result.clamp(0.0, 1.0);
   }
 
   double _sampleBezier(double u, double p0, double p1, double p2, double p3) {
