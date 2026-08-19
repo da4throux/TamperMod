@@ -395,7 +395,13 @@ class ModWebSocketService extends ChangeNotifier {
       client.connectionTimeout = const Duration(seconds: 2);
       final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/parameter/set/'));
       req.headers.set('Content-Type', 'application/x-www-form-urlencoded');
-      final payload = '$instance/$port/$value';
+      
+      // Clean integer formatting to prevent Tornado 500 on integer/toggle ports
+      final String valStr = (value == value.roundToDouble() && (port.toLowerCase().contains('switch') || port.contains(':bypass') || port.toLowerCase().contains('enable') || port.toLowerCase().contains('mute')))
+          ? value.toInt().toString()
+          : value.toStringAsFixed(2);
+      
+      final payload = '$instance/$port/$valStr';
       debugPrint('HTTP POST /effect/parameter/set/: $payload');
       req.write(payload);
       final resp = await req.close();
@@ -433,7 +439,7 @@ class ModWebSocketService extends ChangeNotifier {
 
     // 2. Send via HTTP REST API endpoint
     try {
-      final double bypassVal = bypass ? 1.0 : 0.0;
+      final int bypassVal = bypass ? 1 : 0;
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 2);
       final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/parameter/set/'));

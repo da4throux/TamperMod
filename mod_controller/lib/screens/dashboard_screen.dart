@@ -2352,14 +2352,42 @@ class _DashboardScreenState extends State<DashboardScreen>
                       pathBName: _switchPathBNames[pedal.instance] ?? 'PATH B',
                       isInverted: _switchInverted[pedal.instance] ?? false,
                       onBypassToggle: (val) {
-                        _webSocketService.toggleBypass(
-                          instance: pedal.instance,
-                          bypass: val,
-                        );
-                        try {
-                          _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
-                        } catch (e) {
-                          debugPrint('Error invoking tamperSetBypass: $e');
+                        if (pedal.parameters.containsKey(':bypass')) {
+                          _webSocketService.toggleBypass(
+                            instance: pedal.instance,
+                            bypass: val,
+                          );
+                          try {
+                            _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
+                          } catch (e) {
+                            debugPrint('Error invoking tamperSetBypass: $e');
+                          }
+                        } else {
+                          // If plugin has no :bypass port (e.g. SwitchBox2 where on/off is the Switch parameter), toggle primary switch port
+                          String? switchPort;
+                          for (final symbol in pedal.parameters.keys) {
+                            if (symbol == ':bypass') continue;
+                            final s = symbol.toLowerCase();
+                            if (s.contains('select') || s.contains('out') || s.contains('route') || s.contains('switch') || s.contains('param') || s.contains('channel')) {
+                              switchPort = symbol;
+                              break;
+                            }
+                          }
+                          switchPort ??= pedal.parameters.isNotEmpty ? pedal.parameters.keys.first : null;
+                          if (switchPort != null) {
+                            final double curr = pedal.parameters[switchPort] ?? 0.0;
+                            final double next = curr >= 0.5 ? 0.0 : 1.0;
+                            _webSocketService.setParamValue(
+                              instance: pedal.instance,
+                              port: switchPort,
+                              value: next,
+                            );
+                            try {
+                              _webViewController.runJavaScript("if (window.tamperSetParam) window.tamperSetParam('${pedal.instance}', '$switchPort', $next);");
+                            } catch (e) {
+                              debugPrint('Error invoking tamperSetParam: $e');
+                            }
+                          }
                         }
                       },
                       onRenamePressed: () => _showSwitchConfigDialog(pedal),
