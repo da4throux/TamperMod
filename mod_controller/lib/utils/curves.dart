@@ -5,63 +5,37 @@
 
 import 'package:flutter/material.dart';
 
-/// Vectorized Bézier Curve with Blender-style tangent handle vectors
+/// Vectorized Bézier Curve with Start/End vector handles and Center Point inflection
 class VectorBezierCurve extends Curve {
-  /// Start point tangent handle (x1, y1) relative to (0, 0)
+  /// Start point tangent handle (x1, y1)
   final double x1;
   final double y1;
-  /// End point tangent handle (x2, y2) relative to (1, 1)
+  /// End point tangent handle (x2, y2)
   final double x2;
   final double y2;
   
-  /// Optional intermediate midpoint (mx, my) and its tangent handles
-  final bool hasMidpoint;
+  /// Center point inflection (mx, my)
   final double mx;
   final double my;
-  final double mhlx;
-  final double mhly;
-  final double mhrx;
-  final double mhry;
 
   const VectorBezierCurve({
     this.x1 = 0.25,
     this.y1 = 0.1,
-    this.x2 = 0.25,
-    this.y2 = 1.0,
-    this.hasMidpoint = false,
     this.mx = 0.5,
     this.my = 0.5,
-    this.mhlx = 0.35,
-    this.mhly = 0.5,
-    this.mhrx = 0.65,
-    this.mhry = 0.5,
+    this.x2 = 0.75,
+    this.y2 = 0.9,
   });
 
-  /// Factory from parameters map with fallback to classic S-Curve parameters
+  /// Factory from parameters map with fallback to classic parameters
   factory VectorBezierCurve.fromMap(Map<String, double> map) {
-    if (map.containsKey('h1x') || map.containsKey('x1')) {
-      return VectorBezierCurve(
-        x1: map['h1x'] ?? map['x1'] ?? 0.25,
-        y1: map['h1y'] ?? map['y1'] ?? 0.1,
-        x2: map['h2x'] ?? map['x2'] ?? 0.75,
-        y2: map['h2y'] ?? map['y2'] ?? 0.9,
-        hasMidpoint: (map['hasMidpoint'] ?? 0.0) > 0.5,
-        mx: map['mx'] ?? 0.5,
-        my: map['my'] ?? 0.5,
-        mhlx: map['mhlx'] ?? 0.35,
-        mhly: map['mhly'] ?? 0.5,
-        mhrx: map['mhrx'] ?? 0.65,
-        mhry: map['mhry'] ?? 0.5,
-      );
-    }
-    // Backward compatibility with older cx/cy/slope
-    final double cx = map['cx'] ?? 0.5;
-    final double cy = map['cy'] ?? 0.5;
     return VectorBezierCurve(
-      x1: cx * 0.5,
-      y1: cy * 0.2,
-      x2: cx + (1.0 - cx) * 0.5,
-      y2: cy + (1.0 - cy) * 0.8,
+      x1: (map['h1x'] ?? map['x1'] ?? 0.25).clamp(0.0, 1.0),
+      y1: (map['h1y'] ?? map['y1'] ?? 0.1).clamp(0.0, 1.0),
+      mx: (map['mx'] ?? 0.5).clamp(0.05, 0.95),
+      my: (map['my'] ?? 0.5).clamp(0.0, 1.0),
+      x2: (map['h2x'] ?? map['x2'] ?? 0.75).clamp(0.0, 1.0),
+      y2: (map['h2y'] ?? map['y2'] ?? 0.9).clamp(0.0, 1.0),
     );
   }
 
@@ -69,16 +43,35 @@ class VectorBezierCurve extends Curve {
     return {
       'h1x': x1,
       'h1y': y1,
-      'h2x': x2,
-      'h2y': y2,
-      'hasMidpoint': hasMidpoint ? 1.0 : 0.0,
       'mx': mx,
       'my': my,
-      'mhlx': mhlx,
-      'mhly': mhly,
-      'mhrx': mhrx,
-      'mhry': mhry,
+      'h2x': x2,
+      'h2y': y2,
     };
+  }
+
+  /// Creates a mirrored curve (e.g. for Fade Out opposite to Fade In)
+  static Map<String, double> mirror(Map<String, double> src) {
+    final double inH1x = src['h1x'] ?? src['x1'] ?? 0.25;
+    final double inH1y = src['h1y'] ?? src['y1'] ?? 0.1;
+    final double inMx = src['mx'] ?? 0.5;
+    final double inMy = src['my'] ?? 0.5;
+    final double inH2x = src['h2x'] ?? src['x2'] ?? 0.75;
+    final double inH2y = src['h2y'] ?? src['y2'] ?? 0.9;
+
+    return {
+      'h1x': (1.0 - inH2x).clamp(0.0, 1.0),
+      'h1y': (1.0 - inH2y).clamp(0.0, 1.0),
+      'mx': (1.0 - inMx).clamp(0.05, 0.95),
+      'my': (1.0 - inMy).clamp(0.0, 1.0),
+      'h2x': (1.0 - inH1x).clamp(0.0, 1.0),
+      'h2y': (1.0 - inH1y).clamp(0.0, 1.0),
+    };
+  }
+
+  /// Copies curve parameters
+  static Map<String, double> copy(Map<String, double> src) {
+    return Map<String, double>.from(src);
   }
 
   @override
@@ -87,19 +80,19 @@ class VectorBezierCurve extends Curve {
     if (t >= 1.0) return 1.0;
 
     double res;
-    if (!hasMidpoint) {
-      res = _solveCubic(t, 0.0, x1, x2, 1.0, 0.0, y1, y2, 1.0);
-    } else if (t < mx) {
-      final double segT = mx > 0.0 ? t / mx : 0.0;
+    if (t < mx) {
+      final double segT = mx > 0.0 ? (t / mx).clamp(0.0, 1.0) : 0.0;
       final double normH1x = mx > 0.0 ? (x1 / mx).clamp(0.0, 1.0) : 0.0;
-      final double normMhlx = mx > 0.0 ? (mhlx / mx).clamp(0.0, 1.0) : 1.0;
-      res = _solveCubic(segT, 0.0, normH1x, normMhlx, 1.0, 0.0, y1, mhly, my);
+      // Auto-derived tangent into center point M
+      const double normMinX = 0.75;
+      res = _solveCubic(segT, 0.0, normH1x, normMinX, 1.0, 0.0, y1, my * 0.9, my);
     } else {
       final double segW = 1.0 - mx;
-      final double segT = segW > 0.0 ? (t - mx) / segW : 1.0;
-      final double normMhrx = segW > 0.0 ? ((mhrx - mx) / segW).clamp(0.0, 1.0) : 0.0;
+      final double segT = segW > 0.0 ? ((t - mx) / segW).clamp(0.0, 1.0) : 1.0;
       final double normH2x = segW > 0.0 ? ((x2 - mx) / segW).clamp(0.0, 1.0) : 1.0;
-      res = _solveCubic(segT, 0.0, normMhrx, normH2x, 1.0, my, mhry, y2, 1.0);
+      // Auto-derived tangent out of center point M
+      const double normMoutX = 0.25;
+      res = _solveCubic(segT, 0.0, normMoutX, normH2x, 1.0, my, my + (1.0 - my) * 0.1, y2, 1.0);
     }
 
     if (res.isNaN) return t.clamp(0.0, 1.0);
@@ -176,6 +169,8 @@ class CustomSCurve extends VectorBezierCurve {
       : super(
           x1: cx * 0.5,
           y1: cy * (1.0 - slope * 0.5),
+          mx: cx,
+          my: cy,
           x2: cx + (1.0 - cx) * (0.5 + slope * 0.5),
           y2: cy + (1.0 - cy) * (0.5 + slope * 0.5),
         );

@@ -419,15 +419,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             : const Color(0xFF00B3FF),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'LAYOUT CONFIGURATION',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10.5,
-                          color: widget.isDarkMode
-                              ? Colors.grey
-                              : Colors.grey[700],
-                          letterSpacing: 1.0,
+                      Expanded(
+                        child: Text(
+                          'LAYOUT CONFIGURATION',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10.5,
+                            color: widget.isDarkMode
+                                ? Colors.grey
+                                : Colors.grey[700],
+                            letterSpacing: 1.0,
+                          ),
                         ),
                       ),
                     ],
@@ -616,18 +619,21 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             : const Color(0xFF00B3FF),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'PUZZLE CANVAS (ACTIVE)',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10.5,
-                          color: widget.isDarkMode
-                              ? Colors.grey
-                              : Colors.grey[700],
-                          letterSpacing: 1.0,
+                      Expanded(
+                        child: Text(
+                          'PUZZLE CANVAS (ACTIVE)',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10.5,
+                            color: widget.isDarkMode
+                                ? Colors.grey
+                                : Colors.grey[700],
+                            letterSpacing: 1.0,
+                          ),
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 4),
                       GestureDetector(
                         onTap: widget.onAddSpacer,
                         child: Container(
@@ -795,15 +801,18 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                                   : const Color(0xFFFF0055)),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'AVAILABLE POOL (INACTIVE)',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10.5,
-                          color: widget.isDarkMode
-                              ? Colors.grey
-                              : Colors.grey[700],
-                          letterSpacing: 1.0,
+                      Expanded(
+                        child: Text(
+                          'AVAILABLE POOL (INACTIVE)',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10.5,
+                            color: widget.isDarkMode
+                                ? Colors.grey
+                                : Colors.grey[700],
+                            letterSpacing: 1.0,
+                          ),
                         ),
                       ),
                     ],

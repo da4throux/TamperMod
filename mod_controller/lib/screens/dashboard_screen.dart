@@ -64,8 +64,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Per-pedal fade shape: 'linear' | 'easeInOut' | 'easeIn' | 'easeOut' | 'custom'
   final Map<String, String> _fadeShapes = {};
 
-  // Per-pedal custom S-curve params: cx, cy, slope
+  // Per-pedal custom S-curve params: h1x, h1y, mx, my, h2x, h2y (Fade In)
   final Map<String, Map<String, double>> _fadeCustomParams = {};
+  // Per-pedal custom S-curve params: h1x, h1y, mx, my, h2x, h2y (Fade Out)
+  final Map<String, Map<String, double>> _fadeCustomParamsOut = {};
 
   // Live fade progress [0.0–1.0] — transient, not persisted
   final Map<String, double> _fadeProgress = {};
@@ -949,10 +951,14 @@ class _DashboardScreenState extends State<DashboardScreen>
       final String? savedFadeCustom = prefs.getString(
         '${key}_fadeCustomParams',
       );
+      final String? savedFadeCustomOut = prefs.getString(
+        '${key}_fadeCustomParamsOut',
+      );
       final Map<String, double> newFadeStart = {};
       final Map<String, double> newFadeEnd = {};
       final Map<String, String> newFadeShapes = {};
       final Map<String, Map<String, double>> newFadeCustomParams = {};
+      final Map<String, Map<String, double>> newFadeCustomParamsOut = {};
 
       if (savedFadeStart != null) {
         final Map<String, dynamic> dec = jsonDecode(savedFadeStart);
@@ -971,6 +977,15 @@ class _DashboardScreenState extends State<DashboardScreen>
         outer.forEach((k, v) {
           final Map<String, dynamic> inner = jsonDecode(v.toString());
           newFadeCustomParams[k] = inner.map(
+            (ik, iv) => MapEntry(ik, (iv as num).toDouble()),
+          );
+        });
+      }
+      if (savedFadeCustomOut != null) {
+        final Map<String, dynamic> outer = jsonDecode(savedFadeCustomOut);
+        outer.forEach((k, v) {
+          final Map<String, dynamic> inner = jsonDecode(v.toString());
+          newFadeCustomParamsOut[k] = inner.map(
             (ik, iv) => MapEntry(ik, (iv as num).toDouble()),
           );
         });
@@ -1019,6 +1034,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           _fadeShapes.addAll(newFadeShapes);
           _fadeCustomParams.clear();
           _fadeCustomParams.addAll(newFadeCustomParams);
+          _fadeCustomParamsOut.clear();
+          _fadeCustomParamsOut.addAll(newFadeCustomParamsOut);
 
           if (savedFadeBars != null) {
             _fadeBars = savedFadeBars;
@@ -1279,8 +1296,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         selectedCurve = Curves.easeOut;
         break;
       case 'custom':
-        final params = _fadeCustomParams[pedal.instance] ?? {};
-        selectedCurve = VectorBezierCurve.fromMap(params);
+        final inParams = _fadeCustomParams[pedal.instance] ??
+            {'h1x': 0.25, 'h1y': 0.1, 'mx': 0.5, 'my': 0.5, 'h2x': 0.75, 'h2y': 0.9};
+        final outParams = _fadeCustomParamsOut[pedal.instance] ??
+            VectorBezierCurve.mirror(inParams);
+        selectedCurve =
+            VectorBezierCurve.fromMap(fadeIn ? inParams : outParams);
         break;
       default:
         selectedCurve = Curves.easeInOut;
@@ -2478,7 +2499,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       fadeShape: _fadeShapes[pedal.instance] ?? 'Linear',
                       customParams:
                           _fadeCustomParams[pedal.instance] ??
-                          {'cx': 0.5, 'cy': 0.5, 'slope': 1.0},
+                          {'h1x': 0.25, 'h1y': 0.1, 'mx': 0.5, 'my': 0.5, 'h2x': 0.75, 'h2y': 0.9},
+                      customParamsOut:
+                          _fadeCustomParamsOut[pedal.instance] ??
+                          VectorBezierCurve.mirror(_fadeCustomParams[pedal.instance] ?? {'h1x': 0.25, 'h1y': 0.1, 'mx': 0.5, 'my': 0.5, 'h2x': 0.75, 'h2y': 0.9}),
                       fadeBars: _fadeBars,
                       onVolumeChanged: (newValue) {
                         _fadeTimers[pedal.instance]?.cancel();
@@ -2512,13 +2536,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                         setState(() {
                           final current =
                               _pedalSizes[pedal.instance] ?? 'regular';
-                          if (current == 'compact') {
-                            _pedalSizes[pedal.instance] = 'regular';
-                          } else if (current == 'regular') {
-                            _pedalSizes[pedal.instance] = 'expanded';
-                          } else {
-                            _pedalSizes[pedal.instance] = 'compact';
-                          }
+                          final next = current == 'compact'
+                              ? 'regular'
+                              : current == 'regular'
+                                  ? 'expanded'
+                                  : 'compact';
+                          _pedalSizes[pedal.instance] = next;
                         });
                         _saveLayoutSettings();
                       },
@@ -2549,6 +2572,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onCustomCurveParamsChanged: (params) {
                         setState(() {
                           _fadeCustomParams[pedal.instance] = params;
+                        });
+                        _saveLayoutSettings();
+                      },
+                      onCustomCurveParamsOutChanged: (params) {
+                        setState(() {
+                          _fadeCustomParamsOut[pedal.instance] = params;
                         });
                         _saveLayoutSettings();
                       },

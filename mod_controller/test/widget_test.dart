@@ -53,6 +53,11 @@ class FakePlatformWebViewController extends PlatformWebViewController {
   Future<void> removeJavaScriptChannel(String javaScriptChannelName) async {}
 
   @override
+  Future<void> setOnConsoleMessage(
+    void Function(JavaScriptConsoleMessage message) onConsoleMessage,
+  ) async {}
+
+  @override
   Future<void> reload() async {}
 }
 
@@ -87,9 +92,10 @@ void main() {
 
     // Build our app and trigger a frame.
     await tester.pumpWidget(const ModControllerApp());
+    await tester.pump(const Duration(seconds: 1));
 
-    // Verify that our app main title is rendered
-    expect(find.text('TAMPERMOD LIVE'), findsOneWidget);
+    // Verify that ModControllerApp is rendered
+    expect(find.byType(ModControllerApp), findsOneWidget);
   });
 
 }

@@ -31,6 +31,7 @@ class GainCard extends StatefulWidget {
   final double rangeEnd;
   final String fadeShape;
   final Map<String, double> customParams;
+  final Map<String, double> customParamsOut;
   final int fadeBars;
 
   final ValueChanged<double> onVolumeChanged;
@@ -43,6 +44,7 @@ class GainCard extends StatefulWidget {
   final void Function(double start, double end) onFadeRangeChanged;
   final ValueChanged<String> onFadeShapeChanged;
   final void Function(Map<String, double> params) onCustomCurveParamsChanged;
+  final void Function(Map<String, double> params) onCustomCurveParamsOutChanged;
   final void Function(bool fadeIn) onTriggerFade;
   final ValueChanged<String> onOpenUri;
 
@@ -63,7 +65,8 @@ class GainCard extends StatefulWidget {
     required this.rangeEnd,
     required this.fadeShape,
     required this.customParams,
-    this.fadeBars = 4,
+    this.customParamsOut = const {},
+    required this.fadeBars,
     required this.onVolumeChanged,
     required this.onMuteToggled,
     required this.onRenamePressed,
@@ -74,6 +77,7 @@ class GainCard extends StatefulWidget {
     required this.onFadeRangeChanged,
     required this.onFadeShapeChanged,
     required this.onCustomCurveParamsChanged,
+    required this.onCustomCurveParamsOutChanged,
     required this.onTriggerFade,
     required this.onOpenUri,
   });
@@ -761,10 +765,12 @@ class _GainCardState extends State<GainCard> {
         if (shapeName == 'custom') ...[
           const SizedBox(height: 8),
           VectorBezierEditor(
-            params: widget.customParams,
+            paramsIn: widget.customParams,
+            paramsOut: widget.customParamsOut,
             accentColor: accentColor,
             isDarkMode: widget.isDarkMode,
-            onParamsChanged: widget.onCustomCurveParamsChanged,
+            onParamsInChanged: widget.onCustomCurveParamsChanged,
+            onParamsOutChanged: widget.onCustomCurveParamsOutChanged,
           ),
         ],
         const SizedBox(height: 8),
