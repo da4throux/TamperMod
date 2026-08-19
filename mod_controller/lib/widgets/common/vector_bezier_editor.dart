@@ -453,25 +453,34 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                     case _ActiveDragTarget.startHandle:
                       {
                         // H1 is incoming handle (nominally bottom-left from M)
-                        // Vector pointing from finger to M:
-                        final double rawDx = (_mx - norm.dx).abs();
-                        final double rawDy = (_my - norm.dy).abs();
+                        // Signed offset pointing from finger to M:
+                        final double rawDx = _mx - norm.dx;
+                        final double rawDy = _my - norm.dy;
 
-                        // Tangent angle theta: positive slope direction [0.001 rad to pi/2 (fully vertical)]
-                        double theta = math.atan2(
-                          rawDy.clamp(0.0001, 1000.0),
-                          rawDx.clamp(0.00001, 1000.0),
-                        );
-                        theta = theta.clamp(0.001, math.pi / 2);
+                        // Clamp dx >= 0 and dy >= 0:
+                        // If user drags at or past vertical (norm.dx >= _mx),
+                        // rawDx is clamped to 0.0 so the angle locks AT 90° (pi/2) and NEVER reverses!
+                        final double clampedDx = math.max(0.0, rawDx);
+                        final double clampedDy = math.max(0.0, rawDy);
+
+                        final double theta;
+                        if (clampedDx <= 1e-5) {
+                          theta = math.pi / 2; // 100% pure vertical!
+                        } else if (clampedDy <= 1e-5) {
+                          theta = 0.001; // nearly horizontal
+                        } else {
+                          theta = math.atan2(clampedDy, clampedDx).clamp(0.001, math.pi / 2);
+                        }
+
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
-                        // Independent arm length L1 from finger to M (free/gradual strength scaling)
+                        // Independent arm length L1 from finger to M (free scaling)
                         final double len1 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
 
                         // Preserve existing length of opposite handle H2
-                        final double curDx2 = (_x2 - _mx).abs();
-                        final double curDy2 = (_y2 - _my).abs();
+                        final double curDx2 = math.max(0.0, _x2 - _mx);
+                        final double curDy2 = math.max(0.0, _y2 - _my);
                         final double len2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
 
                         // H1 placed strictly along -u direction, H2 along +u direction
@@ -494,15 +503,25 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                     case _ActiveDragTarget.endHandle:
                       {
                         // H2 is outgoing handle (nominally top-right from M)
-                        // Vector pointing from M to finger:
-                        final double rawDx = (norm.dx - _mx).abs();
-                        final double rawDy = (norm.dy - _my).abs();
+                        // Signed offset pointing from M to finger:
+                        final double rawDx = norm.dx - _mx;
+                        final double rawDy = norm.dy - _my;
 
-                        double theta = math.atan2(
-                          rawDy.clamp(0.0001, 1000.0),
-                          rawDx.clamp(0.00001, 1000.0),
-                        );
-                        theta = theta.clamp(0.001, math.pi / 2);
+                        // Clamp dx >= 0 and dy >= 0:
+                        // If user drags at or past vertical (norm.dx <= _mx),
+                        // rawDx is clamped to 0.0 so the angle locks AT 90° (pi/2) and NEVER reverses!
+                        final double clampedDx = math.max(0.0, rawDx);
+                        final double clampedDy = math.max(0.0, rawDy);
+
+                        final double theta;
+                        if (clampedDx <= 1e-5) {
+                          theta = math.pi / 2; // 100% pure vertical!
+                        } else if (clampedDy <= 1e-5) {
+                          theta = 0.001; // nearly horizontal
+                        } else {
+                          theta = math.atan2(clampedDy, clampedDx).clamp(0.001, math.pi / 2);
+                        }
+
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
@@ -510,8 +529,8 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         final double len2 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
 
                         // Preserve existing length of opposite handle H1
-                        final double curDx1 = (_mx - _x1).abs();
-                        final double curDy1 = (_my - _y1).abs();
+                        final double curDx1 = math.max(0.0, _mx - _x1);
+                        final double curDy1 = math.max(0.0, _my - _y1);
                         final double len1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
 
                         final double newH2x = _mx + len2 * cosT;
@@ -533,19 +552,23 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                     case _ActiveDragTarget.midpoint:
                       {
                         // M dragged explicitly: shift M and preserve current angle and arm lengths
-                        final double newMx = norm.dx.clamp(0.10, 0.90);
-                        final double newMy = norm.dy.clamp(0.05, 0.95);
+                        final double newMx = norm.dx.clamp(0.05, 0.95);
+                        final double newMy = norm.dy.clamp(0.02, 0.98);
 
-                        final double curDx1 = (_mx - _x1).abs();
-                        final double curDy1 = (_my - _y1).abs();
-                        final double curDx2 = (_x2 - _mx).abs();
-                        final double curDy2 = (_y2 - _my).abs();
+                        final double curDx1 = math.max(0.0, _mx - _x1);
+                        final double curDy1 = math.max(0.0, _my - _y1);
+                        final double curDx2 = math.max(0.0, _x2 - _mx);
+                        final double curDy2 = math.max(0.0, _y2 - _my);
 
-                        double theta = math.atan2(
-                          (curDy1 + curDy2).clamp(0.0001, 1000.0),
-                          (curDx1 + curDx2).clamp(0.00001, 1000.0),
-                        );
-                        theta = theta.clamp(0.001, math.pi / 2);
+                        final double combinedDx = (curDx1 + curDx2) * 0.5;
+                        final double combinedDy = (curDy1 + curDy2) * 0.5;
+
+                        final double theta;
+                        if (combinedDx <= 1e-5) {
+                          theta = math.pi / 2;
+                        } else {
+                          theta = math.atan2(combinedDy, combinedDx).clamp(0.001, math.pi / 2);
+                        }
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
@@ -870,20 +893,24 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       ..strokeWidth = 0.8;
     canvas.drawLine(toScreen(0.0, 0.0), toScreen(1.0, 1.0), refPaint);
 
-    // 3. Collinear Tangent Line through Middle Anchor M
+    // 3. Collinear Tangent Lines through Middle Anchor M with distinct colors for each arm
     final p0 = toScreen(0.0, 0.0);
     final p1 = toScreen(1.0, 1.0);
     final h1 = toScreen(h1x, h1y);
     final pm = toScreen(mx, my);
     final h2 = toScreen(h2x, h2y);
 
-    final tangentPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.8)
-      ..strokeWidth = 1.8;
+    final arm1Paint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.85)
+      ..strokeWidth = 2.0;
 
-    // Straight collinear tangent line passing directly through M
-    canvas.drawLine(h1, pm, tangentPaint);
-    canvas.drawLine(pm, h2, tangentPaint);
+    final arm2Paint = Paint()
+      ..color = const Color(0xFFFFD600).withValues(alpha: 0.85)
+      ..strokeWidth = 2.0;
+
+    // Incoming arm (Cyan) and Outgoing arm (Neon Gold)
+    canvas.drawLine(h1, pm, arm1Paint);
+    canvas.drawLine(pm, h2, arm2Paint);
 
     // Center point subtle indicator guides
     final guidePaint = Paint()
@@ -930,9 +957,9 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       final borderPaint = Paint()
         ..color = Colors.white
         ..style = PaintingStyle.stroke
-        ..strokeWidth = isActive ? 2.0 : 1.2;
+        ..strokeWidth = isActive ? 2.2 : 1.4;
 
-      final double radius = isActive ? 7.0 : 5.5;
+      final double radius = isActive ? 7.5 : 5.5;
 
       if (isDiamond) {
         final path = Path()
@@ -953,7 +980,7 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     drawHandleGrip(p0, Colors.white, false);
     drawHandleGrip(p1, Colors.white, false);
 
-    // Draw Start Vector Handle (Cyan Diamond)
+    // Draw Start Vector Handle (Cyan Diamond for Arm 1)
     drawHandleGrip(
       h1,
       const Color(0xFF00E5FF),
@@ -961,7 +988,7 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       isDiamond: true,
     );
 
-    // Draw Center Point M (Amber Circle)
+    // Draw Center Point M (Amber Orange Circle)
     drawHandleGrip(
       pm,
       const Color(0xFFFF9100),
@@ -969,10 +996,10 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       isDiamond: false,
     );
 
-    // Draw End Vector Handle (Cyan Diamond)
+    // Draw End Vector Handle (Neon Gold Diamond for Arm 2)
     drawHandleGrip(
       h2,
-      const Color(0xFF00E5FF),
+      const Color(0xFFFFD600),
       activeTarget == _ActiveDragTarget.endHandle,
       isDiamond: true,
     );

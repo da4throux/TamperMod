@@ -215,6 +215,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Eliminate Unbounded RenderFlex Spacers (v1.3.63): replaced `const Spacer()` with safe bounded sized boxes in `SwitchCard`, `GainCard`, and `PlaceholderCard` preventing fatal layout exceptions when cards self-size in expanded mode, and enforced 240px card height bounds for switch controls.
 * [x] Preserve Active Puzzle Tile Position on Click/Release in Place (v1.3.64): updated `DragTarget.onAccept` on the Active Puzzle Canvas container in `settings_drawer.dart` to check `wasAlreadyActive`, preventing active tiles from jumping to the end of the board when clicked or released in place.
 * [x] Full 90° Vertical Tangent Alignment & Independent Arm Lengths (v1.3.65): enabled pure vertical tangent angle ($\theta = \pi/2$) across center anchor $M$, allowed independent incoming and outgoing handle lengths with gradual strength scaling, and formulated slope-matched cubic Bézier in `curves.dart` ensuring smooth monotonic transitions for steep vertical inflections.
+* [x] Directional Clamping at Vertical & Dual-Color Tangent Arms (v1.3.66): eliminated reverse rotation when dragging past vertical by clamping $dx \ge 0$, maintaining a strict vertical orientation without bouncing back, gave incoming ($H_1$) and outgoing ($H_2$) arms independent lengths with distinct colors (Cyan vs Neon Gold), and preserved tangent direction during midpoint moves.
 
 ### Todo Tasks (Grouped by Category)
 
