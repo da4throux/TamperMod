@@ -286,10 +286,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           window._hasInstalledTamperInspector = true;
           console.log("TAMPER: Installing Traffic Inspector & Control Helpers into WebView context");
 
-          // 1. Intercept WebSocket sends
+          // 1. Intercept WebSocket sends and track active socket
           if (window.WebSocket) {
             var origWsSend = WebSocket.prototype.send;
             WebSocket.prototype.send = function(data) {
+              window.tamperActiveWs = this;
               console.log("TAMPER_WS_SEND: " + data);
               return origWsSend.apply(this, arguments);
             };
@@ -313,6 +314,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           // 3. Expose window.tamperSetParam helper
           window.tamperSetParam = function(instance, port, value) {
             console.log("TAMPER_CALL: tamperSetParam(" + instance + ", " + port + ", " + value + ")");
+            var numVal = parseFloat(value);
+            try {
+              if (window.tamperActiveWs && window.tamperActiveWs.readyState === 1) {
+                window.tamperActiveWs.send("param_set " + instance + "/" + port + " " + numVal);
+              }
+            } catch(e) {}
             var cleanName = (instance || '').split('/').pop();
             try {
               if (window.pedalboard && typeof window.pedalboard.get === 'function') {
@@ -322,7 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     var inst = (typeof p.get === 'function') ? p.get('instance') : p.instance;
                     if (inst === instance || inst === '/graph/' + cleanName || inst === cleanName) {
                       if (typeof p.set_parameter === 'function') {
-                        p.set_parameter(port, parseFloat(value));
+                        p.set_parameter(port, numVal);
                         console.log("TAMPER: set_parameter succeeded on Backbone model for " + instance);
                       }
                     }
@@ -349,6 +356,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           // 4. Expose window.tamperSetBypass helper
           window.tamperSetBypass = function(instance, bypassed) {
             console.log("TAMPER_CALL: tamperSetBypass(" + instance + ", " + bypassed + ")");
+            var intVal = bypassed ? 1 : 0;
+            try {
+              if (window.tamperActiveWs && window.tamperActiveWs.readyState === 1) {
+                window.tamperActiveWs.send("param_set " + instance + "/:bypass " + intVal);
+              }
+            } catch(e) {}
             var cleanName = (instance || '').split('/').pop();
             try {
               if (window.pedalboard && typeof window.pedalboard.get === 'function') {
@@ -361,7 +374,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         p.set_bypass(!!bypassed);
                         console.log("TAMPER: set_bypass succeeded on Backbone model for " + instance);
                       } else if (typeof p.set_parameter === 'function') {
-                        p.set_parameter(':bypass', bypassed ? 1.0 : 0.0);
+                        p.set_parameter(':bypass', intVal);
                       }
                     }
                   });
@@ -2352,42 +2365,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                       pathBName: _switchPathBNames[pedal.instance] ?? 'PATH B',
                       isInverted: _switchInverted[pedal.instance] ?? false,
                       onBypassToggle: (val) {
-                        if (pedal.parameters.containsKey(':bypass')) {
-                          _webSocketService.toggleBypass(
-                            instance: pedal.instance,
-                            bypass: val,
-                          );
-                          try {
-                            _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
-                          } catch (e) {
-                            debugPrint('Error invoking tamperSetBypass: $e');
-                          }
-                        } else {
-                          // If plugin has no :bypass port (e.g. SwitchBox2 where on/off is the Switch parameter), toggle primary switch port
-                          String? switchPort;
-                          for (final symbol in pedal.parameters.keys) {
-                            if (symbol == ':bypass') continue;
-                            final s = symbol.toLowerCase();
-                            if (s.contains('select') || s.contains('out') || s.contains('route') || s.contains('switch') || s.contains('param') || s.contains('channel')) {
-                              switchPort = symbol;
-                              break;
-                            }
-                          }
-                          switchPort ??= pedal.parameters.isNotEmpty ? pedal.parameters.keys.first : null;
-                          if (switchPort != null) {
-                            final double curr = pedal.parameters[switchPort] ?? 0.0;
-                            final double next = curr >= 0.5 ? 0.0 : 1.0;
-                            _webSocketService.setParamValue(
-                              instance: pedal.instance,
-                              port: switchPort,
-                              value: next,
-                            );
-                            try {
-                              _webViewController.runJavaScript("if (window.tamperSetParam) window.tamperSetParam('${pedal.instance}', '$switchPort', $next);");
-                            } catch (e) {
-                              debugPrint('Error invoking tamperSetParam: $e');
-                            }
-                          }
+                        _webSocketService.toggleBypass(
+                          instance: pedal.instance,
+                          bypass: val,
+                        );
+                        try {
+                          _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
+                        } catch (e) {
+                          debugPrint('Error invoking tamperSetBypass: $e');
                         }
                       },
                       onRenamePressed: () => _showSwitchConfigDialog(pedal),

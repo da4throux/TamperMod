@@ -389,32 +389,15 @@ class ModWebSocketService extends ChangeNotifier {
 
     notifyListeners();
 
-    // 2. Send via HTTP REST API endpoint
-    try {
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 2);
-      final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/parameter/set/'));
-      req.headers.set('Content-Type', 'application/x-www-form-urlencoded');
-      
-      // Clean integer formatting to prevent Tornado 500 on integer/toggle ports
-      final String valStr = (value == value.roundToDouble() && (port.toLowerCase().contains('switch') || port.contains(':bypass') || port.toLowerCase().contains('enable') || port.toLowerCase().contains('mute')))
-          ? value.toInt().toString()
-          : value.toStringAsFixed(2);
-      
-      final payload = '$instance/$port/$valStr';
-      debugPrint('HTTP POST /effect/parameter/set/: $payload');
-      req.write(payload);
-      final resp = await req.close();
-      client.close();
-      if (resp.statusCode != 200) {
-        debugPrint('HTTP param_set response status: ${resp.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('HTTP param_set error: $e');
-    }
+    // 2. Send via native MOD Dwarf WebSocket command (param_set <instance>/<port> <val>)
+    final String valStr = (value == value.roundToDouble() && (port.toLowerCase().contains('switch') || port.contains(':bypass') || port.toLowerCase().contains('enable') || port.toLowerCase().contains('mute')))
+        ? value.toInt().toString()
+        : value.toStringAsFixed(2);
+    
+    _sendCommand('param_set $instance/$port $valStr');
   }
 
-  // Sends a toggle bypass command via HTTP REST endpoint (/effect/parameter/set/ with :bypass port)
+  // Sends a toggle bypass command via native MOD Dwarf WebSocket
   Future<void> toggleBypass({
     required String instance,
     required bool bypass,
@@ -437,24 +420,9 @@ class ModWebSocketService extends ChangeNotifier {
     // Explicitly notify any widget listeners (like main.dart)
     notifyListeners();
 
-    // 2. Send via HTTP REST API endpoint
-    try {
-      final int bypassVal = bypass ? 1 : 0;
-      final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 2);
-      final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/parameter/set/'));
-      req.headers.set('Content-Type', 'application/x-www-form-urlencoded');
-      final payload = '$instance/:bypass/$bypassVal';
-      debugPrint('HTTP POST /effect/parameter/set/ (bypass): $payload');
-      req.write(payload);
-      final resp = await req.close();
-      client.close();
-      if (resp.statusCode != 200) {
-        debugPrint('HTTP bypass response status: ${resp.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('HTTP bypass error: $e');
-    }
+    // 2. Send via native MOD Dwarf WebSocket command
+    final int bypassVal = bypass ? 1 : 0;
+    _sendCommand('param_set $instance/:bypass $bypassVal');
   }
 
   // Sends a raw string payload to the MOD websocket
