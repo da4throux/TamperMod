@@ -942,21 +942,21 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     canvas.drawLine(Offset(pad, pm.dy), Offset(pad + cw, pm.dy), guidePaint);
 
     // 4. Main Continuous Bézier Spline with Gradient Glow (Exact Parametric Form scaled by strength)
-    final double vh1x = h1x.clamp(0.001, mx - 0.0001);
-    final double vh1y = h1y.clamp(0.0, my);
+    final double c02x = mx - (mx - h1x) * s1;
+    final double c02y = my - (my - h1y) * s1;
     final double c01Ratio = (s1 / (1.0 + s1)).clamp(0.1, 0.98);
-    final double c01x = (mx * c01Ratio).clamp(0.0, vh1x);
+    final double c01x = (mx * c01Ratio).clamp(0.0, math.max(0.0, c02x));
     final double c01y = 0.0;
 
-    final double vh2x = h2x.clamp(mx + 0.0001, 0.999);
-    final double vh2y = h2y.clamp(my, 1.0);
+    final double c11x = mx + (h2x - mx) * s2;
+    final double c11y = my + (h2y - my) * s2;
     final double c12Ratio = (1.0 / (1.0 + s2)).clamp(0.02, 0.9);
-    final double c12x = (mx + (1.0 - mx) * (1.0 - c12Ratio)).clamp(vh2x, 1.0);
+    final double c12x = (mx + (1.0 - mx) * (1.0 - c12Ratio)).clamp(math.min(1.0, c11x), 1.0);
     final double c12y = 1.0;
 
     final cp01 = toScreen(c01x, c01y);
-    final cph1 = toScreen(vh1x, vh1y);
-    final cph2 = toScreen(vh2x, vh2y);
+    final cph1 = toScreen(c02x, c02y);
+    final cph2 = toScreen(c11x, c11y);
     final cp12 = toScreen(c12x, c12y);
 
     final splinePath = Path();

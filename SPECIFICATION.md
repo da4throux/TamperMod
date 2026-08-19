@@ -220,6 +220,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Stationary Middle Anchor & Native Bézier Spline Rendering (v1.3.68): decoupled `_mx`/`_my` getters from handle coordinates keeping middle point 100% stationary during handle adjustments, replaced step-discretized canvas drawing with native `Path.cubicTo` parametric Bézier rendering ensuring sub-pixel vertical tangent alignment without chord flattening artifacts, and prioritized handle hit-testing.
 * [x] Extended Tangent Strength Scaling & Dynamic Arm Thickness (v1.3.69): enabled continuous tangent strength scaling ($s_1, s_2 \ge 1.0$ up to $10.0$) when pulling beyond the canvas frame for sharper vertical inflections, pinned visible diamond handles neatly to box boundaries while expanding arm line thickness from 2px to 8px, and updated cubic control points in `curves.dart`.
 * [x] Unconstrained Touch Dragging & Constant Opposite Arm Length (v1.3.70): unconstrained normalization coordinates allowing drag to extend outside the box and drive strength up to 10x, and fixed handle angle rotation to strictly preserve the opposite handle's scalar length ($L$) without stretching or shrinking.
+* [x] Extended Vertical Segment Reach for High Tangent Strengths (v1.3.71): scaled tangent control point reach ($C_{02}$ and $C_{11}$) directly by strength multipliers ($s_1, s_2$), stretching the pure vertical rise through center anchor $M$ across the canvas height for ultra-dramatic vertical S-curves.
 
 ### Todo Tasks (Grouped by Category)
 

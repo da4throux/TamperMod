@@ -135,29 +135,33 @@ class VectorBezierCurve extends Curve {
     final double vh2y = y2.clamp(vmy, 1.0);
 
     // Segment 1 (0 to vmx):
-    // C01 starts from (0,0) towards H1, scaled by strength s1
+    // C02 is the incoming tangent control point at M, scaled by strength s1
+    final double c02x = vmx - (vmx - x1) * s1;
+    final double c02y = vmy - (vmy - y1) * s1;
     final double c01Ratio = (s1 / (1.0 + s1)).clamp(0.1, 0.98);
-    final double c01x = (vmx * c01Ratio).clamp(0.0, vh1x);
+    final double c01x = (vmx * c01Ratio).clamp(0.0, math.max(0.0, c02x));
     final double c01y = 0.0;
 
     // Segment 2 (vmx to 1.0):
-    // C12 arrives into (1,1) from H2, scaled by strength s2
+    // C11 is the outgoing tangent control point at M, scaled by strength s2
+    final double c11x = vmx + (x2 - vmx) * s2;
+    final double c11y = vmy + (y2 - vmy) * s2;
     final double c12Ratio = (1.0 / (1.0 + s2)).clamp(0.02, 0.9);
-    final double c12x = (vmx + (1.0 - vmx) * (1.0 - c12Ratio)).clamp(vh2x, 1.0);
+    final double c12x = (vmx + (1.0 - vmx) * (1.0 - c12Ratio)).clamp(math.min(1.0, c11x), 1.0);
     final double c12y = 1.0;
 
     double res;
     if (t <= vmx) {
       res = _solveCubic(
         t,
-        0.0, c01x, vh1x, vmx,
-        0.0, c01y, vh1y, vmy,
+        0.0, c01x, c02x, vmx,
+        0.0, c01y, c02y, vmy,
       );
     } else {
       res = _solveCubic(
         t,
-        vmx, vh2x, c12x, 1.0,
-        vmy, vh2y, c12y, 1.0,
+        vmx, c11x, c12x, 1.0,
+        vmy, c11y, c12y, 1.0,
       );
     }
 
