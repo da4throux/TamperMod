@@ -408,7 +408,7 @@ class ModWebSocketService extends ChangeNotifier {
     }
   }
 
-  // Sends a toggle bypass command via HTTP REST endpoint (/effect/bypass/) with instantaneous optimistic state updates
+  // Sends a toggle bypass command via HTTP REST endpoint (/effect/parameter/set/ with :bypass port)
   Future<void> toggleBypass({
     required String instance,
     required bool bypass,
@@ -433,13 +433,13 @@ class ModWebSocketService extends ChangeNotifier {
 
     // 2. Send via HTTP REST API endpoint
     try {
-      final int bypassVal = bypass ? 1 : 0;
+      final double bypassVal = bypass ? 1.0 : 0.0;
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 2);
-      final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/bypass/'));
+      final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/parameter/set/'));
       req.headers.set('Content-Type', 'application/x-www-form-urlencoded');
-      final payload = '$instance/$bypassVal';
-      debugPrint('HTTP POST /effect/bypass/: $payload');
+      final payload = '$instance/:bypass/$bypassVal';
+      debugPrint('HTTP POST /effect/parameter/set/ (bypass): $payload');
       req.write(payload);
       final resp = await req.close();
       client.close();

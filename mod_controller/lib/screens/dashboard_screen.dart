@@ -313,60 +313,72 @@ class _DashboardScreenState extends State<DashboardScreen>
           // 3. Expose window.tamperSetParam helper
           window.tamperSetParam = function(instance, port, value) {
             console.log("TAMPER_CALL: tamperSetParam(" + instance + ", " + port + ", " + value + ")");
+            var cleanName = (instance || '').split('/').pop();
             try {
               if (window.pedalboard && typeof window.pedalboard.get === 'function') {
                 var pluginsColl = window.pedalboard.get('plugins');
-                if (pluginsColl && typeof pluginsColl.findWhere === 'function') {
-                  var plugin = pluginsColl.findWhere({ instance: instance });
-                  if (plugin) {
-                    if (typeof plugin.set_parameter === 'function') {
-                      plugin.set_parameter(port, parseFloat(value));
-                      console.log("TAMPER: set_parameter succeeded on Backbone model for " + instance);
-                      return true;
+                if (pluginsColl && typeof pluginsColl.each === 'function') {
+                  pluginsColl.each(function(p) {
+                    var inst = (typeof p.get === 'function') ? p.get('instance') : p.instance;
+                    if (inst === instance || inst === '/graph/' + cleanName || inst === cleanName) {
+                      if (typeof p.set_parameter === 'function') {
+                        p.set_parameter(port, parseFloat(value));
+                        console.log("TAMPER: set_parameter succeeded on Backbone model for " + instance);
+                      }
                     }
-                  }
+                  });
                 }
               }
             } catch(e) {
               console.error("TAMPER: Backbone set_parameter error: ", e);
             }
             try {
-              var el = document.querySelector('[mod-instance="' + instance + '"] [mod-port-symbol="' + port + '"]');
-              if (el) {
-                el.click();
-                console.log("TAMPER: Clicked DOM control for " + instance + " " + port);
-                return true;
+              var pedalNode = document.querySelector('[mod-instance="' + instance + '"]') ||
+                              document.querySelector('[mod-instance*="' + cleanName + '"]');
+              if (pedalNode) {
+                var el = pedalNode.querySelector('[mod-port-symbol="' + port + '"], [mod-port*="' + port + '"]');
+                if (el) {
+                  el.click();
+                  console.log("TAMPER: Clicked DOM control for " + instance + " " + port);
+                }
               }
             } catch(e) {}
-            return false;
+            return true;
           };
 
           // 4. Expose window.tamperSetBypass helper
           window.tamperSetBypass = function(instance, bypassed) {
             console.log("TAMPER_CALL: tamperSetBypass(" + instance + ", " + bypassed + ")");
+            var cleanName = (instance || '').split('/').pop();
             try {
               if (window.pedalboard && typeof window.pedalboard.get === 'function') {
                 var pluginsColl = window.pedalboard.get('plugins');
-                if (pluginsColl && typeof pluginsColl.findWhere === 'function') {
-                  var plugin = pluginsColl.findWhere({ instance: instance });
-                  if (plugin) {
-                    if (typeof plugin.set_bypass === 'function') {
-                      plugin.set_bypass(!!bypassed);
-                      console.log("TAMPER: set_bypass succeeded on Backbone model for " + instance);
-                      return true;
+                if (pluginsColl && typeof pluginsColl.each === 'function') {
+                  pluginsColl.each(function(p) {
+                    var inst = (typeof p.get === 'function') ? p.get('instance') : p.instance;
+                    if (inst === instance || inst === '/graph/' + cleanName || inst === cleanName) {
+                      if (typeof p.set_bypass === 'function') {
+                        p.set_bypass(!!bypassed);
+                        console.log("TAMPER: set_bypass succeeded on Backbone model for " + instance);
+                      } else if (typeof p.set_parameter === 'function') {
+                        p.set_parameter(':bypass', bypassed ? 1.0 : 0.0);
+                      }
                     }
-                  }
+                  });
                 }
               }
             } catch(e) {}
             try {
-              var footswitch = document.querySelector('[mod-instance="' + instance + '"] .mod-footswitch, [mod-instance="' + instance + '"] .mod-pedal-bypass');
-              if (footswitch) {
-                footswitch.click();
-                return true;
+              var pedalNode = document.querySelector('[mod-instance="' + instance + '"]') ||
+                              document.querySelector('[mod-instance*="' + cleanName + '"]');
+              if (pedalNode) {
+                var footswitch = pedalNode.querySelector('.mod-footswitch, .mod-pedal-bypass, [mod-port-symbol=":bypass"]');
+                if (footswitch) {
+                  footswitch.click();
+                }
               }
             } catch(e) {}
-            return false;
+            return true;
           };
         }
 
@@ -2414,11 +2426,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                           _localVolumes[pedal.instance] = newValue;
                         });
                         if (pedal.gainPortSymbol != null) {
+                          final double fixedVal = double.parse(newValue.toStringAsFixed(2));
                           _webSocketService.setParamValue(
                             instance: pedal.instance,
                             port: pedal.gainPortSymbol!,
-                            value: double.parse(newValue.toStringAsFixed(2)),
+                            value: fixedVal,
                           );
+                          try {
+                            _webViewController.runJavaScript("if (window.tamperSetParam) window.tamperSetParam('${pedal.instance}', '${pedal.gainPortSymbol}', $fixedVal);");
+                          } catch (e) {
+                            debugPrint('Error invoking tamperSetParam on gain change: $e');
+                          }
                         }
                       },
                       onMuteToggled: () => _toggleMute(pedal),
@@ -2439,10 +2457,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                         });
                         _saveLayoutSettings();
                       },
-                      onBypassToggle: (val) => _webSocketService.toggleBypass(
-                        instance: pedal.instance,
-                        bypass: val,
-                      ),
+                      onBypassToggle: (val) {
+                        _webSocketService.toggleBypass(
+                          instance: pedal.instance,
+                          bypass: val,
+                        );
+                        try {
+                          _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
+                        } catch (e) {
+                          debugPrint('Error invoking tamperSetBypass: $e');
+                        }
+                      },
                       onFadeRangeChanged: (start, end) {
                         setState(() {
                           _fadeRangeStart[pedal.instance] = start;
@@ -2475,10 +2500,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                       displayName: displayName,
                       visibleParams: _customCardVisibleParams[pedal.instance] ?? [],
                       visibleCompactParams: _customCardVisibleCompactParams[pedal.instance] ?? [],
-                      onBypassToggle: (val) => _webSocketService.toggleBypass(
-                        instance: pedal.instance,
-                        bypass: val,
-                      ),
+                      onBypassToggle: (val) {
+                        _webSocketService.toggleBypass(
+                          instance: pedal.instance,
+                          bypass: val,
+                        );
+                        try {
+                          _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
+                        } catch (e) {
+                          debugPrint('Error invoking tamperSetBypass: $e');
+                        }
+                      },
                       onRenamePressed: () => _showRenameDialog(pedal),
                       onHighlightPressed: () => _highlightPedalInWebView(pedal),
                       onColorPickerPressed: () => _showColorPickerDialog(pedal),
