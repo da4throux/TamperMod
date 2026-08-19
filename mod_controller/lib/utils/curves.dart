@@ -134,7 +134,7 @@ class VectorBezierCurve extends Curve {
     if ((_sampleBezier(u, x0, x1, x2, x3) - targetX).abs() > 1e-3) {
       double low = 0.0;
       double high = 1.0;
-      for (int i = 0; i < 12; i++) {
+      for (int i = 0; i < 16; i++) {
         u = (low + high) * 0.5;
         final double currentX = _sampleBezier(u, x0, x1, x2, x3);
         if (currentX.isNaN) break;

@@ -97,25 +97,51 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
   }
 
   void _copyFadeInToOut() {
-    _recordHistory();
-    widget.onParamsOutChanged(VectorBezierCurve.copy(widget.paramsIn));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Fade In curve copied to Fade Out'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    if (_isEditingFadeIn) {
+      if (_undoStackOut.length >= 20) _undoStackOut.removeAt(0);
+      _undoStackOut.add(Map<String, double>.from(widget.paramsOut));
+      widget.onParamsOutChanged(VectorBezierCurve.copy(widget.paramsIn));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fade In curve copied to Fade Out'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } else {
+      if (_undoStackIn.length >= 20) _undoStackIn.removeAt(0);
+      _undoStackIn.add(Map<String, double>.from(widget.paramsIn));
+      widget.onParamsInChanged(VectorBezierCurve.copy(widget.paramsOut));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fade Out curve copied to Fade In'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   void _mirrorFadeInToOut() {
-    _recordHistory();
-    widget.onParamsOutChanged(VectorBezierCurve.mirror(widget.paramsIn));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Fade In curve mirrored to Fade Out'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    if (_isEditingFadeIn) {
+      if (_undoStackOut.length >= 20) _undoStackOut.removeAt(0);
+      _undoStackOut.add(Map<String, double>.from(widget.paramsOut));
+      widget.onParamsOutChanged(VectorBezierCurve.mirror(widget.paramsIn));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fade In curve mirrored to Fade Out'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } else {
+      if (_undoStackIn.length >= 20) _undoStackIn.removeAt(0);
+      _undoStackIn.add(Map<String, double>.from(widget.paramsIn));
+      widget.onParamsInChanged(VectorBezierCurve.mirror(widget.paramsOut));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fade Out curve mirrored to Fade In'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   void _showSavePresetDialog() {
@@ -313,13 +339,13 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                 const SizedBox(width: 4),
                 _buildActionButton(
                   icon: Icons.flip,
-                  label: _isEditingFadeIn ? 'MIRROR → FADE OUT' : 'MIRROR ← FADE IN',
+                  label: _isEditingFadeIn ? 'MIRROR TO FADE OUT' : 'MIRROR TO FADE IN',
                   onTap: _mirrorFadeInToOut,
                 ),
                 const SizedBox(width: 4),
                 _buildActionButton(
                   icon: Icons.content_copy,
-                  label: _isEditingFadeIn ? 'COPY → FADE OUT' : 'COPY ← FADE IN',
+                  label: _isEditingFadeIn ? 'COPY TO FADE OUT' : 'COPY TO FADE IN',
                   onTap: _copyFadeInToOut,
                 ),
               ],
@@ -412,7 +438,7 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                   switch (_dragTarget) {
                     case _ActiveDragTarget.startHandle:
                       {
-                        final double newH1x = norm.dx.clamp(0.0, _x2);
+                        final double newH1x = norm.dx.clamp(0.0, 1.0);
                         final double newH1y = norm.dy.clamp(0.0, 1.0);
                         _activeOnChanged({
                           ..._activeParams,
@@ -449,7 +475,7 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                       break;
                     case _ActiveDragTarget.endHandle:
                       {
-                        final double newH2x = norm.dx.clamp(_x1, 1.0);
+                        final double newH2x = norm.dx.clamp(0.0, 1.0);
                         final double newH2y = norm.dy.clamp(0.0, 1.0);
                         _activeOnChanged({
                           ..._activeParams,

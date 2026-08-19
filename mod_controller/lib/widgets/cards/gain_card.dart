@@ -781,23 +781,25 @@ class _GainCardState extends State<GainCard> {
         ],
         const SizedBox(height: 8),
 
-        // Live Fade Curve Visualizer
-        SizedBox(
-          height: 120,
-          child: CustomPaint(
-            painter: FadeCurvePainter(
-              accentColor: accentColor,
-              curve: displayCurve,
-              progress: widget.fadeProgress,
-              bars: widget.fadeBars,
-              rangeStart: widget.rangeStart,
-              rangeEnd: widget.rangeEnd,
-              isFadeOut: widget.isFadingOut,
+        // Live Fade Curve Visualizer (for standard presets; vector editor has its own rich visualizer)
+        if (shapeName != 'custom') ...[
+          SizedBox(
+            height: 120,
+            child: CustomPaint(
+              painter: FadeCurvePainter(
+                accentColor: accentColor,
+                curve: displayCurve,
+                progress: widget.fadeProgress,
+                bars: widget.fadeBars,
+                rangeStart: widget.rangeStart,
+                rangeEnd: widget.rangeEnd,
+                isFadeOut: widget.isFadingOut,
+              ),
+              child: const SizedBox.expand(),
             ),
-            child: const SizedBox.expand(),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
 
         // Fade buttons
         Row(
