@@ -89,23 +89,22 @@ Please read and apply .agenrules
 
 To facilitate future development, this section catalogs all known protocols, endpoints, and behaviors of the MOD Dwarf interface.
 
-### 4.1 WebSocket Commands (ws://<ip>/websocket)
-The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-separated string commands.
+### 4.1 Host Communication Architecture (HTTP REST + WebSocket Broadcast)
+The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication model:
+1. **HTTP REST Endpoints (`http://<ip>/`)**: The primary control channel used by the MOD web GUI and remote controllers to set parameters and toggle bypass states.
+2. **WebSocket Broadcast Stream (`ws://<ip>/websocket`)**: A high-speed broadcast channel for host state notifications (parameter changes, VU meter telemetry, transport, tempo).
 
-#### Commands Sent by App to Host:
-- **`param_set <instance> <portsymbol> <value>`**
-  - Sets parameter values for a plugin (space-separated format strictly required by Tornado mod-ui backend).
-  - *Example:* `param_set /graph/SwitchBox2_3 Switch 1.0` or `param_set /graph/gain_mono gain 0.5`
-- **`param_set <instance> :bypass <value>`**
-  - Toggles the bypass/mute state of a plugin. `1.0` bypasses/mutes, `0.0` enables/actives.
-  - *Example:* `param_set /graph/gain_mono :bypass 1.0`
-- **`transport-rolling <value>`**
-  - Starts or stops host transport. `1` is play, `0` is stop.
-- **`transport-bpm <value>`** / **`transport_bpm <value>`** / **`bpm <value>`**
-  - Sets the global host BPM. Send all three formats to ensure backward compatibility across firmware releases.
-  - *Example:* `transport-bpm 120`
+#### HTTP REST Endpoints (App to Host):
+- **`POST /effect/parameter/set/`**
+  - Sets parameter values for a plugin.
+  - Payload: `<instance>/<port>/<value>`
+  - *Example:* `/graph/SwitchBox2_3/Switch/1.0` or `/graph/mono/gain/-10.5`
+- **`POST /effect/bypass/`**
+  - Sets the bypass state of a plugin (`1` for bypassed, `0` for active).
+  - Payload: `<instance>/<value>`
+  - *Example:* `/graph/SwitchBox2_3/1` or `/graph/mono/0`
 
-#### Commands Received from Host (Broadcast):
+#### Commands Received from Host via WebSocket (Broadcast):
 - **`loading_start`** / **`loading_end`**
   - Signals the start and end of a pedalboard configuration reload/refresh.
 - **`add <instance> <uri> <x> <y> <bypassed> ...`**

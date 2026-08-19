@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/plugin_instance.dart';
@@ -365,12 +366,12 @@ class ModWebSocketService extends ChangeNotifier {
     isTransportRolling.value = value; // Optimistic update
   }
 
-  // Sends a raw parameter set command
-  void setParamValue({
+  // Sends a parameter set command via HTTP REST endpoint (/effect/parameter/set/)
+  Future<void> setParamValue({
     required String instance,
     required String port,
     required double value,
-  }) {
+  }) async {
     // 1. OPTIMISTIC UPDATE: Update the state immediately in all collections
     final List<PluginInstance> currentAll = List.from(allPlugins.value);
     final int indexAll = currentAll.indexWhere((p) => p.instance == instance);
@@ -388,22 +389,30 @@ class ModWebSocketService extends ChangeNotifier {
 
     notifyListeners();
 
-    if (_channel == null || _status != ConnectionStatus.connected) {
-      debugPrint('Cannot send param value: Not connected to MOD Dwarf');
-      return;
+    // 2. Send via HTTP REST API endpoint
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/parameter/set/'));
+      req.headers.set('Content-Type', 'application/x-www-form-urlencoded');
+      final payload = '$instance/$port/$value';
+      debugPrint('HTTP POST /effect/parameter/set/: $payload');
+      req.write(payload);
+      final resp = await req.close();
+      client.close();
+      if (resp.statusCode != 200) {
+        debugPrint('HTTP param_set response status: ${resp.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('HTTP param_set error: $e');
     }
-
-    // Format: param_set <instance> <port> <value> (space-separated)
-    final String rawPayload = 'param_set $instance $port $value';
-    debugPrint('SENDING COMMAND: $rawPayload');
-    _channel!.sink.add(rawPayload);
   }
 
-  // Sends a raw toggle bypass command with instantaneous optimistic state updates
-  void toggleBypass({
+  // Sends a toggle bypass command via HTTP REST endpoint (/effect/bypass/) with instantaneous optimistic state updates
+  Future<void> toggleBypass({
     required String instance,
     required bool bypass,
-  }) {
+  }) async {
     // 1. OPTIMISTIC UPDATE: Update the state immediately in all collections so the UI reacts in under 1ms
     final List<PluginInstance> currentAll = List.from(allPlugins.value);
     final int indexAll = currentAll.indexWhere((p) => p.instance == instance);
@@ -422,16 +431,24 @@ class ModWebSocketService extends ChangeNotifier {
     // Explicitly notify any widget listeners (like main.dart)
     notifyListeners();
 
-    if (_channel == null || _status != ConnectionStatus.connected) {
-      debugPrint('Cannot toggle bypass: Not connected to MOD Dwarf');
-      return;
+    // 2. Send via HTTP REST API endpoint
+    try {
+      final int bypassVal = bypass ? 1 : 0;
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 2);
+      final req = await client.postUrl(Uri.parse('http://$_lastIp/effect/bypass/'));
+      req.headers.set('Content-Type', 'application/x-www-form-urlencoded');
+      final payload = '$instance/$bypassVal';
+      debugPrint('HTTP POST /effect/bypass/: $payload');
+      req.write(payload);
+      final resp = await req.close();
+      client.close();
+      if (resp.statusCode != 200) {
+        debugPrint('HTTP bypass response status: ${resp.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('HTTP bypass error: $e');
     }
-
-    // Format: param_set <instance> :bypass <1.0 for bypassed/off, 0.0 for active/on>
-    final double val = bypass ? 1.0 : 0.0;
-    final String rawPayload = 'param_set $instance :bypass $val';
-    debugPrint('SENDING COMMAND: $rawPayload');
-    _channel!.sink.add(rawPayload);
   }
 
   // Sends a raw string payload to the MOD websocket
