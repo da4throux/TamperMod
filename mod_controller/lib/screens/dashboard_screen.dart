@@ -1280,11 +1280,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         break;
       case 'custom':
         final params = _fadeCustomParams[pedal.instance] ?? {};
-        selectedCurve = CustomSCurve(
-          cx: params['cx'] ?? 0.5,
-          cy: params['cy'] ?? 0.5,
-          slope: params['slope'] ?? 1.0,
-        );
+        selectedCurve = VectorBezierCurve.fromMap(params);
         break;
       default:
         selectedCurve = Curves.easeInOut;

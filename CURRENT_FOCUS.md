@@ -1,21 +1,22 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.48)
+- **Interactive Blender-style Vectorized Bézier Curve Editor**:
+  1. Created `VectorBezierEditor` with direct on-screen touch/drag manipulation of curve keypoints, tangent handle vectors, and angles.
+  2. Implemented `VectorBezierCurve` with cubic Bézier root solver (Newton-Raphson + binary search fallback) supporting 2-point and multi-point curves with midpoint handles.
+  3. Added quick presets (Smooth S, Punchy Attack, Late Swell, Linear, Midpoint Toggle, Reset) and JSON clipboard export.
+  4. Fully wired into Gain Card expanded view and fade animation timers.
+
 ## ✅ Completed (v1.3.47)
 - **Fix Mono (tinygain#mono) Min/Max Scale to -20 dB .. +20 dB**:
-  1. Guaranteed `minGain` = `-20.0 dB` and `maxGain` = `+20.0 dB` for all Mono and tinygain instances, ensuring the slider, labels, and fade ranges map accurately across the entire -20dB to +20dB range.
-  2. Fixed Backbone port range parsing in `scrapeMetadata` to read `port.ranges.min` and `port.ranges.max`, preventing fallback to 0..1 defaults.
-
-## ✅ Completed (v1.3.46)
-- **Native WebSocket param_set & Bypass Dispatch**:
-  1. Replaced REST `HttpClient` calls in `setParamValue` and `toggleBypass` with native MOD Dwarf WebSocket commands (`param_set <instance>/<port> <val>` and `param_set <instance>/:bypass <0|1>`), eliminating HTTP 500 exceptions.
-  2. Captured active WebView WebSocket instance in JS injector to route gain adjustments and bypass triggers directly through the browser socket and update Backbone models in real-time.
-  3. Fixed SwitchCard power button to toggle `:bypass` across all switch instances.
+  1. Guaranteed `minGain` = `-20.0 dB` and `maxGain` = `+20.0 dB` for all Mono and tinygain instances.
+  2. Fixed Backbone port range parsing in `scrapeMetadata`.
 
 ## 📋 Remaining Tasks
 - **A2. WebView Controls**: WebView full-screen toggle, separation layout adjustment.
 - **E2. Default Fadeout Values**: Mapping default values for fader/automation objects.
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.47
-- **Last commit:** Gemini3.7Flash(v1.3.47) - Fix Mono min/max dB scale to -20dB..+20dB
+- **App Version:** v1.3.48
+- **Last commit:** Gemini3.7Flash(v1.3.48) - Vectorized Bezier curve editor
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI

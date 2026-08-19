@@ -9,6 +9,7 @@ import '../../utils/curves.dart';
 import '../common/fade_button.dart';
 import '../common/module_help_sheet.dart';
 import '../common/size_toggle_button.dart';
+import '../common/vector_bezier_editor.dart';
 import '../painters/fade_curve_painter.dart';
 import '../painters/range_overlay_painter.dart';
 import 'base_card.dart';
@@ -581,11 +582,7 @@ class _GainCardState extends State<GainCard> {
         displayCurve = Curves.easeOut;
         break;
       case 'custom':
-        displayCurve = CustomSCurve(
-          cx: widget.customParams['cx'] ?? 0.5,
-          cy: widget.customParams['cy'] ?? 0.5,
-          slope: widget.customParams['slope'] ?? 1.0,
-        );
+        displayCurve = VectorBezierCurve.fromMap(widget.customParams);
         break;
       default:
         displayCurve = Curves.easeInOut;
@@ -599,14 +596,13 @@ class _GainCardState extends State<GainCard> {
       {'key': 'easeInOut', 'label': 'S1'},
       {'key': 'easeIn', 'label': 'S2'},
       {'key': 'easeOut', 'label': 'S3'},
-      {'key': 'custom', 'label': 'CUSTOM'},
+      {'key': 'custom', 'label': 'VECTOR'},
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        // Header
+        // Top row: size toggle + title + HELP + dB box + mute
         Row(
           children: [
             buildSizeToggle(),
@@ -645,8 +641,9 @@ class _GainCardState extends State<GainCard> {
             buildMuteIcon(),
           ],
         ),
-        const SizedBox(height: 4),
-        // URI
+        const Spacer(),
+
+        // Plugin URI link
         GestureDetector(
           onTap: () => widget.onOpenUri(widget.pedal.uri),
           child: Text(
@@ -662,9 +659,9 @@ class _GainCardState extends State<GainCard> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
 
-        // Volume slider with overlay
+        // Slider Row
         Row(
           children: [
             Icon(
@@ -678,8 +675,10 @@ class _GainCardState extends State<GainCard> {
             Icon(Icons.volume_up, color: accentColor, size: 20),
           ],
         ),
+        const SizedBox(height: 2),
+
+        // Range dB labels + percentage
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               '${minRange.toStringAsFixed(1)} dB (Start: ${startDb.toStringAsFixed(1)} dB)',
@@ -689,12 +688,15 @@ class _GainCardState extends State<GainCard> {
                 fontFamily: 'monospace',
               ),
             ),
-            Text(
-              '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
-              style: TextStyle(
-                fontSize: 9,
-                color: accentColor.withOpacity(0.7),
-                fontFamily: 'monospace',
+            Expanded(
+              child: Text(
+                '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 9,
+                  color: accentColor.withOpacity(0.7),
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
             Text(
@@ -755,112 +757,14 @@ class _GainCardState extends State<GainCard> {
           }).toList(),
         ),
 
-        // Custom S-Curve sliders
+        // Vectorized Bezier Editor (when VECTOR shape is selected)
         if (shapeName == 'custom') ...[
           const SizedBox(height: 8),
-          Text(
-            'CUSTOM CURVE',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: accentColor.withOpacity(0.7),
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ...['cx', 'cy', 'slope'].map((param) {
-            final double val = widget.customParams[param] ?? 0.5;
-            final Map<String, String> labels = {
-              'cx': 'CENTER X',
-              'cy': 'CENTER Y',
-              'slope': 'BLEND',
-            };
-            return Row(
-              children: [
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    labels[param]!,
-                    style: TextStyle(fontSize: 8, color: Colors.grey[500]),
-                  ),
-                ),
-                Expanded(
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: accentColor.withOpacity(0.7),
-                      inactiveTrackColor: accentColor.withOpacity(0.15),
-                      thumbColor: accentColor,
-                      trackHeight: 3,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 7,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 14,
-                      ),
-                    ),
-                    child: Slider(
-                      value: val,
-                      min: 0.0,
-                      max: 1.0,
-                      onChanged: (v) {
-                        widget.onCustomCurveParamsChanged({
-                          ...widget.customParams,
-                          param: v,
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    val.toStringAsFixed(2),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontFamily: 'monospace',
-                      color: accentColor.withOpacity(0.8),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: () {
-                final String json = jsonEncode({
-                  'shape': 'custom',
-                  ...widget.customParams,
-                });
-                Clipboard.setData(ClipboardData(text: json));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Custom curve copied to clipboard'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: accentColor.withOpacity(0.5)),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'EXPORT',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: accentColor,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-            ),
+          VectorBezierEditor(
+            params: widget.customParams,
+            accentColor: accentColor,
+            isDarkMode: widget.isDarkMode,
+            onParamsChanged: widget.onCustomCurveParamsChanged,
           ),
         ],
         const SizedBox(height: 8),
