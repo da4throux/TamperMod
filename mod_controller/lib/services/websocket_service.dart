@@ -117,6 +117,7 @@ class ModWebSocketService extends ChangeNotifier {
     final String msg = rawMessage.toString().trim();
     if (msg.isEmpty || msg == 'pong') return;
     
+    debugPrint('WS RECV: $msg');
     _rawMessageStreamController.add(msg);
 
     // Split by the first space to extract command and data

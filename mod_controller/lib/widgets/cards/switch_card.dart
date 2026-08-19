@@ -36,6 +36,7 @@ class SwitchCard extends StatelessWidget {
 
   String? _getSwitchPortSymbol(PluginInstance pedal) {
     for (final symbol in pedal.parameters.keys) {
+      if (symbol == ':bypass') continue;
       final s = symbol.toLowerCase();
       if (s.contains('select') ||
           s.contains('out') ||
@@ -46,9 +47,16 @@ class SwitchCard extends StatelessWidget {
           s.contains('param') ||
           s.contains('position') ||
           s.contains('value') ||
-          s.contains('mode')) {
+          s.contains('mode') ||
+          s.contains('in') ||
+          s.contains('state')) {
         return symbol;
       }
+    }
+    // Fallback to first non-bypass parameter if available
+    final nonBypass = pedal.parameters.keys.where((k) => k != ':bypass').toList();
+    if (nonBypass.isNotEmpty) {
+      return nonBypass.first;
     }
     return null;
   }
@@ -61,12 +69,20 @@ class SwitchCard extends StatelessWidget {
         ? (pedal.parameters[switchPort] ?? 0.0)
         : 0.0;
 
-    final bool isActive = !isBypassed;
+    // Active state is based on parameter value if a port exists, otherwise bypass state
+    final bool isActive = switchPort != null ? (currentValue >= 0.5) : !isBypassed;
     final Color accentColor = isActive ? glowColor : Colors.grey[600]!;
 
     // The whole card is a tap-to-toggle big button for the switchbox
     return GestureDetector(
-      onTap: () => onBypassToggle(!isBypassed),
+      onTap: () {
+        if (switchPort != null) {
+          final double nextVal = currentValue >= 0.5 ? 0.0 : 1.0;
+          onSwitchPathChanged(switchPort, nextVal);
+        } else {
+          onBypassToggle(!isBypassed);
+        }
+      },
       onLongPress: onColorPickerPressed,
       child: Opacity(
         opacity: isActive ? 1.0 : 0.65,
@@ -165,15 +181,20 @@ class SwitchCard extends StatelessWidget {
                 const Spacer(),
 
                 // Port / value hint at the bottom
-                if (switchPort != null)
-                  Text(
-                    '${switchPort}: ${currentValue.toStringAsFixed(1)}',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: isDarkMode ? Colors.grey[600] : Colors.grey[500],
-                      fontFamily: 'monospace',
-                    ),
+                Text(
+                  switchPort != null
+                      ? '$switchPort: ${currentValue.toStringAsFixed(1)}'
+                      : (pedal.parameters.isNotEmpty
+                          ? 'Params: ${pedal.parameters.keys.join(", ")}'
+                          : 'Bypass mode'),
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: isDarkMode ? Colors.grey[600] : Colors.grey[500],
+                    fontFamily: 'monospace',
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  maxLines: 1,
+                ),
               ],
             ),
           ),
