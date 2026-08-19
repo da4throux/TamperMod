@@ -477,6 +477,22 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             final List<PluginInstance> inactivePedals = [];
             for (final id in widget.orderedPluginInstances) {
               if (!widget.enabledPluginInstances.contains(id)) {
+                if (id.startsWith('__spacer_')) {
+                  inactivePedals.add(PluginInstance(
+                    instance: id,
+                    title: 'SPACER',
+                    uri: 'spacer',
+                  ));
+                  continue;
+                }
+                if (id.startsWith('__linebreak_')) {
+                  inactivePedals.add(PluginInstance(
+                    instance: id,
+                    title: 'LINE BREAK',
+                    uri: 'linebreak',
+                  ));
+                  continue;
+                }
                 final pedal = allPlugins.firstWhere(
                   (p) => p.instance == id,
                   orElse: () =>
@@ -791,7 +807,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.wrap_text,
+                                Icons.add,
                                 size: 10,
                                 color: widget.isDarkMode
                                     ? const Color(0xFF00FFCC)

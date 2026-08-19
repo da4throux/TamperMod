@@ -222,6 +222,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Unconstrained Touch Dragging & Constant Opposite Arm Length (v1.3.70): unconstrained normalization coordinates allowing drag to extend outside the box and drive strength up to 10x, and fixed handle angle rotation to strictly preserve the opposite handle's scalar length ($L$) without stretching or shrinking.
 * [x] Extended Vertical Segment Reach for High Tangent Strengths (v1.3.71): scaled tangent control point reach ($C_{02}$ and $C_{11}$) directly by strength multipliers ($s_1, s_2$), stretching the pure vertical rise through center anchor $M$ across the canvas height for ultra-dramatic vertical S-curves.
 * [x] Strict Monotonic [0, 1] Bounds for High Strength Verticals (v1.3.72): bound control points $C_{02}$ and $C_{11}$ strictly within the unit interval $[0.0, 1.0]$ using asymptotic scaling towards baseline and ceiling, eliminating overshoots above 100% and dips below 0% while preserving maximum vertical stretch.
+* [x] Unlimited Line Breaks & Inactive Pool Hydration in Puzzle Board (v1.3.73): supported adding as many Line Breaks as desired via repeated "+ LINE BREAK" taps, fixed inactive list hydration for linebreaks/spacers in `SettingsDrawer`, and improved button affordance with `+` icon.
 
 ### Todo Tasks (Grouped by Category)
 
