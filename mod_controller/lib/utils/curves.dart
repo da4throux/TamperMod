@@ -73,18 +73,21 @@ class VectorBezierCurve extends Curve {
   static Map<String, double> mirror(Map<String, double> src) {
     final double inH1x = src['h1x'] ?? src['x1'] ?? 0.25;
     final double inH1y = src['h1y'] ?? src['y1'] ?? 0.10;
-    final double inMx = src['mx'] ?? 0.50;
-    final double inMy = src['my'] ?? 0.50;
     final double inH2x = src['h2x'] ?? src['x2'] ?? 0.75;
     final double inH2y = src['h2y'] ?? src['y2'] ?? 0.90;
 
+    final double outH1x = (1.0 - inH2x).clamp(0.0, 1.0);
+    final double outH1y = (1.0 - inH2y).clamp(0.0, 1.0);
+    final double outH2x = (1.0 - inH1x).clamp(0.0, 1.0);
+    final double outH2y = (1.0 - inH1y).clamp(0.0, 1.0);
+
     return {
-      'h1x': (1.0 - inH2x).clamp(0.0, 1.0),
-      'h1y': (1.0 - inH2y).clamp(0.0, 1.0),
-      'mx': (1.0 - inMx).clamp(0.05, 0.95),
-      'my': (1.0 - inMy).clamp(0.0, 1.0),
-      'h2x': (1.0 - inH1x).clamp(0.0, 1.0),
-      'h2y': (1.0 - inH1y).clamp(0.0, 1.0),
+      'h1x': outH1x,
+      'h1y': outH1y,
+      'mx': ((3.0 / 8.0) * (outH1x + outH2x) + 0.125).clamp(0.05, 0.95),
+      'my': ((3.0 / 8.0) * (outH1y + outH2y) + 0.125).clamp(0.0, 1.0),
+      'h2x': outH2x,
+      'h2y': outH2y,
     };
   }
 

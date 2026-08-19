@@ -92,14 +92,7 @@ class SwitchCard extends StatelessWidget {
     final Color accentColor = isPluginPowered ? glowColor : Colors.grey[600]!;
 
     return GestureDetector(
-      onTap: () {
-        if (switchPort != null) {
-          final double nextVal = currentValue >= 0.5 ? 0.0 : 1.0;
-          onSwitchPathChanged(switchPort, nextVal);
-        } else {
-          onBypassToggle(!pedal.isBypassed);
-        }
-      },
+      behavior: HitTestBehavior.opaque,
       onLongPress: onColorPickerPressed,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 150),
@@ -249,7 +242,7 @@ class SwitchCard extends StatelessWidget {
                 if (isRouteMode)
                   _buildRouteSelector(context, isPathBActive, switchPort)
                 else
-                  _buildToggleLayout(context, isToggleActive, isPluginPowered),
+                  _buildToggleLayout(context, isToggleActive, isPluginPowered, switchPort, currentValue),
 
                 const Spacer(),
 
@@ -440,10 +433,26 @@ class SwitchCard extends StatelessWidget {
   }
 
   // 2. Toggle Mode: High-contrast independent button box with prominent name and status pill
-  Widget _buildToggleLayout(BuildContext context, bool isToggleActive, bool isPluginPowered) {
+  Widget _buildToggleLayout(
+    BuildContext context,
+    bool isToggleActive,
+    bool isPluginPowered,
+    String? switchPort,
+    double currentValue,
+  ) {
     final bool isActuallyOn = isToggleActive && isPluginPowered;
 
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (switchPort != null) {
+          final double nextVal = currentValue >= 0.5 ? 0.0 : 1.0;
+          onSwitchPathChanged(switchPort, nextVal);
+        } else {
+          onBypassToggle(!pedal.isBypassed);
+        }
+      },
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
@@ -535,6 +544,7 @@ class SwitchCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

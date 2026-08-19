@@ -2453,6 +2453,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       pathBName: _switchPathBNames[pedal.instance] ?? 'PATH B',
                       isInverted: _switchInverted[pedal.instance] ?? false,
                       onBypassToggle: (val) {
+                        setState(() {
+                          pedal.isBypassed = val;
+                        });
                         _webSocketService.toggleBypass(
                           instance: pedal.instance,
                           bypass: val,
@@ -2468,6 +2471,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onColorPickerPressed: () => _showSwitchConfigDialog(pedal),
                       onOpenUri: _openPluginUri,
                       onSwitchPathChanged: (port, val) {
+                        setState(() {
+                          pedal.parameters[port] = val;
+                        });
                         _webSocketService.setParamValue(
                           instance: pedal.instance,
                           port: port,

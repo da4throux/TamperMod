@@ -202,6 +202,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Backup & Restore Layout Configurations (v1.3.24): added trigger button in Settings Drawer, custom interactive dialog showing database summary statistics, Google Drive backup/restore via native system Share Sheet and Document Picker, and raw JSON clipboard copy/paste fallback.
 * [x] Vectorized Bézier Curve & Dual Fade In/Out Editor (v1.3.51): simplified 3-point vector editor (start/end tangent vector handles + center inflection point) with separate Fade In and Fade Out custom curve parameter tabs, allowing Fade Out to mirror or copy Fade In.
 * [x] Continuous Monotonic Bézier Curve, Top-to-Bottom Fade Out, Undo, & Saved Presets (v1.3.52): single continuous cubic Bézier formulation, visual top-to-bottom orientation for Fade Out, Undo history stack, and user-saved custom preset management persisted in SharedPreferences and backup schema.
+* [x] Fix SwitchBox Toggle State Race & Lock Bézier Midpoint Dot to Spline (v1.3.53): removed conflicting nested gesture arena handlers, added optimistic state synchronization for switch actions, and locked midpoint dot $M$ mathematically directly on the cubic Bézier curve at $(X(0.5), Y(0.5))$.
 
 ### Todo Tasks (Grouped by Category)
 
