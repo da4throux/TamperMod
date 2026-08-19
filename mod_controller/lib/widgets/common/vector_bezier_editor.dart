@@ -72,6 +72,8 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
   double get _my => (_activeParams['my'] ?? 0.50).clamp(0.0, 1.0);
   double get _x2 => (_activeParams['h2x'] ?? _activeParams['x2'] ?? 0.65).clamp(0.0, 1.0);
   double get _y2 => (_activeParams['h2y'] ?? _activeParams['y2'] ?? 0.85).clamp(0.0, 1.0);
+  double get _s1 => (_activeParams['s1'] ?? 1.0).clamp(0.1, 20.0);
+  double get _s2 => (_activeParams['s2'] ?? 1.0).clamp(0.1, 20.0);
 
   void _recordHistory() {
     final copy = Map<String, double>.from(_activeParams);
@@ -452,13 +454,9 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                     case _ActiveDragTarget.startHandle:
                       {
                         // H1 is incoming handle (nominally bottom-left from M)
-                        // Signed offset pointing from finger to M:
                         final double rawDx = _mx - norm.dx;
                         final double rawDy = _my - norm.dy;
 
-                        // Clamp dx >= 0 and dy >= 0:
-                        // If user drags at or past vertical (norm.dx >= _mx),
-                        // rawDx is clamped to 0.0 so the angle locks AT 90° (pi/2) and NEVER reverses!
                         final double clampedDx = math.max(0.0, rawDx);
                         final double clampedDy = math.max(0.0, rawDy);
 
@@ -474,19 +472,27 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
-                        // Independent arm length L1 from finger to M (free scaling)
-                        final double len1 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
+                        // Physical distance from M to finger
+                        final double totalDist = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
 
-                        // Preserve existing length of opposite handle H2
+                        // Maximum distance before hitting the box edge:
+                        final double maxVisualLen = (_my / math.max(0.001, sinT)).clamp(0.05, _my);
+                        // The visual diamond stays pinned at the edge of the box
+                        final double visualLen1 = math.min(totalDist, maxVisualLen);
+
+                        // Strength s1 grows continuously as user pulls further (up to 10.0)
+                        final double newS1 = (totalDist / maxVisualLen).clamp(0.1, 10.0);
+
+                        // Keep opposite handle length and strength
                         final double curDx2 = math.max(0.0, _x2 - _mx);
                         final double curDy2 = math.max(0.0, _y2 - _my);
-                        final double len2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
+                        final double maxVisualLen2 = ((1.0 - _my) / math.max(0.001, sinT)).clamp(0.05, 1.0 - _my);
+                        final double visualLen2 = math.min(math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2)), maxVisualLen2);
 
-                        // H1 placed strictly along -u direction, H2 along +u direction
-                        final double newH1x = _mx - len1 * cosT;
-                        final double newH1y = _my - len1 * sinT;
-                        final double newH2x = _mx + len2 * cosT;
-                        final double newH2y = _my + len2 * sinT;
+                        final double newH1x = (_mx - visualLen1 * cosT).clamp(0.0, _mx);
+                        final double newH1y = (_my - visualLen1 * sinT).clamp(0.0, _my);
+                        final double newH2x = (_mx + visualLen2 * cosT).clamp(_mx, 1.0);
+                        final double newH2y = (_my + visualLen2 * sinT).clamp(_my, 1.0);
 
                         _activeOnChanged({
                           ..._activeParams,
@@ -496,19 +502,17 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                           'h2y': newH2y,
                           'mx': _mx,
                           'my': _my,
+                          's1': newS1,
+                          's2': _s2,
                         });
                       }
                       break;
                     case _ActiveDragTarget.endHandle:
                       {
                         // H2 is outgoing handle (nominally top-right from M)
-                        // Signed offset pointing from M to finger:
                         final double rawDx = norm.dx - _mx;
                         final double rawDy = norm.dy - _my;
 
-                        // Clamp dx >= 0 and dy >= 0:
-                        // If user drags at or past vertical (norm.dx <= _mx),
-                        // rawDx is clamped to 0.0 so the angle locks AT 90° (pi/2) and NEVER reverses!
                         final double clampedDx = math.max(0.0, rawDx);
                         final double clampedDy = math.max(0.0, rawDy);
 
@@ -524,18 +528,22 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
-                        // Independent arm length L2 from M to finger
-                        final double len2 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
+                        final double totalDist = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
+                        final double maxVisualLen = ((1.0 - _my) / math.max(0.001, sinT)).clamp(0.05, 1.0 - _my);
+                        final double visualLen2 = math.min(totalDist, maxVisualLen);
 
-                        // Preserve existing length of opposite handle H1
+                        // Strength s2 grows continuously as user pulls further (up to 10.0)
+                        final double newS2 = (totalDist / maxVisualLen).clamp(0.1, 10.0);
+
                         final double curDx1 = math.max(0.0, _mx - _x1);
                         final double curDy1 = math.max(0.0, _my - _y1);
-                        final double len1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
+                        final double maxVisualLen1 = (_my / math.max(0.001, sinT)).clamp(0.05, _my);
+                        final double visualLen1 = math.min(math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1)), maxVisualLen1);
 
-                        final double newH2x = _mx + len2 * cosT;
-                        final double newH2y = _my + len2 * sinT;
-                        final double newH1x = _mx - len1 * cosT;
-                        final double newH1y = _my - len1 * sinT;
+                        final double newH2x = (_mx + visualLen2 * cosT).clamp(_mx, 1.0);
+                        final double newH2y = (_my + visualLen2 * sinT).clamp(_my, 1.0);
+                        final double newH1x = (_mx - visualLen1 * cosT).clamp(0.0, _mx);
+                        final double newH1y = (_my - visualLen1 * sinT).clamp(0.0, _my);
 
                         _activeOnChanged({
                           ..._activeParams,
@@ -545,12 +553,14 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                           'h2y': newH2y,
                           'mx': _mx,
                           'my': _my,
+                          's1': _s1,
+                          's2': newS2,
                         });
                       }
                       break;
                     case _ActiveDragTarget.midpoint:
                       {
-                        // M dragged explicitly: shift M and preserve current angle and arm lengths
+                        // M dragged explicitly: shift M and preserve current angle, arm lengths, and strengths
                         final double newMx = norm.dx.clamp(0.05, 0.95);
                         final double newMy = norm.dy.clamp(0.02, 0.98);
 
@@ -574,10 +584,10 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         final double len1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
                         final double len2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
 
-                        final double newH1x = newMx - len1 * cosT;
-                        final double newH1y = newMy - len1 * sinT;
-                        final double newH2x = newMx + len2 * cosT;
-                        final double newH2y = newMy + len2 * sinT;
+                        final double newH1x = (newMx - len1 * cosT).clamp(0.0, newMx);
+                        final double newH1y = (newMy - len1 * sinT).clamp(0.0, newMy);
+                        final double newH2x = (newMx + len2 * cosT).clamp(newMx, 1.0);
+                        final double newH2y = (newMy + len2 * sinT).clamp(newMy, 1.0);
 
                         _activeOnChanged({
                           ..._activeParams,
@@ -587,6 +597,8 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                           'h2y': newH2y,
                           'mx': newMx,
                           'my': newMy,
+                          's1': _s1,
+                          's2': _s2,
                         });
                       }
                       break;
@@ -609,6 +621,8 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                     my: _my,
                     h2x: _x2,
                     h2y: _y2,
+                    s1: _s1,
+                    s2: _s2,
                     activeTarget: _dragTarget,
                     fadeProgress: widget.fadeProgress,
                     isFading: widget.isFading,
@@ -831,6 +845,8 @@ class _VectorBezierCanvasPainter extends CustomPainter {
   final double my;
   final double h2x;
   final double h2y;
+  final double s1;
+  final double s2;
   final _ActiveDragTarget activeTarget;
   final double fadeProgress;
   final bool isFading;
@@ -851,6 +867,8 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     required this.my,
     required this.h2x,
     required this.h2y,
+    this.s1 = 1.0,
+    this.s2 = 1.0,
     required this.activeTarget,
     this.fadeProgress = 0.0,
     this.isFading = false,
@@ -892,20 +910,23 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       ..strokeWidth = 0.8;
     canvas.drawLine(toScreen(0.0, 0.0), toScreen(1.0, 1.0), refPaint);
 
-    // 3. Collinear Tangent Lines through Middle Anchor M with distinct colors for each arm
+    // 3. Collinear Tangent Lines through Middle Anchor M with distinct colors and strength-based dynamic thickness
     final p0 = toScreen(0.0, 0.0);
     final p1 = toScreen(1.0, 1.0);
     final h1 = toScreen(h1x, h1y);
     final pm = toScreen(mx, my);
     final h2 = toScreen(h2x, h2y);
 
+    final double arm1Thickness = (2.0 + (s1 - 1.0).clamp(0.0, 9.0) * 1.0).clamp(2.0, 8.0);
+    final double arm2Thickness = (2.0 + (s2 - 1.0).clamp(0.0, 9.0) * 1.0).clamp(2.0, 8.0);
+
     final arm1Paint = Paint()
       ..color = const Color(0xFF00E5FF).withValues(alpha: 0.85)
-      ..strokeWidth = 2.0;
+      ..strokeWidth = arm1Thickness;
 
     final arm2Paint = Paint()
       ..color = const Color(0xFFFFD600).withValues(alpha: 0.85)
-      ..strokeWidth = 2.0;
+      ..strokeWidth = arm2Thickness;
 
     // Incoming arm (Cyan) and Outgoing arm (Neon Gold)
     canvas.drawLine(h1, pm, arm1Paint);
@@ -918,15 +939,17 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     canvas.drawLine(Offset(pm.dx, pad), Offset(pm.dx, pad + ch), guidePaint);
     canvas.drawLine(Offset(pad, pm.dy), Offset(pad + cw, pm.dy), guidePaint);
 
-    // 4. Main Continuous Bézier Spline with Gradient Glow (Exact Parametric Form)
+    // 4. Main Continuous Bézier Spline with Gradient Glow (Exact Parametric Form scaled by strength)
     final double vh1x = h1x.clamp(0.001, mx - 0.0001);
     final double vh1y = h1y.clamp(0.0, my);
-    final double c01x = (vh1x * 0.5).clamp(0.0, vh1x);
+    final double c01Ratio = (s1 / (1.0 + s1)).clamp(0.1, 0.98);
+    final double c01x = (mx * c01Ratio).clamp(0.0, vh1x);
     final double c01y = 0.0;
 
     final double vh2x = h2x.clamp(mx + 0.0001, 0.999);
     final double vh2y = h2y.clamp(my, 1.0);
-    final double c12x = (vh2x + (1.0 - vh2x) * 0.5).clamp(vh2x, 1.0);
+    final double c12Ratio = (1.0 / (1.0 + s2)).clamp(0.02, 0.9);
+    final double c12x = (mx + (1.0 - mx) * (1.0 - c12Ratio)).clamp(vh2x, 1.0);
     final double c12y = 1.0;
 
     final cp01 = toScreen(c01x, c01y);

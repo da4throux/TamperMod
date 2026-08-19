@@ -21,6 +21,9 @@ class VectorBezierCurve extends Curve {
   final double x2;
   final double y2;
 
+  final double s1;
+  final double s2;
+
   const VectorBezierCurve({
     this.x1 = 0.25,
     this.y1 = 0.10,
@@ -28,6 +31,8 @@ class VectorBezierCurve extends Curve {
     this.my = 0.50,
     this.x2 = 0.75,
     this.y2 = 0.90,
+    this.s1 = 1.0,
+    this.s2 = 1.0,
   });
 
   /// Standard balanced S-curve preset
@@ -38,6 +43,8 @@ class VectorBezierCurve extends Curve {
     'my': 0.50,
     'h2x': 0.65,
     'h2y': 0.85,
+    's1': 1.0,
+    's2': 1.0,
   };
 
   /// Factory from parameters map with fallback to classic parameters
@@ -48,6 +55,8 @@ class VectorBezierCurve extends Curve {
     final double h1y = (map['h1y'] ?? map['y1'] ?? (my - 0.35)).clamp(0.0, my);
     final double h2x = (map['h2x'] ?? map['x2'] ?? (mx + 0.15)).clamp(mx, 1.0);
     final double h2y = (map['h2y'] ?? map['y2'] ?? (my + 0.35)).clamp(my, 1.0);
+    final double s1 = (map['s1'] ?? 1.0).clamp(0.05, 20.0);
+    final double s2 = (map['s2'] ?? 1.0).clamp(0.05, 20.0);
 
     return VectorBezierCurve(
       x1: h1x,
@@ -56,6 +65,8 @@ class VectorBezierCurve extends Curve {
       my: my,
       x2: h2x,
       y2: h2y,
+      s1: s1,
+      s2: s2,
     );
   }
 
@@ -67,6 +78,8 @@ class VectorBezierCurve extends Curve {
       'my': my,
       'h2x': x2,
       'h2y': y2,
+      's1': s1,
+      's2': s2,
     };
   }
 
@@ -78,6 +91,8 @@ class VectorBezierCurve extends Curve {
     final double inH1y = src['h1y'] ?? src['y1'] ?? (inMy - 0.35);
     final double inH2x = src['h2x'] ?? src['x2'] ?? (inMx + 0.15);
     final double inH2y = src['h2y'] ?? src['y2'] ?? (inMy + 0.35);
+    final double inS1 = src['s1'] ?? 1.0;
+    final double inS2 = src['s2'] ?? 1.0;
 
     final double outMx = (1.0 - inMx).clamp(0.05, 0.95);
     final double outMy = (1.0 - inMy).clamp(0.0, 1.0);
@@ -93,6 +108,8 @@ class VectorBezierCurve extends Curve {
       'my': outMy,
       'h2x': outH2x,
       'h2y': outH2y,
+      's1': inS2,
+      's2': inS1,
     };
   }
 
@@ -118,13 +135,15 @@ class VectorBezierCurve extends Curve {
     final double vh2y = y2.clamp(vmy, 1.0);
 
     // Segment 1 (0 to vmx):
-    // C01 starts from (0,0) towards H1 for smooth attack
-    final double c01x = (vh1x * 0.5).clamp(0.0, vh1x);
+    // C01 starts from (0,0) towards H1, scaled by strength s1
+    final double c01Ratio = (s1 / (1.0 + s1)).clamp(0.1, 0.98);
+    final double c01x = (vmx * c01Ratio).clamp(0.0, vh1x);
     final double c01y = 0.0;
 
     // Segment 2 (vmx to 1.0):
-    // C12 arrives into (1,1) from H2 for smooth release
-    final double c12x = (vh2x + (1.0 - vh2x) * 0.5).clamp(vh2x, 1.0);
+    // C12 arrives into (1,1) from H2, scaled by strength s2
+    final double c12Ratio = (1.0 / (1.0 + s2)).clamp(0.02, 0.9);
+    final double c12x = (vmx + (1.0 - vmx) * (1.0 - c12Ratio)).clamp(vh2x, 1.0);
     final double c12y = 1.0;
 
     double res;
