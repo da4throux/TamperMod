@@ -50,6 +50,10 @@ class GainCard extends StatefulWidget {
   final void Function(bool fadeIn) onTriggerFade;
   final ValueChanged<String> onOpenUri;
 
+  final bool isFadePaused;
+  final VoidCallback? onPauseResumeFade;
+  final VoidCallback? onStopFade;
+
   const GainCard({
     super.key,
     required this.pedal,
@@ -63,6 +67,9 @@ class GainCard extends StatefulWidget {
     required this.isFadingIn,
     required this.isFadingOut,
     required this.fadeProgress,
+    this.isFadePaused = false,
+    this.onPauseResumeFade,
+    this.onStopFade,
     required this.rangeStart,
     required this.rangeEnd,
     required this.fadeShape,
@@ -777,6 +784,14 @@ class _GainCardState extends State<GainCard> {
             onParamsInChanged: widget.onCustomCurveParamsChanged,
             onParamsOutChanged: widget.onCustomCurveParamsOutChanged,
             onCustomPresetsChanged: widget.onCustomPresetsChanged,
+            fadeProgress: widget.fadeProgress,
+            isFading: widget.isFading,
+            isFadingIn: widget.isFadingIn,
+            isFadingOut: widget.isFadingOut,
+            isFadePaused: widget.isFadePaused,
+            currentVolumeFraction: (maxRange > minRange)
+                ? (clampedValue - minRange) / (maxRange - minRange)
+                : 0.5,
           ),
         ],
         const SizedBox(height: 8),
@@ -801,10 +816,11 @@ class _GainCardState extends State<GainCard> {
           const SizedBox(height: 8),
         ],
 
-        // Fade buttons
+        // Fade & Transport buttons
         Row(
           children: [
             Expanded(
+              flex: 3,
               child: FadeButton(
                 label: 'FADE IN',
                 icon: Icons.trending_up,
@@ -814,7 +830,77 @@ class _GainCardState extends State<GainCard> {
                 isFading: widget.isFadingIn,
               ),
             ),
+            if (widget.isFading || widget.isFadePaused) ...[
+              const SizedBox(width: 4),
+              // Play/Pause button
+              Expanded(
+                flex: 2,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  child: ElevatedButton.icon(
+                    onPressed: isBypassed ? null : widget.onPauseResumeFade,
+                    icon: Icon(
+                      widget.isFadePaused ? Icons.play_arrow : Icons.pause,
+                      size: 13,
+                      color: Colors.amber,
+                    ),
+                    label: Text(
+                      widget.isFadePaused ? 'RESUME' : 'PAUSE',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                        color: Colors.amber,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber.withValues(alpha: 0.15),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Colors.amber, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Stop button
+              Expanded(
+                flex: 2,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  child: ElevatedButton.icon(
+                    onPressed: isBypassed ? null : widget.onStopFade,
+                    icon: const Icon(
+                      Icons.stop,
+                      size: 13,
+                      color: Color(0xFFFF5252),
+                    ),
+                    label: const Text(
+                      'STOP',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                        color: Color(0xFFFF5252),
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF5252).withValues(alpha: 0.15),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             Expanded(
+              flex: 3,
               child: FadeButton(
                 label: 'FADE OUT',
                 icon: Icons.trending_down,

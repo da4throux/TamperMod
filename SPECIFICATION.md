@@ -208,6 +208,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Fixed Center Waypoint Anchor Formulation (v1.3.56): middle point $M = (mx, my)$ is now an independent fixed anchor that stays 100% stationary when adjusting tangent handles $H_1$ and $H_2$, with 2-segment cubic Bézier solver guaranteeing the curve passes directly through $(0,0) \to M \to (1,1)$.
 * [x] C1 Continuous Collinear Tangent Line Across Middle Waypoint Anchor (v1.3.57): unified tangent slope $s = (h_2y - h_1y)/(h_2x - h_1x)$ at center anchor $M$ ensuring single straight continuous tangent line on both sides, strict monotonic bounding boxes preventing dips/overshoots, and canvas visualizer.
 * [x] Pure Continuous Monotonic Cubic Bézier (v1.3.58): eliminated piecewise segment kinks by returning to a single unbroken $C^\infty$ cubic Bézier spline with midpoint dot locked to curve inflection $B(0.5)$.
+* [x] Play/Pause/Stop Fade Transport Controls & Live Curve Animation (v1.3.59): added interactive amber PAUSE/RESUME and red STOP buttons to GainCard when a fade is active, and rendered a live glowing curve-riding progress cursor and gradient sweep fill directly on the VectorBezierEditor canvas.
 
 ### Todo Tasks (Grouped by Category)
 

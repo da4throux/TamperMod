@@ -23,6 +23,13 @@ class VectorBezierEditor extends StatefulWidget {
   final ValueChanged<Map<String, double>> onParamsOutChanged;
   final ValueChanged<Map<String, Map<String, double>>>? onCustomPresetsChanged;
 
+  final double fadeProgress;
+  final bool isFading;
+  final bool isFadingIn;
+  final bool isFadingOut;
+  final bool isFadePaused;
+  final double currentVolumeFraction;
+
   const VectorBezierEditor({
     super.key,
     required this.paramsIn,
@@ -33,6 +40,12 @@ class VectorBezierEditor extends StatefulWidget {
     required this.onParamsInChanged,
     required this.onParamsOutChanged,
     this.onCustomPresetsChanged,
+    this.fadeProgress = 0.0,
+    this.isFading = false,
+    this.isFadingIn = false,
+    this.isFadingOut = false,
+    this.isFadePaused = false,
+    this.currentVolumeFraction = 0.5,
   });
 
   @override
@@ -505,6 +518,12 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                     h2x: _x2,
                     h2y: _y2,
                     activeTarget: _dragTarget,
+                    fadeProgress: widget.fadeProgress,
+                    isFading: widget.isFading,
+                    isFadingIn: widget.isFadingIn,
+                    isFadingOut: widget.isFadingOut,
+                    isFadePaused: widget.isFadePaused,
+                    currentVolumeFraction: widget.currentVolumeFraction,
                   ),
                   child: const SizedBox.expand(),
                 ),
@@ -713,6 +732,12 @@ class _VectorBezierCanvasPainter extends CustomPainter {
   final double h2x;
   final double h2y;
   final _ActiveDragTarget activeTarget;
+  final double fadeProgress;
+  final bool isFading;
+  final bool isFadingIn;
+  final bool isFadingOut;
+  final bool isFadePaused;
+  final double currentVolumeFraction;
 
   _VectorBezierCanvasPainter({
     required this.curve,
@@ -727,6 +752,12 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     required this.h2x,
     required this.h2y,
     required this.activeTarget,
+    this.fadeProgress = 0.0,
+    this.isFading = false,
+    this.isFadingIn = false,
+    this.isFadingOut = false,
+    this.isFadePaused = false,
+    this.currentVolumeFraction = 0.5,
   });
 
   @override
@@ -868,6 +899,70 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       activeTarget == _ActiveDragTarget.endHandle,
       isDiamond: true,
     );
+
+    // 6. Live Animation Cursor & Progress Sweep
+    final bool isThisTabFading = (isFadeIn && isFadingIn) || (!isFadeIn && isFadingOut);
+    if (isThisTabFading && fadeProgress > 0.0) {
+      final double t = fadeProgress.clamp(0.0, 1.0);
+      final double liveY = curve.transform(t);
+      final Offset livePt = toScreen(t, liveY);
+
+      // Progress filled sweep path under the curve
+      final progressSweepPath = Path();
+      final int activeSteps = (t * 100).round();
+      if (activeSteps > 0) {
+        final startPt = toScreen(0.0, curve.transform(0.0));
+        progressSweepPath.moveTo(startPt.dx, startPt.dy);
+        for (int i = 1; i <= activeSteps; i++) {
+          final double stepT = (i / 100.0).clamp(0.0, t);
+          final stepPt = toScreen(stepT, curve.transform(stepT));
+          progressSweepPath.lineTo(stepPt.dx, stepPt.dy);
+        }
+        if (isFadeIn) {
+          progressSweepPath.lineTo(livePt.dx, pad + ch);
+          progressSweepPath.lineTo(pad, pad + ch);
+        } else {
+          progressSweepPath.lineTo(livePt.dx, pad);
+          progressSweepPath.lineTo(pad, pad);
+        }
+        progressSweepPath.close();
+
+        final sweepPaint = Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              accentColor.withValues(alpha: 0.35),
+              accentColor.withValues(alpha: 0.05),
+            ],
+          ).createShader(Rect.fromLTWH(pad, pad, cw, ch))
+          ..style = PaintingStyle.fill;
+        canvas.drawPath(progressSweepPath, sweepPaint);
+      }
+
+      // Vertical cursor line
+      final cursorPaint = Paint()
+        ..color = (isFadePaused ? Colors.amber : const Color(0xFFFF007F)).withValues(alpha: 0.85)
+        ..strokeWidth = 1.8;
+      canvas.drawLine(
+        Offset(livePt.dx, pad),
+        Offset(livePt.dx, pad + ch),
+        cursorPaint,
+      );
+
+      // Pulsing live head riding the curve
+      final headGlowPaint = Paint()
+        ..color = (isFadePaused ? Colors.amber : const Color(0xFFFF007F)).withValues(alpha: 0.45)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      canvas.drawCircle(livePt, 11, headGlowPaint);
+
+      final headMidPaint = Paint()
+        ..color = isFadePaused ? Colors.amber : const Color(0xFFFF007F);
+      canvas.drawCircle(livePt, 6, headMidPaint);
+
+      final headCorePaint = Paint()..color = Colors.white;
+      canvas.drawCircle(livePt, 3, headCorePaint);
+    }
   }
 
   @override

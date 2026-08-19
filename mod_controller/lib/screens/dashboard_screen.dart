@@ -534,8 +534,14 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   final Map<String, double> _preFadeVolumes = {};
   final Map<String, Timer?> _fadeTimers = {};
-  final Map<String, bool> _fadeDirections =
+  final Map<String, bool?> _fadeDirections =
       {}; // true for Fade In, false for Fade Out
+  final Map<String, bool> _fadePaused = {};
+  final Map<String, int> _fadeCurrentStep = {};
+  final Map<String, int> _fadeTotalSteps = {};
+  final Map<String, double> _fadeStartVal = {};
+  final Map<String, double> _fadeTargetVal = {};
+  final Map<String, Curve> _fadeActiveCurve = {};
 
   // Tap-tempo times keeper
   final List<DateTime> _tapTimes = [];
@@ -1304,6 +1310,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Stop any existing fade timer
     _fadeTimers[pedal.instance]?.cancel();
 
+    _fadeCurrentStep[pedal.instance] = currentStep;
+    _fadeTotalSteps[pedal.instance] = totalSteps;
+    _fadeStartVal[pedal.instance] = startVal;
+    _fadeTargetVal[pedal.instance] = targetEndValue;
+    _fadeActiveCurve[pedal.instance] = selectedCurve;
+    _fadePaused[pedal.instance] = false;
+
     setState(() {
       _fadeDirections[pedal.instance] = fadeIn;
       _fadeProgress[pedal.instance] = 0.0;
@@ -1318,11 +1331,14 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
 
         currentStep++;
+        _fadeCurrentStep[pedal.instance] = currentStep;
         if (currentStep >= totalSteps) {
           setState(() {
             _localVolumes[pedal.instance] = targetEndValue;
             _fadeTimers[pedal.instance] = null;
+            _fadePaused[pedal.instance] = false;
             _fadeProgress[pedal.instance] = 0.0;
+            _fadeDirections[pedal.instance] = null;
           });
           _webSocketService.setParamValue(
             instance: pedal.instance,
@@ -1348,6 +1364,84 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       },
     );
+  }
+
+  void _stopFade(PluginInstance pedal) {
+    _fadeTimers[pedal.instance]?.cancel();
+    setState(() {
+      _fadeTimers[pedal.instance] = null;
+      _fadePaused[pedal.instance] = false;
+      _fadeProgress[pedal.instance] = 0.0;
+      _fadeDirections[pedal.instance] = null;
+    });
+  }
+
+  void _pauseResumeFade(PluginInstance pedal) {
+    final bool isPaused = _fadePaused[pedal.instance] ?? false;
+    if (!isPaused) {
+      // Pause active timer
+      _fadeTimers[pedal.instance]?.cancel();
+      setState(() {
+        _fadeTimers[pedal.instance] = null;
+        _fadePaused[pedal.instance] = true;
+      });
+    } else {
+      // Resume from current step
+      setState(() {
+        _fadePaused[pedal.instance] = false;
+      });
+      final int totalSteps = _fadeTotalSteps[pedal.instance] ?? 100;
+      int currentStep = _fadeCurrentStep[pedal.instance] ?? 0;
+      final double startVal = _fadeStartVal[pedal.instance] ?? 0.0;
+      final double targetEndValue = _fadeTargetVal[pedal.instance] ?? 0.0;
+      final Curve selectedCurve = _fadeActiveCurve[pedal.instance] ?? Curves.easeInOut;
+
+      _fadeTimers[pedal.instance] = Timer.periodic(
+        const Duration(milliseconds: 50),
+        (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          currentStep++;
+          _fadeCurrentStep[pedal.instance] = currentStep;
+          if (currentStep >= totalSteps) {
+            setState(() {
+              _localVolumes[pedal.instance] = targetEndValue;
+              _fadeTimers[pedal.instance] = null;
+              _fadePaused[pedal.instance] = false;
+              _fadeProgress[pedal.instance] = 0.0;
+              _fadeDirections[pedal.instance] = null;
+            });
+            if (pedal.gainPortSymbol != null) {
+              _webSocketService.setParamValue(
+                instance: pedal.instance,
+                port: pedal.gainPortSymbol!,
+                value: double.parse(targetEndValue.toStringAsFixed(2)),
+              );
+            }
+            timer.cancel();
+          } else {
+            final double progress = currentStep / totalSteps;
+            final double curvedProgress = selectedCurve.transform(progress);
+            final double intermediateVal =
+                startVal + (targetEndValue - startVal) * curvedProgress;
+
+            setState(() {
+              _localVolumes[pedal.instance] = intermediateVal;
+              _fadeProgress[pedal.instance] = progress;
+            });
+            if (pedal.gainPortSymbol != null) {
+              _webSocketService.setParamValue(
+                instance: pedal.instance,
+                port: pedal.gainPortSymbol!,
+                value: double.parse(intermediateVal.toStringAsFixed(2)),
+              );
+            }
+          }
+        },
+      );
+    }
   }
 
   /// Checks for active WiFi before connecting.
@@ -2464,7 +2558,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ? pedal.parameters[pedal.gainPortSymbol]
                             : null) ??
                         0.0;
-                    final bool isFading = _fadeTimers[pedal.instance] != null;
+                    final bool isFading = (_fadeTimers[pedal.instance] != null) || (_fadePaused[pedal.instance] == true);
+                    final bool isFadePaused = _fadePaused[pedal.instance] ?? false;
                     final bool isFadingIn =
                         isFading && (_fadeDirections[pedal.instance] == true);
                     final bool isFadingOut =
@@ -2486,6 +2581,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       isFadingIn: isFadingIn,
                       isFadingOut: isFadingOut,
                       fadeProgress: _fadeProgress[pedal.instance] ?? 0.0,
+                      isFadePaused: isFadePaused,
+                      onPauseResumeFade: () => _pauseResumeFade(pedal),
+                      onStopFade: () => _stopFade(pedal),
                       rangeStart: rangeStart,
                       rangeEnd: rangeEnd,
                       fadeShape: _fadeShapes[pedal.instance] ?? 'Linear',
