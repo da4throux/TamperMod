@@ -206,6 +206,8 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Unify SwitchCard Full-Card Tap & Eliminate WebView Duplicate Invocations (v1.3.54): single root opaque gesture detector allowing tap anywhere on SwitchCard to toggle reliably, and removed duplicate WebSocket sends and DOM click events from WebView helper script.
 * [x] Custom Curve UX Polish & Tangent Power (v1.3.55): updated button labels with "TO", fixed undo stack target tracking for copy/mirror actions, unlocked full tangent power for steep S-curves, and hid duplicate bottom graph in custom vector mode.
 * [x] Fixed Center Waypoint Anchor Formulation (v1.3.56): middle point $M = (mx, my)$ is now an independent fixed anchor that stays 100% stationary when adjusting tangent handles $H_1$ and $H_2$, with 2-segment cubic Bézier solver guaranteeing the curve passes directly through $(0,0) \to M \to (1,1)$.
+* [x] C1 Continuous Collinear Tangent Line Across Middle Waypoint Anchor (v1.3.57): unified tangent slope $s = (h_2y - h_1y)/(h_2x - h_1x)$ at center anchor $M$ ensuring single straight continuous tangent line on both sides, strict monotonic bounding boxes preventing dips/overshoots, and canvas visualizer.
+* [x] Pure Continuous Monotonic Cubic Bézier (v1.3.58): eliminated piecewise segment kinks by returning to a single unbroken $C^\infty$ cubic Bézier spline with midpoint dot locked to curve inflection $B(0.5)$.
 
 ### Todo Tasks (Grouped by Category)
 

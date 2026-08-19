@@ -54,10 +54,12 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
 
   double get _x1 => (_activeParams['h1x'] ?? _activeParams['x1'] ?? 0.25).clamp(0.0, 1.0);
   double get _y1 => (_activeParams['h1y'] ?? _activeParams['y1'] ?? 0.10).clamp(0.0, 1.0);
-  double get _mx => (_activeParams['mx'] ?? 0.50).clamp(0.05, 0.95);
-  double get _my => (_activeParams['my'] ?? 0.50).clamp(0.0, 1.0);
   double get _x2 => (_activeParams['h2x'] ?? _activeParams['x2'] ?? 0.75).clamp(0.0, 1.0);
   double get _y2 => (_activeParams['h2y'] ?? _activeParams['y2'] ?? 0.90).clamp(0.0, 1.0);
+
+  // Exact point on the single continuous cubic Bézier curve at t = 0.5 (X(0.5) = 3/8*(x1+x2) + 1/8, Y(0.5) = 3/8*(y1+y2) + 1/8)
+  double get _mx => ((3.0 / 8.0) * (_x1 + _x2) + 0.125).clamp(0.05, 0.95);
+  double get _my => ((3.0 / 8.0) * (_y1 + _y2) + 0.125).clamp(0.0, 1.0);
 
   void _recordHistory() {
     final copy = Map<String, double>.from(_activeParams);
@@ -435,25 +437,53 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                   final norm = toNormalized(details.localPosition);
                   switch (_dragTarget) {
                     case _ActiveDragTarget.startHandle:
-                      _activeOnChanged({
-                        ..._activeParams,
-                        'h1x': norm.dx.clamp(0.0, _mx),
-                        'h1y': norm.dy.clamp(0.0, 1.0),
-                      });
+                      {
+                        final double newH1x = norm.dx.clamp(0.0, 1.0);
+                        final double newH1y = norm.dy.clamp(0.0, 1.0);
+                        _activeOnChanged({
+                          ..._activeParams,
+                          'h1x': newH1x,
+                          'h1y': newH1y,
+                          'mx': ((3.0 / 8.0) * (newH1x + _x2) + 0.125).clamp(0.05, 0.95),
+                          'my': ((3.0 / 8.0) * (newH1y + _y2) + 0.125).clamp(0.0, 1.0),
+                        });
+                      }
                       break;
                     case _ActiveDragTarget.midpoint:
-                      _activeOnChanged({
-                        ..._activeParams,
-                        'mx': norm.dx.clamp(0.05, 0.95),
-                        'my': norm.dy.clamp(0.0, 1.0),
-                      });
+                      {
+                        final double curMx = _mx;
+                        final double curMy = _my;
+                        final double deltaX = norm.dx - curMx;
+                        final double deltaY = norm.dy - curMy;
+                        final double shiftX = (4.0 / 3.0) * deltaX;
+                        final double shiftY = (4.0 / 3.0) * deltaY;
+                        final double newH1x = (_x1 + shiftX).clamp(0.0, 1.0);
+                        final double newH2x = (_x2 + shiftX).clamp(0.0, 1.0);
+                        final double newH1y = (_y1 + shiftY).clamp(0.0, 1.0);
+                        final double newH2y = (_y2 + shiftY).clamp(0.0, 1.0);
+                        _activeOnChanged({
+                          ..._activeParams,
+                          'h1x': newH1x,
+                          'h1y': newH1y,
+                          'h2x': newH2x,
+                          'h2y': newH2y,
+                          'mx': ((3.0 / 8.0) * (newH1x + newH2x) + 0.125).clamp(0.05, 0.95),
+                          'my': ((3.0 / 8.0) * (newH1y + newH2y) + 0.125).clamp(0.0, 1.0),
+                        });
+                      }
                       break;
                     case _ActiveDragTarget.endHandle:
-                      _activeOnChanged({
-                        ..._activeParams,
-                        'h2x': norm.dx.clamp(_mx, 1.0),
-                        'h2y': norm.dy.clamp(0.0, 1.0),
-                      });
+                      {
+                        final double newH2x = norm.dx.clamp(0.0, 1.0);
+                        final double newH2y = norm.dy.clamp(0.0, 1.0);
+                        _activeOnChanged({
+                          ..._activeParams,
+                          'h2x': newH2x,
+                          'h2y': newH2y,
+                          'mx': ((3.0 / 8.0) * (_x1 + newH2x) + 0.125).clamp(0.05, 0.95),
+                          'my': ((3.0 / 8.0) * (_y1 + newH2y) + 0.125).clamp(0.0, 1.0),
+                        });
+                      }
                       break;
                     case _ActiveDragTarget.none:
                       break;
