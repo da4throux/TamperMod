@@ -221,6 +221,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Extended Tangent Strength Scaling & Dynamic Arm Thickness (v1.3.69): enabled continuous tangent strength scaling ($s_1, s_2 \ge 1.0$ up to $10.0$) when pulling beyond the canvas frame for sharper vertical inflections, pinned visible diamond handles neatly to box boundaries while expanding arm line thickness from 2px to 8px, and updated cubic control points in `curves.dart`.
 * [x] Unconstrained Touch Dragging & Constant Opposite Arm Length (v1.3.70): unconstrained normalization coordinates allowing drag to extend outside the box and drive strength up to 10x, and fixed handle angle rotation to strictly preserve the opposite handle's scalar length ($L$) without stretching or shrinking.
 * [x] Extended Vertical Segment Reach for High Tangent Strengths (v1.3.71): scaled tangent control point reach ($C_{02}$ and $C_{11}$) directly by strength multipliers ($s_1, s_2$), stretching the pure vertical rise through center anchor $M$ across the canvas height for ultra-dramatic vertical S-curves.
+* [x] Strict Monotonic [0, 1] Bounds for High Strength Verticals (v1.3.72): bound control points $C_{02}$ and $C_{11}$ strictly within the unit interval $[0.0, 1.0]$ using asymptotic scaling towards baseline and ceiling, eliminating overshoots above 100% and dips below 0% while preserving maximum vertical stretch.
 
 ### Todo Tasks (Grouped by Category)
 

@@ -135,19 +135,23 @@ class VectorBezierCurve extends Curve {
     final double vh2y = y2.clamp(vmy, 1.0);
 
     // Segment 1 (0 to vmx):
-    // C02 is the incoming tangent control point at M, scaled by strength s1
-    final double c02x = vmx - (vmx - x1) * s1;
-    final double c02y = vmy - (vmy - y1) * s1;
+    // As s1 increases, C02 extends vertically toward baseline 0.0 without going below 0.0
+    final double c02x = (vmx - (vmx - vh1x) / math.max(1.0, s1)).clamp(0.0, vmx);
+    final double c02y = (s1 <= 1.0)
+        ? (vmy - (vmy - vh1y) * s1).clamp(0.0, vmy)
+        : (vmy - (vmy - vh1y) - vh1y * (1.0 - 1.0 / s1)).clamp(0.0, vmy);
     final double c01Ratio = (s1 / (1.0 + s1)).clamp(0.1, 0.98);
-    final double c01x = (vmx * c01Ratio).clamp(0.0, math.max(0.0, c02x));
+    final double c01x = (vmx * c01Ratio).clamp(0.0, c02x);
     final double c01y = 0.0;
 
     // Segment 2 (vmx to 1.0):
-    // C11 is the outgoing tangent control point at M, scaled by strength s2
-    final double c11x = vmx + (x2 - vmx) * s2;
-    final double c11y = vmy + (y2 - vmy) * s2;
+    // As s2 increases, C11 extends vertically toward ceiling 1.0 without going above 1.0
+    final double c11x = (vmx + (vh2x - vmx) / math.max(1.0, s2)).clamp(vmx, 1.0);
+    final double c11y = (s2 <= 1.0)
+        ? (vmy + (vh2y - vmy) * s2).clamp(vmy, 1.0)
+        : (vmy + (vh2y - vmy) + (1.0 - vh2y) * (1.0 - 1.0 / s2)).clamp(vmy, 1.0);
     final double c12Ratio = (1.0 / (1.0 + s2)).clamp(0.02, 0.9);
-    final double c12x = (vmx + (1.0 - vmx) * (1.0 - c12Ratio)).clamp(math.min(1.0, c11x), 1.0);
+    final double c12x = (vmx + (1.0 - vmx) / (1.0 + s2)).clamp(c11x, 1.0);
     final double c12y = 1.0;
 
     double res;
