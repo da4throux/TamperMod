@@ -412,9 +412,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       if (!sym || sym === ':bypass' || sym === 'bypass') return;
                       
                       var name = (typeof port.get === 'function' ? port.get('name') : port.name) || sym;
-                      var minVal = typeof port.get === 'function' ? port.get('min') : port.min;
-                      var maxVal = typeof port.get === 'function' ? port.get('max') : port.max;
-                      var stepVal = typeof port.get === 'function' ? port.get('step') : port.step;
+                      var ranges = (typeof port.get === 'function' ? port.get('ranges') : port.ranges) || {};
+                      var minVal = ranges.min !== undefined ? ranges.min : (typeof port.get === 'function' ? port.get('min') : port.min);
+                      var maxVal = ranges.max !== undefined ? ranges.max : (typeof port.get === 'function' ? port.get('max') : port.max);
+                      var stepVal = ranges.step !== undefined ? ranges.step : (typeof port.get === 'function' ? port.get('step') : port.step);
                       var isToggle = typeof port.get === 'function' ? port.get('is_toggle') : port.is_toggle;
                       
                       minVal = parseFloat(minVal);

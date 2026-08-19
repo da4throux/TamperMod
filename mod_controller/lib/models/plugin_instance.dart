@@ -46,14 +46,17 @@ class PluginInstance {
   }
 
   double get minGain {
-    if (gainPortSymbol != null && parameterMetadata.containsKey(gainPortSymbol)) {
-      return parameterMetadata[gainPortSymbol]!.min;
-    }
     final uriLower = uri.toLowerCase();
     final titleLower = title.toLowerCase();
     
     if (uriLower.contains('tinygain') || uriLower.contains('mono') || titleLower.contains('mono')) {
       return -20.0;
+    }
+    if (gainPortSymbol != null && parameterMetadata.containsKey(gainPortSymbol)) {
+      final meta = parameterMetadata[gainPortSymbol]!;
+      if (!(meta.min == 0.0 && meta.max == 1.0)) {
+        return meta.min;
+      }
     }
     if (uriLower.contains('volume') || titleLower.contains('volume')) {
       return -60.0;
@@ -68,14 +71,17 @@ class PluginInstance {
   }
 
   double get maxGain {
-    if (gainPortSymbol != null && parameterMetadata.containsKey(gainPortSymbol)) {
-      return parameterMetadata[gainPortSymbol]!.max;
-    }
     final uriLower = uri.toLowerCase();
     final titleLower = title.toLowerCase();
     
     if (uriLower.contains('tinygain') || uriLower.contains('mono') || titleLower.contains('mono')) {
       return 20.0;
+    }
+    if (gainPortSymbol != null && parameterMetadata.containsKey(gainPortSymbol)) {
+      final meta = parameterMetadata[gainPortSymbol]!;
+      if (!(meta.min == 0.0 && meta.max == 1.0)) {
+        return meta.max;
+      }
     }
     if (uriLower.contains('volume') || titleLower.contains('volume')) {
       return 0.0;
