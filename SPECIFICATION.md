@@ -216,6 +216,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Preserve Active Puzzle Tile Position on Click/Release in Place (v1.3.64): updated `DragTarget.onAccept` on the Active Puzzle Canvas container in `settings_drawer.dart` to check `wasAlreadyActive`, preventing active tiles from jumping to the end of the board when clicked or released in place.
 * [x] Full 90° Vertical Tangent Alignment & Independent Arm Lengths (v1.3.65): enabled pure vertical tangent angle ($\theta = \pi/2$) across center anchor $M$, allowed independent incoming and outgoing handle lengths with gradual strength scaling, and formulated slope-matched cubic Bézier in `curves.dart` ensuring smooth monotonic transitions for steep vertical inflections.
 * [x] Directional Clamping at Vertical & Dual-Color Tangent Arms (v1.3.66): eliminated reverse rotation when dragging past vertical by clamping $dx \ge 0$, maintaining a strict vertical orientation without bouncing back, gave incoming ($H_1$) and outgoing ($H_2$) arms independent lengths with distinct colors (Cyan vs Neon Gold), and preserved tangent direction during midpoint moves.
+* [x] 100% Exact Curve Alignment Along Handle Tangent (v1.3.67): bound tangent handles $H_1$ and $H_2$ directly as cubic Bézier control points $C_{02}$ and $C_{11}$, guaranteeing that the evaluated curve through center anchor $M$ is mathematically and visually 100% tangent to the line formed by the handles.
 
 ### Todo Tasks (Grouped by Category)
 
