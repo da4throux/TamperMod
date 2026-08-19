@@ -2414,6 +2414,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                   final titleLower = pedal.title.toLowerCase();
                   final isLooper =
                       uriLower.contains('alo') || titleLower.contains('alo');
+                  final isSwitch =
+                      uriLower.contains('switch') ||
+                      titleLower.contains('switch');
+                  final isGainOrVolume =
+                      uriLower.contains('gain') ||
+                      uriLower.contains('volume') ||
+                      uriLower.contains('amp') ||
+                      titleLower.contains('gain') ||
+                      titleLower.contains('volume');
 
                   double cardWidth = regularWidth;
                   double? cardHeight = 240.0;
@@ -2442,6 +2451,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                       cardWidth = expandedWidth;
                       cardHeight = null; // Auto-expand to fit all content
                     }
+                  } else if (isSwitch) {
+                    if (size == 'compact') {
+                      cardWidth = compactWidth;
+                      cardHeight = 240.0;
+                    } else if (size == 'regular') {
+                      cardWidth = regularWidth;
+                      cardHeight = 240.0;
+                    } else {
+                      cardWidth = expandedWidth;
+                      cardHeight = 240.0;
+                    }
                   } else {
                     if (size == 'compact') {
                       // Same height as regular — fade buttons take full width
@@ -2465,15 +2485,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                       _customTitles[pedal.instance] ?? pedal.title;
 
                   Widget cardWidget;
-                  final isSwitch =
-                      uriLower.contains('switch') ||
-                      titleLower.contains('switch');
-                  final isGainOrVolume =
-                      uriLower.contains('gain') ||
-                      uriLower.contains('volume') ||
-                      uriLower.contains('amp') ||
-                      titleLower.contains('gain') ||
-                      titleLower.contains('volume');
 
                   if (isLineBreak) {
                     cardWidget = SizedBox(

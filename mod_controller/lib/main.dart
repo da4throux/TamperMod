@@ -6,10 +6,26 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'screens/dashboard_screen.dart';
 
 // Global application version tracking constant
-const String kAppVersion = '1.3.62';
+const String kAppVersion = '1.3.63';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('FLUTTER ERROR: ${details.exceptionAsString()} \n ${details.stack}');
+  };
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Container(
+      color: Colors.red[900],
+      padding: const EdgeInsets.all(8),
+      child: SingleChildScrollView(
+        child: Text(
+          'ERROR: ${details.exception}\n${details.stack}',
+          style: const TextStyle(color: Colors.white, fontSize: 10),
+        ),
+      ),
+    );
+  };
   WakelockPlus.enable();
 
   runApp(const ModControllerApp());

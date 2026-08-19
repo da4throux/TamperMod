@@ -484,7 +484,7 @@ class PlaceholderCard extends StatelessWidget {
                   ),
                 ),
               ] else ...[
-                const Spacer(),
+                const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

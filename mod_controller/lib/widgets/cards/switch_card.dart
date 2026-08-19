@@ -246,7 +246,7 @@ class SwitchCard extends StatelessWidget {
                   ],
                 ),
 
-                const Spacer(),
+                const SizedBox(height: 10),
 
                 // ── Center Content: Route Mode vs Toggle Mode in Button Boxes ──
                 if (isRouteMode)
@@ -254,7 +254,7 @@ class SwitchCard extends StatelessWidget {
                 else
                   _buildToggleLayout(context, isToggleActive, isPluginPowered, switchPort, currentValue),
 
-                const Spacer(),
+                const SizedBox(height: 10),
 
                 // ── Bottom Port Info Footer ──
                 Container(

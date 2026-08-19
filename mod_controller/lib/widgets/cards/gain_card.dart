@@ -458,7 +458,7 @@ class _GainCardState extends State<GainCard> {
                       buildMuteIcon(),
                     ],
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 6),
                   // URI
                   GestureDetector(
                     onTap: () => widget.onOpenUri(widget.pedal.uri),
