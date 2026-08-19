@@ -1802,6 +1802,45 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
+                // View Mode Chips in AppBar
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildAppBarViewChip(
+                      label: 'TILES',
+                      isSelected: _showControls && !_showWeb,
+                      onTap: () {
+                        setState(() {
+                          _showControls = true;
+                          _showWeb = false;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 3),
+                    _buildAppBarViewChip(
+                      label: 'SPLIT',
+                      isSelected: _showControls && _showWeb,
+                      onTap: () {
+                        setState(() {
+                          _showControls = true;
+                          _showWeb = true;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 3),
+                    _buildAppBarViewChip(
+                      label: 'WEB',
+                      isSelected: !_showControls && _showWeb,
+                      onTap: () {
+                        setState(() {
+                          _showControls = false;
+                          _showWeb = true;
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
             actions: [
@@ -2051,7 +2090,19 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildBodyContent(bool isLandscape) {
     if (!_showControls && !_showWeb) {
-      return const Center(child: Text('Select a view mode above.'));
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('No view mode selected', style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () => setState(() => _showControls = true),
+              child: const Text('SHOW TILES'),
+            ),
+          ],
+        ),
+      );
     }
 
     if (_showControls && _showWeb) {
@@ -2181,32 +2232,36 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
 
         if (enabledPlugins.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.tune_outlined, size: 64, color: Colors.grey[700]),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No Active Custom Controls',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
+          if (plugins.isNotEmpty) {
+            enabledPlugins.addAll(plugins);
+          } else {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.tune_outlined, size: 64, color: Colors.grey[700]),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No Active Custom Controls',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Open the Settings Drawer (top-right gear icon) to choose which pedals to layout.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Open the Settings Drawer (top-right gear icon) to choose which pedals to layout.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
+            );
+          }
         }
 
         return LayoutBuilder(
@@ -3483,6 +3538,44 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildWebView() {
     return WebViewWidget(controller: _webViewController);
+  }
+
+  Widget _buildAppBarViewChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (_isDarkMode
+                  ? const Color(0xFF00FFCC).withValues(alpha: 0.2)
+                  : const Color(0xFF00B3FF).withValues(alpha: 0.2))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected
+                ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                : (_isDarkMode ? Colors.white24 : Colors.black26),
+            width: isSelected ? 1.2 : 0.8,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            color: isSelected
+                ? (_isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                : (_isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadThemeSettings() async {
