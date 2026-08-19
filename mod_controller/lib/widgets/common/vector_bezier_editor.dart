@@ -451,50 +451,65 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                   switch (_dragTarget) {
                     case _ActiveDragTarget.startHandle:
                       {
-                        final double newH1x = norm.dx.clamp(0.0, 1.0);
-                        final double newH1y = norm.dy.clamp(0.0, 1.0);
-                        _activeOnChanged({
-                          ..._activeParams,
-                          'h1x': newH1x,
-                          'h1y': newH1y,
-                          'mx': ((3.0 / 8.0) * (newH1x + _x2) + 0.125).clamp(0.05, 0.95),
-                          'my': ((3.0 / 8.0) * (newH1y + _y2) + 0.125).clamp(0.0, 1.0),
-                        });
-                      }
-                      break;
-                    case _ActiveDragTarget.midpoint:
-                      {
-                        final double curMx = _mx;
-                        final double curMy = _my;
-                        final double deltaX = norm.dx - curMx;
-                        final double deltaY = norm.dy - curMy;
-                        final double shiftX = (4.0 / 3.0) * deltaX;
-                        final double shiftY = (4.0 / 3.0) * deltaY;
-                        final double newH1x = (_x1 + shiftX).clamp(0.0, 1.0);
-                        final double newH2x = (_x2 + shiftX).clamp(0.0, 1.0);
-                        final double newH1y = (_y1 + shiftY).clamp(0.0, 1.0);
-                        final double newH2y = (_y2 + shiftY).clamp(0.0, 1.0);
+                        // H1 dragged: calculate offset relative to fixed M
+                        final double rawDx = (_mx - norm.dx).clamp(0.005, _mx);
+                        final double rawDy = (_my - norm.dy).clamp(0.005, _my);
+                        final double newH1x = _mx - rawDx;
+                        final double newH1y = _my - rawDy;
+                        // Symmetrically adjust the other tangent H2
+                        final double newH2x = (_mx + rawDx).clamp(_mx, 1.0);
+                        final double newH2y = (_my + rawDy).clamp(_my, 1.0);
                         _activeOnChanged({
                           ..._activeParams,
                           'h1x': newH1x,
                           'h1y': newH1y,
                           'h2x': newH2x,
                           'h2y': newH2y,
-                          'mx': ((3.0 / 8.0) * (newH1x + newH2x) + 0.125).clamp(0.05, 0.95),
-                          'my': ((3.0 / 8.0) * (newH1y + newH2y) + 0.125).clamp(0.0, 1.0),
+                          'mx': _mx,
+                          'my': _my,
                         });
                       }
                       break;
                     case _ActiveDragTarget.endHandle:
                       {
-                        final double newH2x = norm.dx.clamp(0.0, 1.0);
-                        final double newH2y = norm.dy.clamp(0.0, 1.0);
+                        // H2 dragged: calculate offset relative to fixed M
+                        final double rawDx = (norm.dx - _mx).clamp(0.005, 1.0 - _mx);
+                        final double rawDy = (norm.dy - _my).clamp(0.005, 1.0 - _my);
+                        final double newH2x = _mx + rawDx;
+                        final double newH2y = _my + rawDy;
+                        // Symmetrically adjust the other tangent H1
+                        final double newH1x = (_mx - rawDx).clamp(0.0, _mx);
+                        final double newH1y = (_my - rawDy).clamp(0.0, _my);
                         _activeOnChanged({
                           ..._activeParams,
+                          'h1x': newH1x,
+                          'h1y': newH1y,
                           'h2x': newH2x,
                           'h2y': newH2y,
-                          'mx': ((3.0 / 8.0) * (_x1 + newH2x) + 0.125).clamp(0.05, 0.95),
-                          'my': ((3.0 / 8.0) * (_y1 + newH2y) + 0.125).clamp(0.0, 1.0),
+                          'mx': _mx,
+                          'my': _my,
+                        });
+                      }
+                      break;
+                    case _ActiveDragTarget.midpoint:
+                      {
+                        // M dragged explicitly: shift M and translate H1, H2 with it
+                        final double newMx = norm.dx.clamp(0.10, 0.90);
+                        final double newMy = norm.dy.clamp(0.05, 0.95);
+                        final double dx = _mx - _x1;
+                        final double dy = _my - _y1;
+                        final double newH1x = (newMx - dx).clamp(0.0, newMx);
+                        final double newH1y = (newMy - dy).clamp(0.0, newMy);
+                        final double newH2x = (newMx + dx).clamp(newMx, 1.0);
+                        final double newH2y = (newMy + dy).clamp(newMy, 1.0);
+                        _activeOnChanged({
+                          ..._activeParams,
+                          'h1x': newH1x,
+                          'h1y': newH1y,
+                          'h2x': newH2x,
+                          'h2y': newH2y,
+                          'mx': newMx,
+                          'my': newMy,
                         });
                       }
                       break;
@@ -546,33 +561,41 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
               _buildPresetButton(
                 label: 'SMOOTH S',
                 preset: {
-                  'h1x': 0.25, 'h1y': 0.10,
+                  'h1x': 0.35, 'h1y': 0.15,
                   'mx': 0.50, 'my': 0.50,
-                  'h2x': 0.75, 'h2y': 0.90,
+                  'h2x': 0.65, 'h2y': 0.85,
+                },
+              ),
+              _buildPresetButton(
+                label: 'SHARP S',
+                preset: {
+                  'h1x': 0.46, 'h1y': 0.08,
+                  'mx': 0.50, 'my': 0.50,
+                  'h2x': 0.54, 'h2y': 0.92,
                 },
               ),
               _buildPresetButton(
                 label: 'PUNCHY ATTACK',
                 preset: {
-                  'h1x': 0.10, 'h1y': 0.65,
-                  'mx': 0.35, 'my': 0.80,
-                  'h2x': 0.70, 'h2y': 0.95,
+                  'h1x': 0.20, 'h1y': 0.45,
+                  'mx': 0.35, 'my': 0.75,
+                  'h2x': 0.50, 'h2y': 0.95,
                 },
               ),
               _buildPresetButton(
                 label: 'LATE SWELL',
                 preset: {
-                  'h1x': 0.35, 'h1y': 0.05,
-                  'mx': 0.65, 'my': 0.20,
-                  'h2x': 0.90, 'h2y': 0.40,
+                  'h1x': 0.50, 'h1y': 0.05,
+                  'mx': 0.65, 'my': 0.25,
+                  'h2x': 0.80, 'h2y': 0.55,
                 },
               ),
               _buildPresetButton(
                 label: 'LINEAR',
                 preset: {
-                  'h1x': 0.33, 'h1y': 0.33,
+                  'h1x': 0.25, 'h1y': 0.25,
                   'mx': 0.50, 'my': 0.50,
-                  'h2x': 0.67, 'h2y': 0.67,
+                  'h2x': 0.75, 'h2y': 0.75,
                 },
               ),
 
@@ -792,21 +815,20 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       ..strokeWidth = 0.8;
     canvas.drawLine(toScreen(0.0, 0.0), toScreen(1.0, 1.0), refPaint);
 
-    // 3. Tangent Vector Arms (from Ends to Handles)
+    // 3. Collinear Tangent Line through Middle Anchor M
     final p0 = toScreen(0.0, 0.0);
     final p1 = toScreen(1.0, 1.0);
     final h1 = toScreen(h1x, h1y);
     final pm = toScreen(mx, my);
     final h2 = toScreen(h2x, h2y);
 
-    final armPaint = Paint()
-      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.6)
-      ..strokeWidth = 1.5;
+    final tangentPaint = Paint()
+      ..color = const Color(0xFF00E5FF).withValues(alpha: 0.8)
+      ..strokeWidth = 1.8;
 
-    // Start tangent arm
-    canvas.drawLine(p0, h1, armPaint);
-    // End tangent arm
-    canvas.drawLine(p1, h2, armPaint);
+    // Straight collinear tangent line passing directly through M
+    canvas.drawLine(h1, pm, tangentPaint);
+    canvas.drawLine(pm, h2, tangentPaint);
 
     // Center point subtle indicator guides
     final guidePaint = Paint()
