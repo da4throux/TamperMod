@@ -2003,6 +2003,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           onConfigRename: _renameCurrentConfig,
                           onConfigDelete: _deleteCurrentConfig,
                           onLayoutSettingsChanged: () {
+                            setState(() {});
                             _updateAllGlowsInWebView();
                             _saveLayoutSettings();
                           },
