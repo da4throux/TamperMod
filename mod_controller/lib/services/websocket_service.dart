@@ -371,13 +371,30 @@ class ModWebSocketService extends ChangeNotifier {
     required String port,
     required double value,
   }) {
+    // 1. OPTIMISTIC UPDATE: Update the state immediately in all collections
+    final List<PluginInstance> currentAll = List.from(allPlugins.value);
+    final int indexAll = currentAll.indexWhere((p) => p.instance == instance);
+    if (indexAll != -1) {
+      currentAll[indexAll].parameters[port] = value;
+      allPlugins.value = currentAll;
+    }
+
+    final List<PluginInstance> currentGains = List.from(gainPedals.value);
+    final int indexGains = currentGains.indexWhere((p) => p.instance == instance);
+    if (indexGains != -1) {
+      currentGains[indexGains].parameters[port] = value;
+      gainPedals.value = currentGains;
+    }
+
+    notifyListeners();
+
     if (_channel == null || _status != ConnectionStatus.connected) {
       debugPrint('Cannot send param value: Not connected to MOD Dwarf');
       return;
     }
 
-    // Format: param_set <instance>/<port> <value>
-    final String rawPayload = 'param_set $instance/$port $value';
+    // Format: param_set <instance> <port> <value> (space-separated)
+    final String rawPayload = 'param_set $instance $port $value';
     debugPrint('SENDING COMMAND: $rawPayload');
     _channel!.sink.add(rawPayload);
   }
@@ -410,9 +427,9 @@ class ModWebSocketService extends ChangeNotifier {
       return;
     }
 
-    // Format: param_set <instance>/:bypass <1.0 for bypassed/off, 0.0 for active/on>
+    // Format: param_set <instance> :bypass <1.0 for bypassed/off, 0.0 for active/on>
     final double val = bypass ? 1.0 : 0.0;
-    final String rawPayload = 'param_set $instance/:bypass $val';
+    final String rawPayload = 'param_set $instance :bypass $val';
     debugPrint('SENDING COMMAND: $rawPayload');
     _channel!.sink.add(rawPayload);
   }

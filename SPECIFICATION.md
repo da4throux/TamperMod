@@ -93,12 +93,12 @@ To facilitate future development, this section catalogs all known protocols, end
 The MOD Dwarf WebSocket server (`mod-ui` Python backend) communicates via space-separated string commands.
 
 #### Commands Sent by App to Host:
-- **`param_set <instance> <portsymbol> <value>`** or **`param_set <instance>/<portsymbol> <value>`**
-  - Sets parameter values for a plugin.
-  - *Example:* `param_set /graph/gain_mono gain 0.5`
-- **`param_set <instance>/:bypass <value>`**
+- **`param_set <instance> <portsymbol> <value>`**
+  - Sets parameter values for a plugin (space-separated format strictly required by Tornado mod-ui backend).
+  - *Example:* `param_set /graph/SwitchBox2_3 Switch 1.0` or `param_set /graph/gain_mono gain 0.5`
+- **`param_set <instance> :bypass <value>`**
   - Toggles the bypass/mute state of a plugin. `1.0` bypasses/mutes, `0.0` enables/actives.
-  - *Example:* `param_set /graph/gain_mono/:bypass 1.0`
+  - *Example:* `param_set /graph/gain_mono :bypass 1.0`
 - **`transport-rolling <value>`**
   - Starts or stops host transport. `1` is play, `0` is stop.
 - **`transport-bpm <value>`** / **`transport_bpm <value>`** / **`bpm <value>`**
