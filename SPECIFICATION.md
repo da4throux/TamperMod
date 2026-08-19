@@ -214,6 +214,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Mathematical Curve Robustness & Launch Crash Defense (v1.3.62): guarded cubic solver against boundary conditions and invalid scale ratios, prevented `NaN`/`Infinity` stalls, and added test suite `curves_test.dart`.
 * [x] Eliminate Unbounded RenderFlex Spacers (v1.3.63): replaced `const Spacer()` with safe bounded sized boxes in `SwitchCard`, `GainCard`, and `PlaceholderCard` preventing fatal layout exceptions when cards self-size in expanded mode, and enforced 240px card height bounds for switch controls.
 * [x] Preserve Active Puzzle Tile Position on Click/Release in Place (v1.3.64): updated `DragTarget.onAccept` on the Active Puzzle Canvas container in `settings_drawer.dart` to check `wasAlreadyActive`, preventing active tiles from jumping to the end of the board when clicked or released in place.
+* [x] Full 90° Vertical Tangent Alignment & Independent Arm Lengths (v1.3.65): enabled pure vertical tangent angle ($\theta = \pi/2$) across center anchor $M$, allowed independent incoming and outgoing handle lengths with gradual strength scaling, and formulated slope-matched cubic Bézier in `curves.dart` ensuring smooth monotonic transitions for steep vertical inflections.
 
 ### Todo Tasks (Grouped by Category)
 

@@ -23,6 +23,31 @@ void main() {
       }
     });
 
+    test('100% pure vertical tangent handle across M evaluates smoothly and monotonically', () {
+      final curve = VectorBezierCurve.fromMap({
+        'h1x': 0.50,
+        'h1y': 0.05,
+        'mx': 0.50,
+        'my': 0.50,
+        'h2x': 0.50,
+        'h2y': 0.95,
+      });
+
+      expect(curve.transform(0.0), 0.0);
+      expect(curve.transform(1.0), 1.0);
+
+      double prev = 0.0;
+      for (int i = 0; i <= 200; i++) {
+        final double t = i / 200.0;
+        final double y = curve.transform(t);
+        expect(y.isNaN, false);
+        expect(y.isInfinite, false);
+        expect(y >= prev - 1e-4, true);
+        expect(y >= 0.0 && y <= 1.0, true);
+        prev = y;
+      }
+    });
+
     test('Sharp near-vertical S-curve preset evaluates smoothly without NaN or stalls', () {
       final curve = VectorBezierCurve.fromMap({
         'h1x': 0.49,

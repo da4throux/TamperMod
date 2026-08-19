@@ -1,6 +1,7 @@
 // Copyright (c) 2026 TamperMod Contributors
 // Licensed under the MIT License
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../utils/curves.dart';
 
@@ -451,14 +452,34 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                   switch (_dragTarget) {
                     case _ActiveDragTarget.startHandle:
                       {
-                        // H1 dragged: calculate offset relative to fixed M
-                        final double rawDx = (_mx - norm.dx).clamp(0.005, _mx);
-                        final double rawDy = (_my - norm.dy).clamp(0.005, _my);
-                        final double newH1x = _mx - rawDx;
-                        final double newH1y = _my - rawDy;
-                        // Symmetrically adjust the other tangent H2
-                        final double newH2x = (_mx + rawDx).clamp(_mx, 1.0);
-                        final double newH2y = (_my + rawDy).clamp(_my, 1.0);
+                        // H1 is incoming handle (nominally bottom-left from M)
+                        // Vector pointing from finger to M:
+                        final double rawDx = (_mx - norm.dx).abs();
+                        final double rawDy = (_my - norm.dy).abs();
+
+                        // Tangent angle theta: positive slope direction [0.001 rad to pi/2 (fully vertical)]
+                        double theta = math.atan2(
+                          rawDy.clamp(0.0001, 1000.0),
+                          rawDx.clamp(0.00001, 1000.0),
+                        );
+                        theta = theta.clamp(0.001, math.pi / 2);
+                        final double cosT = math.cos(theta);
+                        final double sinT = math.sin(theta);
+
+                        // Independent arm length L1 from finger to M (free/gradual strength scaling)
+                        final double len1 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
+
+                        // Preserve existing length of opposite handle H2
+                        final double curDx2 = (_x2 - _mx).abs();
+                        final double curDy2 = (_y2 - _my).abs();
+                        final double len2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
+
+                        // H1 placed strictly along -u direction, H2 along +u direction
+                        final double newH1x = _mx - len1 * cosT;
+                        final double newH1y = _my - len1 * sinT;
+                        final double newH2x = _mx + len2 * cosT;
+                        final double newH2y = _my + len2 * sinT;
+
                         _activeOnChanged({
                           ..._activeParams,
                           'h1x': newH1x,
@@ -472,14 +493,32 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                       break;
                     case _ActiveDragTarget.endHandle:
                       {
-                        // H2 dragged: calculate offset relative to fixed M
-                        final double rawDx = (norm.dx - _mx).clamp(0.005, 1.0 - _mx);
-                        final double rawDy = (norm.dy - _my).clamp(0.005, 1.0 - _my);
-                        final double newH2x = _mx + rawDx;
-                        final double newH2y = _my + rawDy;
-                        // Symmetrically adjust the other tangent H1
-                        final double newH1x = (_mx - rawDx).clamp(0.0, _mx);
-                        final double newH1y = (_my - rawDy).clamp(0.0, _my);
+                        // H2 is outgoing handle (nominally top-right from M)
+                        // Vector pointing from M to finger:
+                        final double rawDx = (norm.dx - _mx).abs();
+                        final double rawDy = (norm.dy - _my).abs();
+
+                        double theta = math.atan2(
+                          rawDy.clamp(0.0001, 1000.0),
+                          rawDx.clamp(0.00001, 1000.0),
+                        );
+                        theta = theta.clamp(0.001, math.pi / 2);
+                        final double cosT = math.cos(theta);
+                        final double sinT = math.sin(theta);
+
+                        // Independent arm length L2 from M to finger
+                        final double len2 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
+
+                        // Preserve existing length of opposite handle H1
+                        final double curDx1 = (_mx - _x1).abs();
+                        final double curDy1 = (_my - _y1).abs();
+                        final double len1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
+
+                        final double newH2x = _mx + len2 * cosT;
+                        final double newH2y = _my + len2 * sinT;
+                        final double newH1x = _mx - len1 * cosT;
+                        final double newH1y = _my - len1 * sinT;
+
                         _activeOnChanged({
                           ..._activeParams,
                           'h1x': newH1x,
@@ -493,15 +532,31 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                       break;
                     case _ActiveDragTarget.midpoint:
                       {
-                        // M dragged explicitly: shift M and translate H1, H2 with it
+                        // M dragged explicitly: shift M and preserve current angle and arm lengths
                         final double newMx = norm.dx.clamp(0.10, 0.90);
                         final double newMy = norm.dy.clamp(0.05, 0.95);
-                        final double dx = _mx - _x1;
-                        final double dy = _my - _y1;
-                        final double newH1x = (newMx - dx).clamp(0.0, newMx);
-                        final double newH1y = (newMy - dy).clamp(0.0, newMy);
-                        final double newH2x = (newMx + dx).clamp(newMx, 1.0);
-                        final double newH2y = (newMy + dy).clamp(newMy, 1.0);
+
+                        final double curDx1 = (_mx - _x1).abs();
+                        final double curDy1 = (_my - _y1).abs();
+                        final double curDx2 = (_x2 - _mx).abs();
+                        final double curDy2 = (_y2 - _my).abs();
+
+                        double theta = math.atan2(
+                          (curDy1 + curDy2).clamp(0.0001, 1000.0),
+                          (curDx1 + curDx2).clamp(0.00001, 1000.0),
+                        );
+                        theta = theta.clamp(0.001, math.pi / 2);
+                        final double cosT = math.cos(theta);
+                        final double sinT = math.sin(theta);
+
+                        final double len1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
+                        final double len2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
+
+                        final double newH1x = newMx - len1 * cosT;
+                        final double newH1y = newMy - len1 * sinT;
+                        final double newH2x = newMx + len2 * cosT;
+                        final double newH2y = newMy + len2 * sinT;
+
                         _activeOnChanged({
                           ..._activeParams,
                           'h1x': newH1x,

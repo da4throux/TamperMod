@@ -3,6 +3,7 @@
 //
 // Custom curves for fade interpolation and animation
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Vectorized Bézier Curve with Start/End vector handles and Center Point inflection
@@ -108,38 +109,50 @@ class VectorBezierCurve extends Curve {
     final double vmx = mx.clamp(0.05, 0.95);
     final double vmy = my.clamp(0.0, 1.0);
 
-    // Incoming handle H1 is before M
-    final double vh1x = x1.clamp(0.0, vmx);
-    final double vh1y = y1.clamp(0.0, vmy);
+    final double dx1 = (vmx - x1).abs();
+    final double dy1 = (vmy - y1).abs();
+    final double dx2 = (x2 - vmx).abs();
+    final double dy2 = (y2 - vmy).abs();
 
-    // Outgoing handle H2 is after M
-    final double vh2x = x2.clamp(vmx, 1.0);
-    final double vh2y = y2.clamp(vmy, 1.0);
+    // Tangent slope angle theta across M: [0.001 rad to pi/2 (fully vertical)]
+    double theta = math.atan2(
+      (dy1 + dy2).clamp(0.0001, 1000.0),
+      (dx1 + dx2).clamp(0.00001, 1000.0),
+    );
+    theta = theta.clamp(0.001, math.pi / 2);
+    final double slope = math.tan(theta).clamp(0.001, 500.0);
 
-    // Segment 1: from (0,0) to M
-    // Start control point is horizontal from 0 for smooth attack
-    final double c01x = vh1x * 0.5;
+    // Arm lengths
+    final double rawLen1 = math.sqrt(dx1 * dx1 + dy1 * dy1).clamp(0.02, 2.0);
+    final double rawLen2 = math.sqrt(dx2 * dx2 + dy2 * dy2).clamp(0.02, 2.0);
+
+    // Segment 1 (0 to vmx):
+    final double deltaX1 = (vmx * (rawLen1 / (1.0 + rawLen1))).clamp(0.001, vmx * 0.90);
+    final double c02x = vmx - deltaX1;
+    final double c02y = (vmy - slope * deltaX1).clamp(0.0, vmy);
+    final double c01x = (c02x * 0.4).clamp(0.0, c02x);
     final double c01y = 0.0;
 
-    // Segment 2: from M to (1,1)
-    // End control point is horizontal into 1 for smooth release
-    final double c12x = vh2x + (1.0 - vh2x) * 0.5;
+    // Segment 2 (vmx to 1.0):
+    final double span2 = 1.0 - vmx;
+    final double deltaX2 = (span2 * (rawLen2 / (1.0 + rawLen2))).clamp(0.001, span2 * 0.90);
+    final double c11x = vmx + deltaX2;
+    final double c11y = (vmy + slope * deltaX2).clamp(vmy, 1.0);
+    final double c12x = (c11x + (1.0 - c11x) * 0.6).clamp(c11x, 1.0);
     final double c12y = 1.0;
 
     double res;
     if (t <= vmx) {
-      // Solve segment 1
       res = _solveCubic(
         t,
-        0.0, c01x, vh1x, vmx,
-        0.0, c01y, vh1y, vmy,
+        0.0, c01x, c02x, vmx,
+        0.0, c01y, c02y, vmy,
       );
     } else {
-      // Solve segment 2
       res = _solveCubic(
         t,
-        vmx, vh2x, c12x, 1.0,
-        vmy, vh2y, c12y, 1.0,
+        vmx, c11x, c12x, 1.0,
+        vmy, c11y, c12y, 1.0,
       );
     }
 
