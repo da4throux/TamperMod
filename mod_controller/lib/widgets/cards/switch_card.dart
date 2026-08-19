@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/plugin_instance.dart';
 
 /// Switch/routing controller card widget with dual layout modes:
-/// 1. Route Mode: 2-Path selection (Path A vs Path B) with custom labels
+/// 1. Route Mode: 2-Path selection (Path A vs Path B) with custom labels in high-contrast button boxes
 /// 2. Toggle Mode: On/Off switch with prominent name and clean status indicator
 class SwitchCard extends StatelessWidget {
   final PluginInstance pedal;
@@ -87,8 +87,9 @@ class SwitchCard extends StatelessWidget {
         ? (isInverted ? (currentValue < 0.5) : (currentValue >= 0.5))
         : (isInverted ? pedal.isBypassed : !pedal.isBypassed);
 
-    final bool isCardActive = isRouteMode ? true : isToggleActive;
-    final Color accentColor = (isRouteMode || isCardActive) ? glowColor : Colors.grey[600]!;
+    final bool isPluginPowered = !pedal.isBypassed;
+    final bool isCardActive = isRouteMode ? isPluginPowered : (isToggleActive && isPluginPowered);
+    final Color accentColor = isPluginPowered ? glowColor : Colors.grey[600]!;
 
     return GestureDetector(
       onTap: () {
@@ -102,26 +103,28 @@ class SwitchCard extends StatelessWidget {
       onLongPress: onColorPickerPressed,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 150),
-        opacity: isCardActive ? 1.0 : 0.65,
+        opacity: isPluginPowered ? 1.0 : 0.60,
         child: Container(
           decoration: BoxDecoration(
             color: isCardActive
-                ? glowColor.withOpacity(isDarkMode ? 0.14 : 0.10)
-                : (isDarkMode ? const Color(0xFF161B22) : Colors.white),
+                ? glowColor.withOpacity(isDarkMode ? 0.12 : 0.08)
+                : (isDarkMode ? const Color(0xFF10141D) : const Color(0xFFF4F6F9)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: glowColor.withOpacity(isCardActive ? 0.8 : 0.25),
-              width: isCardActive ? 2.0 : 1.5,
+              color: isPluginPowered
+                  ? glowColor.withOpacity(isCardActive ? 0.85 : 0.3)
+                  : (isDarkMode ? Colors.grey[800]! : Colors.grey[350]!),
+              width: isCardActive ? 2.0 : 1.2,
             ),
             boxShadow: isCardActive
                 ? [
                     BoxShadow(
-                      color: glowColor.withOpacity(0.65),
+                      color: glowColor.withOpacity(0.60),
                       blurRadius: 10,
-                      spreadRadius: 2,
+                      spreadRadius: 1.5,
                     ),
                     BoxShadow(
-                      color: glowColor.withOpacity(isDarkMode ? 0.2 : 0.3),
+                      color: glowColor.withOpacity(isDarkMode ? 0.18 : 0.25),
                       blurRadius: 80,
                       spreadRadius: 2,
                     ),
@@ -129,59 +132,111 @@ class SwitchCard extends StatelessWidget {
                 : [],
           ),
           child: Padding(
-            padding: EdgeInsets.all(size == 'compact' ? 10.0 : 14.0),
+            padding: EdgeInsets.all(size == 'compact' ? 10.0 : 13.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Header Row
+                // ── Top Header Row (Name + Edit + Radar + Power Button) ──
                 Row(
                   children: [
+                    // Card Title in high-contrast capsule
                     Expanded(
-                      child: Text(
-                        displayName.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: size == 'compact' ? 13.0 : 15.0,
-                          fontWeight: FontWeight.w900,
-                          color: accentColor,
-                          letterSpacing: 0.8,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: onRenamePressed,
-                      behavior: HitTestBehavior.opaque,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: isDarkMode
-                              ? Colors.white.withOpacity(0.08)
-                              : Colors.black.withOpacity(0.05),
+                              ? const Color(0xFF181F2C).withOpacity(0.92)
+                              : Colors.white.withOpacity(0.92),
                           borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            width: 0.8,
+                          ),
                         ),
-                        child: Icon(
-                          Icons.edit,
-                          size: 13,
-                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                        child: Text(
+                          displayName.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: size == 'compact' ? 11.5 : 13.0,
+                            fontWeight: FontWeight.w900,
+                            color: isDarkMode ? Colors.white : Colors.black87,
+                            letterSpacing: 0.8,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
+
+                    // Edit Pen Button
+                    GestureDetector(
+                      onTap: onRenamePressed,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? const Color(0xFF1C2433)
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.edit,
+                          size: 13,
+                          color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+
+                    // Radar Highlight Button
                     GestureDetector(
                       onTap: onHighlightPressed,
                       behavior: HitTestBehavior.opaque,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           color: isDarkMode
-                              ? Colors.white.withOpacity(0.08)
-                              : Colors.black.withOpacity(0.05),
+                              ? const Color(0xFF1C2433)
+                              : Colors.grey[200],
                           borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            width: 0.8,
+                          ),
                         ),
                         child: Icon(
                           Icons.radar,
                           size: 13,
-                          color: accentColor.withOpacity(0.85),
+                          color: accentColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+
+                    // Power ON/OFF Button
+                    GestureDetector(
+                      onTap: () => onBypassToggle(!pedal.isBypassed),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: isPluginPowered
+                              ? glowColor.withOpacity(isDarkMode ? 0.25 : 0.18)
+                              : (isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200]),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isPluginPowered ? glowColor : Colors.grey[700]!,
+                            width: isPluginPowered ? 1.2 : 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.power_settings_new,
+                          size: 14,
+                          color: isPluginPowered ? glowColor : Colors.grey[500],
                         ),
                       ),
                     ),
@@ -190,30 +245,37 @@ class SwitchCard extends StatelessWidget {
 
                 const Spacer(),
 
-                // Center Content: Route Mode vs Toggle Mode
+                // ── Center Content: Route Mode vs Toggle Mode in Button Boxes ──
                 if (isRouteMode)
-                  // 2-Path Selector Layout
                   _buildRouteSelector(context, isPathBActive, switchPort)
                 else
-                  // On / Off Clean Toggle Layout
-                  _buildToggleLayout(context, isToggleActive),
+                  _buildToggleLayout(context, isToggleActive, isPluginPowered),
 
                 const Spacer(),
 
-                // Bottom Port Info Footer
-                Text(
-                  switchPort != null
-                      ? '$switchPort: ${currentValue.toStringAsFixed(1)}'
-                      : (pedal.parameters.isNotEmpty
-                          ? 'Params: ${pedal.parameters.keys.join(", ")}'
-                          : 'Bypass mode'),
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: isDarkMode ? Colors.grey[600] : Colors.grey[500],
-                    fontFamily: 'monospace',
-                    overflow: TextOverflow.ellipsis,
+                // ── Bottom Port Info Footer ──
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? const Color(0xFF131822).withOpacity(0.8)
+                        : Colors.grey[200]!.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  maxLines: 1,
+                  child: Text(
+                    switchPort != null
+                        ? '$switchPort: ${currentValue.toStringAsFixed(1)}'
+                        : (pedal.parameters.isNotEmpty
+                            ? 'Params: ${pedal.parameters.keys.join(", ")}'
+                            : 'Bypass mode'),
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                      fontFamily: 'monospace',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    maxLines: 1,
+                  ),
                 ),
               ],
             ),
@@ -223,35 +285,44 @@ class SwitchCard extends StatelessWidget {
     );
   }
 
-  // 1. Route Mode Layout: Two interactive path pills
+  // 1. Route Mode: Two high-contrast independent button boxes for Path A and Path B
   Widget _buildRouteSelector(BuildContext context, bool isPathBActive, String? switchPort) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Path A Pill (Down / 0.0)
+        // Path A Box (Down / 0.0)
         GestureDetector(
           onTap: () {
             if (switchPort != null) onSwitchPathChanged(switchPort, 0.0);
           },
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
             decoration: BoxDecoration(
               color: !isPathBActive
-                  ? glowColor.withOpacity(isDarkMode ? 0.30 : 0.22)
-                  : (isDarkMode ? Colors.black.withOpacity(0.25) : Colors.grey[200]),
-              borderRadius: BorderRadius.circular(8),
+                  ? (isDarkMode ? const Color(0xFF192535) : Colors.white)
+                  : (isDarkMode ? const Color(0xFF121620) : const Color(0xFFE8EEF5)),
+              borderRadius: BorderRadius.circular(9),
               border: Border.all(
-                color: !isPathBActive ? glowColor : Colors.grey[800]!,
+                color: !isPathBActive ? glowColor : (isDarkMode ? Colors.grey[850]! : Colors.grey[350]!),
                 width: !isPathBActive ? 1.8 : 1.0,
               ),
+              boxShadow: !isPathBActive
+                  ? [
+                      BoxShadow(
+                        color: glowColor.withOpacity(0.25),
+                        blurRadius: 6,
+                        spreadRadius: 0.5,
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
                 Icon(
                   !isPathBActive ? Icons.radio_button_checked : Icons.radio_button_off,
-                  size: 14,
-                  color: !isPathBActive ? glowColor : Colors.grey[600],
+                  size: 15,
+                  color: !isPathBActive ? glowColor : Colors.grey[500],
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -262,7 +333,7 @@ class SwitchCard extends StatelessWidget {
                       fontWeight: !isPathBActive ? FontWeight.w900 : FontWeight.w600,
                       color: !isPathBActive
                           ? (isDarkMode ? Colors.white : Colors.black87)
-                          : Colors.grey[600],
+                          : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                       letterSpacing: 0.8,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -270,17 +341,19 @@ class SwitchCard extends StatelessWidget {
                 ),
                 if (!isPathBActive)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                     decoration: BoxDecoration(
                       color: glowColor.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: glowColor.withOpacity(0.6), width: 0.8),
                     ),
                     child: Text(
                       'ACTIVE',
                       style: TextStyle(
                         fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w900,
                         color: glowColor,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   ),
@@ -289,32 +362,41 @@ class SwitchCard extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 6),
+        const SizedBox(height: 7),
 
-        // Path B Pill (Up / 1.0)
+        // Path B Box (Up / 1.0)
         GestureDetector(
           onTap: () {
             if (switchPort != null) onSwitchPathChanged(switchPort, 1.0);
           },
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
             decoration: BoxDecoration(
               color: isPathBActive
-                  ? glowColor.withOpacity(isDarkMode ? 0.30 : 0.22)
-                  : (isDarkMode ? Colors.black.withOpacity(0.25) : Colors.grey[200]),
-              borderRadius: BorderRadius.circular(8),
+                  ? (isDarkMode ? const Color(0xFF192535) : Colors.white)
+                  : (isDarkMode ? const Color(0xFF121620) : const Color(0xFFE8EEF5)),
+              borderRadius: BorderRadius.circular(9),
               border: Border.all(
-                color: isPathBActive ? glowColor : Colors.grey[800]!,
+                color: isPathBActive ? glowColor : (isDarkMode ? Colors.grey[850]! : Colors.grey[350]!),
                 width: isPathBActive ? 1.8 : 1.0,
               ),
+              boxShadow: isPathBActive
+                  ? [
+                      BoxShadow(
+                        color: glowColor.withOpacity(0.25),
+                        blurRadius: 6,
+                        spreadRadius: 0.5,
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
                 Icon(
                   isPathBActive ? Icons.radio_button_checked : Icons.radio_button_off,
-                  size: 14,
-                  color: isPathBActive ? glowColor : Colors.grey[600],
+                  size: 15,
+                  color: isPathBActive ? glowColor : Colors.grey[500],
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -325,7 +407,7 @@ class SwitchCard extends StatelessWidget {
                       fontWeight: isPathBActive ? FontWeight.w900 : FontWeight.w600,
                       color: isPathBActive
                           ? (isDarkMode ? Colors.white : Colors.black87)
-                          : Colors.grey[600],
+                          : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                       letterSpacing: 0.8,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -333,17 +415,19 @@ class SwitchCard extends StatelessWidget {
                 ),
                 if (isPathBActive)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                     decoration: BoxDecoration(
                       color: glowColor.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: glowColor.withOpacity(0.6), width: 0.8),
                     ),
                     child: Text(
                       'ACTIVE',
                       style: TextStyle(
                         fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w900,
                         color: glowColor,
+                        letterSpacing: 0.6,
                       ),
                     ),
                   ),
@@ -355,38 +439,62 @@ class SwitchCard extends StatelessWidget {
     );
   }
 
-  // 2. Toggle Mode Layout: Large clean title with elegant status badge
-  Widget _buildToggleLayout(BuildContext context, bool isToggleActive) {
-    return Center(
+  // 2. Toggle Mode: High-contrast independent button box with prominent name and status pill
+  Widget _buildToggleLayout(BuildContext context, bool isToggleActive, bool isPluginPowered) {
+    final bool isActuallyOn = isToggleActive && isPluginPowered;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDarkMode
+            ? (isActuallyOn ? const Color(0xFF162030) : const Color(0xFF131822))
+            : (isActuallyOn ? Colors.white : const Color(0xFFE8EEF5)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isActuallyOn
+              ? glowColor
+              : (isDarkMode ? Colors.grey[800]! : Colors.grey[350]!),
+          width: isActuallyOn ? 1.8 : 1.0,
+        ),
+        boxShadow: isActuallyOn
+            ? [
+                BoxShadow(
+                  color: glowColor.withOpacity(0.22),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Big bold name in center
+          // Bold prominent name in high contrast
           Text(
             displayName.toUpperCase(),
             style: TextStyle(
-              fontSize: size == 'compact' ? 17.0 : 20.0,
+              fontSize: size == 'compact' ? 15.0 : 18.0,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.5,
-              color: isToggleActive
-                  ? (isDarkMode ? Colors.white : Colors.black87)
-                  : Colors.grey[600],
+              color: isDarkMode ? Colors.white : Colors.black87,
               overflow: TextOverflow.ellipsis,
             ),
             textAlign: TextAlign.center,
             maxLines: 2,
           ),
           const SizedBox(height: 8),
+
           // Clean status indicator pill
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: BoxDecoration(
-              color: isToggleActive
+              color: isActuallyOn
                   ? glowColor.withOpacity(isDarkMode ? 0.25 : 0.20)
-                  : (isDarkMode ? Colors.grey[900] : Colors.grey[300]),
+                  : (isDarkMode ? const Color(0xFF0D1117) : Colors.grey[300]),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: isToggleActive ? glowColor : Colors.grey[700]!,
+                color: isActuallyOn ? glowColor : Colors.grey[700]!,
                 width: 1.2,
               ),
             ),
@@ -397,27 +505,29 @@ class SwitchCard extends StatelessWidget {
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: isToggleActive ? glowColor : Colors.grey[600],
+                    color: isActuallyOn ? glowColor : Colors.grey[600],
                     shape: BoxShape.circle,
-                    boxShadow: isToggleActive
+                    boxShadow: isActuallyOn
                         ? [
                             BoxShadow(
                               color: glowColor,
                               blurRadius: 6,
                               spreadRadius: 1,
-                            )
+                            ),
                           ]
                         : null,
                   ),
                 ),
                 const SizedBox(width: 7),
                 Text(
-                  isToggleActive ? 'ON' : 'OFF',
+                  isActuallyOn ? 'ON' : 'OFF',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 2.0,
-                    color: isToggleActive ? glowColor : Colors.grey[500],
+                    color: isActuallyOn
+                        ? (isDarkMode ? Colors.white : glowColor)
+                        : (isDarkMode ? Colors.grey[500] : Colors.grey[700]),
                   ),
                 ),
               ],
