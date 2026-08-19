@@ -91,8 +91,18 @@ class SwitchCard extends StatelessWidget {
     final bool isCardActive = isRouteMode ? isPluginPowered : (isToggleActive && isPluginPowered);
     final Color accentColor = isPluginPowered ? glowColor : Colors.grey[600]!;
 
+    void toggleSwitch() {
+      if (switchPort != null) {
+        final double nextVal = currentValue >= 0.5 ? 0.0 : 1.0;
+        onSwitchPathChanged(switchPort, nextVal);
+      } else {
+        onBypassToggle(!pedal.isBypassed);
+      }
+    }
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      onTap: toggleSwitch,
       onLongPress: onColorPickerPressed,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 150),
@@ -284,148 +294,138 @@ class SwitchCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Path A Box (Down / 0.0)
-        GestureDetector(
-          onTap: () {
-            if (switchPort != null) onSwitchPathChanged(switchPort, 0.0);
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
-            decoration: BoxDecoration(
-              color: !isPathBActive
-                  ? (isDarkMode ? const Color(0xFF192535) : Colors.white)
-                  : (isDarkMode ? const Color(0xFF121620) : const Color(0xFFE8EEF5)),
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(
-                color: !isPathBActive ? glowColor : (isDarkMode ? Colors.grey[850]! : Colors.grey[350]!),
-                width: !isPathBActive ? 1.8 : 1.0,
-              ),
-              boxShadow: !isPathBActive
-                  ? [
-                      BoxShadow(
-                        color: glowColor.withOpacity(0.25),
-                        blurRadius: 6,
-                        spreadRadius: 0.5,
-                      ),
-                    ]
-                  : null,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+          decoration: BoxDecoration(
+            color: !isPathBActive
+                ? (isDarkMode ? const Color(0xFF192535) : Colors.white)
+                : (isDarkMode ? const Color(0xFF121620) : const Color(0xFFE8EEF5)),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: !isPathBActive ? glowColor : (isDarkMode ? Colors.grey[850]! : Colors.grey[350]!),
+              width: !isPathBActive ? 1.8 : 1.0,
             ),
-            child: Row(
-              children: [
-                Icon(
-                  !isPathBActive ? Icons.radio_button_checked : Icons.radio_button_off,
-                  size: 15,
-                  color: !isPathBActive ? glowColor : Colors.grey[500],
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    pathAName.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: !isPathBActive ? FontWeight.w900 : FontWeight.w600,
-                      color: !isPathBActive
-                          ? (isDarkMode ? Colors.white : Colors.black87)
-                          : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                      letterSpacing: 0.8,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                if (!isPathBActive)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                    decoration: BoxDecoration(
+            boxShadow: !isPathBActive
+                ? [
+                    BoxShadow(
                       color: glowColor.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: glowColor.withOpacity(0.6), width: 0.8),
+                      blurRadius: 6,
+                      spreadRadius: 0.5,
                     ),
-                    child: Text(
-                      'ACTIVE',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w900,
-                        color: glowColor,
-                        letterSpacing: 0.6,
-                      ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                !isPathBActive ? Icons.radio_button_checked : Icons.radio_button_off,
+                size: 15,
+                color: !isPathBActive ? glowColor : Colors.grey[500],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  pathAName.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: !isPathBActive ? FontWeight.w900 : FontWeight.w600,
+                    color: !isPathBActive
+                        ? (isDarkMode ? Colors.white : Colors.black87)
+                        : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                    letterSpacing: 0.8,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              if (!isPathBActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: glowColor.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: glowColor.withOpacity(0.6), width: 0.8),
+                  ),
+                  child: Text(
+                    'ACTIVE',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                      color: glowColor,
+                      letterSpacing: 0.6,
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
 
         const SizedBox(height: 7),
 
         // Path B Box (Up / 1.0)
-        GestureDetector(
-          onTap: () {
-            if (switchPort != null) onSwitchPathChanged(switchPort, 1.0);
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
-            decoration: BoxDecoration(
-              color: isPathBActive
-                  ? (isDarkMode ? const Color(0xFF192535) : Colors.white)
-                  : (isDarkMode ? const Color(0xFF121620) : const Color(0xFFE8EEF5)),
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(
-                color: isPathBActive ? glowColor : (isDarkMode ? Colors.grey[850]! : Colors.grey[350]!),
-                width: isPathBActive ? 1.8 : 1.0,
-              ),
-              boxShadow: isPathBActive
-                  ? [
-                      BoxShadow(
-                        color: glowColor.withOpacity(0.25),
-                        blurRadius: 6,
-                        spreadRadius: 0.5,
-                      ),
-                    ]
-                  : null,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+          decoration: BoxDecoration(
+            color: isPathBActive
+                ? (isDarkMode ? const Color(0xFF192535) : Colors.white)
+                : (isDarkMode ? const Color(0xFF121620) : const Color(0xFFE8EEF5)),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(
+              color: isPathBActive ? glowColor : (isDarkMode ? Colors.grey[850]! : Colors.grey[350]!),
+              width: isPathBActive ? 1.8 : 1.0,
             ),
-            child: Row(
-              children: [
-                Icon(
-                  isPathBActive ? Icons.radio_button_checked : Icons.radio_button_off,
-                  size: 15,
-                  color: isPathBActive ? glowColor : Colors.grey[500],
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    pathBName.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isPathBActive ? FontWeight.w900 : FontWeight.w600,
-                      color: isPathBActive
-                          ? (isDarkMode ? Colors.white : Colors.black87)
-                          : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                      letterSpacing: 0.8,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                if (isPathBActive)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                    decoration: BoxDecoration(
+            boxShadow: isPathBActive
+                ? [
+                    BoxShadow(
                       color: glowColor.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: glowColor.withOpacity(0.6), width: 0.8),
+                      blurRadius: 6,
+                      spreadRadius: 0.5,
                     ),
-                    child: Text(
-                      'ACTIVE',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w900,
-                        color: glowColor,
-                        letterSpacing: 0.6,
-                      ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isPathBActive ? Icons.radio_button_checked : Icons.radio_button_off,
+                size: 15,
+                color: isPathBActive ? glowColor : Colors.grey[500],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  pathBName.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isPathBActive ? FontWeight.w900 : FontWeight.w600,
+                    color: isPathBActive
+                        ? (isDarkMode ? Colors.white : Colors.black87)
+                        : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                    letterSpacing: 0.8,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              if (isPathBActive)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: glowColor.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: glowColor.withOpacity(0.6), width: 0.8),
+                  ),
+                  child: Text(
+                    'ACTIVE',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w900,
+                      color: glowColor,
+                      letterSpacing: 0.6,
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ],
@@ -442,17 +442,7 @@ class SwitchCard extends StatelessWidget {
   ) {
     final bool isActuallyOn = isToggleActive && isPluginPowered;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        if (switchPort != null) {
-          final double nextVal = currentValue >= 0.5 ? 0.0 : 1.0;
-          onSwitchPathChanged(switchPort, nextVal);
-        } else {
-          onBypassToggle(!pedal.isBypassed);
-        }
-      },
-      child: Container(
+    return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
@@ -544,7 +534,6 @@ class SwitchCard extends StatelessWidget {
           ),
         ],
       ),
-    ),
     );
   }
 }

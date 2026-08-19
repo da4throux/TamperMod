@@ -315,15 +315,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             };
           }
 
-          // 3. Expose window.tamperSetParam helper
+          // 3. Expose window.tamperSetParam helper (syncs Backbone model visually)
           window.tamperSetParam = function(instance, port, value) {
             console.log("TAMPER_CALL: tamperSetParam(" + instance + ", " + port + ", " + value + ")");
             var numVal = parseFloat(value);
-            try {
-              if (window.tamperActiveWs && window.tamperActiveWs.readyState === 1) {
-                window.tamperActiveWs.send("param_set " + instance + "/" + port + " " + numVal);
-              }
-            } catch(e) {}
             var cleanName = (instance || '').split('/').pop();
             try {
               if (window.pedalboard && typeof window.pedalboard.get === 'function') {
@@ -343,29 +338,13 @@ class _DashboardScreenState extends State<DashboardScreen>
             } catch(e) {
               console.error("TAMPER: Backbone set_parameter error: ", e);
             }
-            try {
-              var pedalNode = document.querySelector('[mod-instance="' + instance + '"]') ||
-                              document.querySelector('[mod-instance*="' + cleanName + '"]');
-              if (pedalNode) {
-                var el = pedalNode.querySelector('[mod-port-symbol="' + port + '"], [mod-port*="' + port + '"]');
-                if (el) {
-                  el.click();
-                  console.log("TAMPER: Clicked DOM control for " + instance + " " + port);
-                }
-              }
-            } catch(e) {}
             return true;
           };
 
-          // 4. Expose window.tamperSetBypass helper
+          // 4. Expose window.tamperSetBypass helper (syncs Backbone model visually)
           window.tamperSetBypass = function(instance, bypassed) {
             console.log("TAMPER_CALL: tamperSetBypass(" + instance + ", " + bypassed + ")");
             var intVal = bypassed ? 1 : 0;
-            try {
-              if (window.tamperActiveWs && window.tamperActiveWs.readyState === 1) {
-                window.tamperActiveWs.send("param_set " + instance + "/:bypass " + intVal);
-              }
-            } catch(e) {}
             var cleanName = (instance || '').split('/').pop();
             try {
               if (window.pedalboard && typeof window.pedalboard.get === 'function') {
@@ -384,17 +363,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   });
                 }
               }
-            } catch(e) {}
-            try {
-              var pedalNode = document.querySelector('[mod-instance="' + instance + '"]') ||
-                              document.querySelector('[mod-instance*="' + cleanName + '"]');
-              if (pedalNode) {
-                var footswitch = pedalNode.querySelector('.mod-footswitch, .mod-pedal-bypass, [mod-port-symbol=":bypass"]');
-                if (footswitch) {
-                  footswitch.click();
-                }
-              }
-            } catch(e) {}
+            } catch(e) {
+              console.error("TAMPER: Backbone set_bypass error: ", e);
+            }
             return true;
           };
         }

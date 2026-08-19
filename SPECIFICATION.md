@@ -203,6 +203,7 @@ The MOD Dwarf `mod-ui` Python Tornado architecture uses a dual communication mod
 * [x] Vectorized Bézier Curve & Dual Fade In/Out Editor (v1.3.51): simplified 3-point vector editor (start/end tangent vector handles + center inflection point) with separate Fade In and Fade Out custom curve parameter tabs, allowing Fade Out to mirror or copy Fade In.
 * [x] Continuous Monotonic Bézier Curve, Top-to-Bottom Fade Out, Undo, & Saved Presets (v1.3.52): single continuous cubic Bézier formulation, visual top-to-bottom orientation for Fade Out, Undo history stack, and user-saved custom preset management persisted in SharedPreferences and backup schema.
 * [x] Fix SwitchBox Toggle State Race & Lock Bézier Midpoint Dot to Spline (v1.3.53): removed conflicting nested gesture arena handlers, added optimistic state synchronization for switch actions, and locked midpoint dot $M$ mathematically directly on the cubic Bézier curve at $(X(0.5), Y(0.5))$.
+* [x] Unify SwitchCard Full-Card Tap & Eliminate WebView Duplicate Invocations (v1.3.54): single root opaque gesture detector allowing tap anywhere on SwitchCard to toggle reliably, and removed duplicate WebSocket sends and DOM click events from WebView helper script.
 
 ### Todo Tasks (Grouped by Category)
 
