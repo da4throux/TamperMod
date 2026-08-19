@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-/// Reusable fade button widget
+/// Reusable sleek fade button widget
 class FadeButton extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -12,6 +12,7 @@ class FadeButton extends StatelessWidget {
   final Color accentColor;
   final bool isFading;
   final bool isCompact;
+  final bool takeFullHeight;
 
   const FadeButton({
     super.key,
@@ -22,41 +23,68 @@ class FadeButton extends StatelessWidget {
     required this.accentColor,
     required this.isFading,
     this.isCompact = false,
+    this.takeFullHeight = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      child: ElevatedButton.icon(
-        onPressed: isBypassed ? null : onTap,
-        icon: Icon(
-          icon,
-          size: isCompact ? 10 : 13,
-          color: isFading ? const Color(0xFFFF007F) : Colors.black,
+    final Color buttonColor = isBypassed
+        ? Colors.grey[700]!
+        : (isFading ? const Color(0xFFFF0055) : accentColor);
+
+    return GestureDetector(
+      onTap: isBypassed ? null : onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: takeFullHeight ? double.infinity : null,
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(
+          vertical: isCompact ? (takeFullHeight ? 2 : 6) : 8,
+          horizontal: isCompact ? 6 : 10,
         ),
-        label: Text(
-          label,
-          style: TextStyle(
-            fontSize: isCompact ? 9 : 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: isCompact ? 0.5 : 1.0,
-            color: isFading ? const Color(0xFFFF007F) : Colors.black,
+        decoration: BoxDecoration(
+          color: isBypassed
+              ? const Color(0xFF161B22)
+              : (isFading
+                  ? const Color(0xFFFF0055).withOpacity(0.25)
+                  : accentColor.withOpacity(0.18)),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isBypassed
+                ? Colors.grey[800]!
+                : (isFading ? const Color(0xFFFF0055) : accentColor.withOpacity(0.6)),
+            width: isFading ? 1.5 : 1.0,
           ),
+          boxShadow: isFading
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFF0055).withOpacity(0.4),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isFading
-              ? const Color(0xFFFF007F).withOpacity(0.12)
-              : accentColor,
-          disabledBackgroundColor: Colors.grey[800],
-          padding: EdgeInsets.symmetric(vertical: isCompact ? 4 : 8),
-          elevation: isFading ? 4 : 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: isFading
-                ? const BorderSide(color: Color(0xFFFF007F), width: 1.5)
-                : BorderSide.none,
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: isCompact ? 12 : 14,
+              color: buttonColor,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: isCompact ? 10.5 : 11.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: isCompact ? 0.6 : 0.8,
+                color: buttonColor,
+              ),
+            ),
+          ],
         ),
       ),
     );

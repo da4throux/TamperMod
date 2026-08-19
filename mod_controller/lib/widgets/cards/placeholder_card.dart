@@ -425,6 +425,129 @@ class PlaceholderCard extends StatelessWidget {
       );
     }
 
+    Widget buildStandardHeaderRow(BuildContext context) {
+      return Row(
+        children: [
+          // 1. Size Toggle
+          buildSizeToggle(),
+          const SizedBox(width: 6),
+
+          // 2. Card Name (Expanded)
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onHighlightPressed,
+              onLongPress: onRenamePressed,
+              child: Text(
+                displayName.toUpperCase(),
+                style: TextStyle(
+                  fontSize: size == 'compact' ? 13.0 : (size == 'regular' ? 15.0 : 17.0),
+                  fontWeight: FontWeight.w900,
+                  color: accentColor,
+                  letterSpacing: 0.8,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 3. Info Button
+          GestureDetector(
+            onTap: () => _showInfoDialog(context),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.info_outline,
+                size: 13,
+                color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 4. Edit Button
+          GestureDetector(
+            onTap: onRenamePressed,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.edit,
+                size: 13,
+                color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 5. Focus Button
+          GestureDetector(
+            onTap: onHighlightPressed,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.radar,
+                size: 13,
+                color: accentColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 6. Power Button
+          GestureDetector(
+            onTap: () => onBypassToggle(!isBypassed),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: !isBypassed
+                    ? glowColor.withOpacity(isDarkMode ? 0.25 : 0.18)
+                    : (isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200]),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: !isBypassed ? glowColor : Colors.grey[700]!,
+                  width: !isBypassed ? 1.2 : 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.power_settings_new,
+                size: 14,
+                color: !isBypassed ? glowColor : Colors.grey[500],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     if (size == 'compact') {
       final displayCompactList = allMetadata.where((meta) {
         return visibleCompactParams.contains(meta.symbol);
@@ -440,38 +563,7 @@ class PlaceholderCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  buildSizeToggle(),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onHighlightPressed,
-                      onLongPress: onRenamePressed,
-                      child: Text(
-                        displayName.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w900,
-                          color: accentColor,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => onBypassToggle(!isBypassed),
-                    child: Icon(
-                      Icons.power_settings_new,
-                      color: powerIconColor,
-                      size: 20,
-                    ),
-                  ),
-                ],
-              ),
+              buildStandardHeaderRow(context),
               if (displayCompactList.isNotEmpty) ...[
                 Expanded(
                   child: ListView.separated(
@@ -530,47 +622,12 @@ class PlaceholderCard extends StatelessWidget {
         isDarkMode: isDarkMode,
         onLongPress: onColorPickerPressed,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header Row
-              Row(
-                children: [
-                  buildSizeToggle(),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: onHighlightPressed,
-                      onLongPress: onRenamePressed,
-                      child: Text(
-                        displayName.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: accentColor,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: Icon(Icons.info_outline, color: accentColor.withOpacity(0.8), size: 20),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => _showInfoDialog(context),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: Icon(Icons.power_settings_new, color: powerIconColor, size: 24),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: () => onBypassToggle(!isBypassed),
-                  ),
-                ],
-              ),
+              buildStandardHeaderRow(context),
               const SizedBox(height: 4),
               GestureDetector(
                 onTap: () => onOpenUri(pedal.uri),
@@ -585,7 +642,7 @@ class PlaceholderCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               // Controls Grid (2 columns)
               Expanded(
                 child: displayList.isEmpty
@@ -628,42 +685,7 @@ class PlaceholderCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header Row
-            Row(
-              children: [
-                buildSizeToggle(),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onHighlightPressed,
-                    onLongPress: onRenamePressed,
-                    child: Text(
-                      displayName.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: accentColor,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(Icons.info_outline, color: accentColor.withOpacity(0.8), size: 22),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _showInfoDialog(context),
-                ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: Icon(Icons.power_settings_new, color: powerIconColor, size: 26),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => onBypassToggle(!isBypassed),
-                ),
-              ],
-            ),
+            buildStandardHeaderRow(context),
             const SizedBox(height: 4),
             GestureDetector(
               onTap: () => onOpenUri(pedal.uri),

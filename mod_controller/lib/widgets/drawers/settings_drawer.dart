@@ -193,6 +193,31 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       ),
       child: Row(
         children: [
+          // Size Toggle C/R/E (Top Left, before title)
+          if (!isLineBreak) ...[
+            GestureDetector(
+              onTap: () => widget.onCyclePedalSize(instanceId),
+              child: Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  color: widget.isDarkMode
+                      ? Colors.grey[900]
+                      : Colors.grey[300],
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  size[0].toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: widget.isDarkMode ? Colors.white : Colors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+
           // Device Type Icon
           Icon(
             typeIcon,
@@ -231,29 +256,6 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
           // Right panel options
           if (isActive) ...[
-            if (!isLineBreak)
-              // Size Toggle C/R/E
-              GestureDetector(
-                onTap: () => widget.onCyclePedalSize(instanceId),
-                child: Container(
-                  margin: const EdgeInsets.only(right: 4),
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: BoxDecoration(
-                    color: widget.isDarkMode
-                        ? Colors.grey[900]
-                        : Colors.grey[300],
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    size[0].toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      color: widget.isDarkMode ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ),
-              ),
             if (isSpacer)
               GestureDetector(
                 onTap: () => widget.onDeleteSpacer(instanceId),

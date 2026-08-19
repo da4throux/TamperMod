@@ -2516,6 +2516,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                             _highlightPedalInWebView(pedal),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
                         onBpmTap: _showBpmDialog,
+                        onBypassToggle: (val) {
+                          setState(() {
+                            pedal.isBypassed = val;
+                          });
+                          _webSocketService.toggleBypass(
+                            instance: pedal.instance,
+                            bypass: val,
+                          );
+                          try {
+                            _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
+                          } catch (e) {
+                            debugPrint('Error invoking tamperSetBypass: $e');
+                          }
+                        },
                       );
                     } else {
                       // Default to extended mode
@@ -2534,6 +2548,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                             _highlightPedalInWebView(pedal),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
                         onBpmTap: _showBpmDialog,
+                        onBypassToggle: (val) {
+                          setState(() {
+                            pedal.isBypassed = val;
+                          });
+                          _webSocketService.toggleBypass(
+                            instance: pedal.instance,
+                            bypass: val,
+                          );
+                          try {
+                            _webViewController.runJavaScript("if (window.tamperSetBypass) window.tamperSetBypass('${pedal.instance}', $val);");
+                          } catch (e) {
+                            debugPrint('Error invoking tamperSetBypass: $e');
+                          }
+                        },
                       );
                     }
                   } else if (isSwitch) {
@@ -2547,6 +2575,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       pathAName: _switchPathANames[pedal.instance] ?? 'PATH A',
                       pathBName: _switchPathBNames[pedal.instance] ?? 'PATH B',
                       isInverted: _switchInverted[pedal.instance] ?? false,
+                      onSizeToggled: () => _cyclePedalSize(pedal.instance),
                       onBypassToggle: (val) {
                         setState(() {
                           pedal.isBypassed = val;

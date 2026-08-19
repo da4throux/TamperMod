@@ -289,41 +289,278 @@ class _GainCardState extends State<GainCard> {
       );
     }
 
+    Widget buildStandardHeaderRow(BuildContext context) {
+      return Row(
+        children: [
+          // 1. Size Toggle
+          buildSizeToggle(),
+          const SizedBox(width: 6),
+
+          // 2. Card Name (Expanded)
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onHighlightPressed,
+              onLongPress: widget.onRenamePressed,
+              child: Text(
+                widget.displayName.toUpperCase(),
+                style: TextStyle(
+                  fontSize: widget.size == 'compact' ? 13.0 : 16.0,
+                  fontWeight: FontWeight.w900,
+                  color: accentColor,
+                  letterSpacing: 0.8,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 3. Info Button
+          GestureDetector(
+            onTap: () => ModuleHelpSheet.show(context, 'gain', widget.isDarkMode),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.info_outline,
+                size: 13,
+                color: widget.isDarkMode ? Colors.grey[300] : Colors.grey[700],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 4. Edit Button
+          GestureDetector(
+            onTap: widget.onRenamePressed,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.edit,
+                size: 13,
+                color: widget.isDarkMode ? Colors.grey[300] : Colors.grey[700],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 5. Focus Button
+          GestureDetector(
+            onTap: widget.onHighlightPressed,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.radar,
+                size: 13,
+                color: accentColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 6. Power Button
+          GestureDetector(
+            onTap: () => widget.onBypassToggle(!isBypassed),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: !isBypassed
+                    ? widget.glowColor.withOpacity(widget.isDarkMode ? 0.25 : 0.18)
+                    : (widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200]),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: !isBypassed ? widget.glowColor : Colors.grey[700]!,
+                  width: !isBypassed ? 1.2 : 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.power_settings_new,
+                size: 14,
+                color: !isBypassed ? widget.glowColor : Colors.grey[500],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget buildPauseResumeButton({bool isCompact = false}) {
+      final bool isActive = !isBypassed && (widget.isFading || widget.isFadePaused);
+      final Color color = isActive
+          ? Colors.amber
+          : (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!);
+      return GestureDetector(
+        onTap: isActive ? widget.onPauseResumeFade : null,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: isCompact ? 5 : 7),
+          decoration: BoxDecoration(
+            color: isActive
+                ? Colors.amber.withOpacity(0.18)
+                : (widget.isDarkMode ? const Color(0xFF161B22) : Colors.grey[200]),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActive
+                  ? Colors.amber
+                  : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[350]!),
+              width: isActive ? 1.2 : 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.isFadePaused ? Icons.play_arrow : Icons.pause,
+                size: isCompact ? 11 : 13,
+                color: color,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                widget.isFadePaused ? 'RESUME' : 'PAUSE',
+                style: TextStyle(
+                  fontSize: isCompact ? 8.5 : 9.5,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildStopButton({bool isCompact = false}) {
+      final bool isActive = !isBypassed && (widget.isFading || widget.isFadePaused);
+      final Color color = isActive
+          ? const Color(0xFFFF5252)
+          : (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!);
+      return GestureDetector(
+        onTap: isActive ? widget.onStopFade : null,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: isCompact ? 5 : 7),
+          decoration: BoxDecoration(
+            color: isActive
+                ? const Color(0xFFFF5252).withOpacity(0.18)
+                : (widget.isDarkMode ? const Color(0xFF161B22) : Colors.grey[200]),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActive
+                  ? const Color(0xFFFF5252)
+                  : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[350]!),
+              width: isActive ? 1.2 : 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.stop,
+                size: isCompact ? 11 : 13,
+                color: color,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                'STOP',
+                style: TextStyle(
+                  fontSize: isCompact ? 8.5 : 9.5,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildFadeTransportRow({bool isCompact = false}) {
+      return Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: FadeButton(
+              label: 'FADE IN',
+              icon: Icons.trending_up,
+              isBypassed: isBypassed,
+              onTap: () => widget.onTriggerFade(true),
+              accentColor: accentColor,
+              isFading: widget.isFadingIn,
+              isCompact: isCompact,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            flex: 2,
+            child: buildPauseResumeButton(isCompact: isCompact),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            flex: 2,
+            child: buildStopButton(isCompact: isCompact),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            flex: 3,
+            child: FadeButton(
+              label: 'FADE OUT',
+              icon: Icons.trending_down,
+              isBypassed: isBypassed,
+              onTap: () => widget.onTriggerFade(false),
+              accentColor: accentColor,
+              isFading: widget.isFadingOut,
+              isCompact: isCompact,
+            ),
+          ),
+        ],
+      );
+    }
+
     return BaseCard(
       glowColor: widget.glowColor,
       isBypassed: isBypassed,
       isDarkMode: widget.isDarkMode,
       onLongPress: widget.onColorPickerPressed,
       child: Padding(
-        padding: EdgeInsets.all(widget.size == 'compact' ? 10.0 : 16.0),
+        padding: EdgeInsets.symmetric(
+          horizontal: widget.size == 'compact' ? 10.0 : 12.0,
+          vertical: widget.size == 'compact' ? 8.0 : 8.0,
+        ),
         child: widget.size == 'compact'
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1: size-toggle | Full Name
-                  Row(
-                    children: [
-                      buildSizeToggle(),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: widget.onHighlightPressed,
-                          onLongPress: widget.onRenamePressed,
-                          child: Text(
-                            widget.displayName.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: accentColor,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  // Row 1: Standard header row
+                  buildStandardHeaderRow(context),
+                  const SizedBox(height: 4),
                   // Row 2: Slider with overlay
                   Row(
                     children: [
@@ -340,6 +577,7 @@ class _GainCardState extends State<GainCard> {
                       Icon(Icons.volume_up, color: accentColor, size: 18),
                     ],
                   ),
+                  const SizedBox(height: 2),
                   // Range % + min/max labels
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -357,58 +595,52 @@ class _GainCardState extends State<GainCard> {
                         ),
                       ),
                       Text(
-                        '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+                        '${maxRange.toStringAsFixed(1)} dB',
                         style: TextStyle(fontSize: 9, color: Colors.grey[600]),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  // Row 3: Gain dB value and Mute button
+                  const SizedBox(height: 4),
+                  // Row 4: Top transport controls row
                   Row(
                     children: [
-                      Expanded(
-                        child: Text(
-                          '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            color: accentColor,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
+                      Expanded(child: buildPauseResumeButton(isCompact: true)),
                       const SizedBox(width: 4),
-                      buildMuteIcon(size: 20),
+                      Expanded(child: buildStopButton(isCompact: true)),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  // Row 4: FADE IN | FADE OUT (stacked vertically, full width)
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: FadeButton(
-                          label: 'FADE IN',
-                          icon: Icons.trending_up,
-                          isBypassed: isBypassed,
-                          onTap: () => widget.onTriggerFade(true),
-                          accentColor: accentColor,
-                          isFading: widget.isFadingIn,
+                  const SizedBox(height: 4),
+                  // Row 5: Fade IN / OUT side by side taking the remaining vertical
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FadeButton(
+                            label: 'FADE IN',
+                            icon: Icons.trending_up,
+                            isBypassed: isBypassed,
+                            onTap: () => widget.onTriggerFade(true),
+                            accentColor: accentColor,
+                            isFading: widget.isFadingIn,
+                            isCompact: true,
+                            takeFullHeight: true,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FadeButton(
-                          label: 'FADE OUT',
-                          icon: Icons.trending_down,
-                          isBypassed: isBypassed,
-                          onTap: () => widget.onTriggerFade(false),
-                          accentColor: accentColor,
-                          isFading: widget.isFadingOut,
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: FadeButton(
+                            label: 'FADE OUT',
+                            icon: Icons.trending_down,
+                            isBypassed: isBypassed,
+                            onTap: () => widget.onTriggerFade(false),
+                            accentColor: accentColor,
+                            isFading: widget.isFadingOut,
+                            isCompact: true,
+                            takeFullHeight: true,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               )
@@ -416,66 +648,35 @@ class _GainCardState extends State<GainCard> {
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1 header
+                  // Row 1: Standard Header Row
+                  buildStandardHeaderRow(context),
+                  const SizedBox(height: 4),
+                  // URI + dB Box
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      buildSizeToggle(),
-                      const SizedBox(width: 4),
                       Expanded(
                         child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: widget.onHighlightPressed,
-                          onLongPress: widget.onRenamePressed,
+                          onTap: () => widget.onOpenUri(widget.pedal.uri),
                           child: Text(
-                            widget.displayName.toUpperCase(),
+                            widget.pedal.uri,
                             style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: accentColor,
+                              fontSize: 8.5,
+                              color: widget.isDarkMode
+                                  ? const Color(0xFF00FFCC)
+                                  : const Color(0xFF00B3FF),
+                              decoration: TextDecoration.underline,
+                              fontFamily: 'monospace',
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () => ModuleHelpSheet.show(
-                          context,
-                          'gain',
-                          widget.isDarkMode,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(
-                            Icons.help_outline,
-                            size: 14,
-                            color: accentColor.withOpacity(0.7),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       buildDbBox(),
-                      const SizedBox(width: 4),
-                      buildMuteIcon(),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  // URI
-                  GestureDetector(
-                    onTap: () => widget.onOpenUri(widget.pedal.uri),
-                    child: Text(
-                      widget.pedal.uri,
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        color: widget.isDarkMode
-                            ? const Color(0xFF00FFCC)
-                            : const Color(0xFF00B3FF),
-                        decoration: TextDecoration.underline,
-                        fontFamily: 'monospace',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   // Slider Row
                   Row(
                     children: [
@@ -527,32 +728,9 @@ class _GainCardState extends State<GainCard> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  // Fade buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FadeButton(
-                          label: 'FADE IN',
-                          icon: Icons.trending_up,
-                          isBypassed: isBypassed,
-                          onTap: () => widget.onTriggerFade(true),
-                          accentColor: accentColor,
-                          isFading: widget.isFadingIn,
-                        ),
-                      ),
-                      Expanded(
-                        child: FadeButton(
-                          label: 'FADE OUT',
-                          icon: Icons.trending_down,
-                          isBypassed: isBypassed,
-                          onTap: () => widget.onTriggerFade(false),
-                          accentColor: accentColor,
-                          isFading: widget.isFadingOut,
-                        ),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 6),
+                  // Fade and Transport controls
+                  buildFadeTransportRow(isCompact: false),
                 ],
               )
             : _buildExpandedView(
@@ -565,7 +743,8 @@ class _GainCardState extends State<GainCard> {
                 buildSliderWithRangeOverlay: buildSliderWithRangeOverlay,
                 buildMuteIcon: buildMuteIcon,
                 buildDbBox: buildDbBox,
-                buildSizeToggle: buildSizeToggle,
+                buildSizeToggle: () => buildStandardHeaderRow(context),
+                buildFadeTransportRow: () => buildFadeTransportRow(isCompact: false),
               ),
       ),
     );
@@ -582,6 +761,7 @@ class _GainCardState extends State<GainCard> {
     required Widget Function({double size}) buildMuteIcon,
     required Widget Function({double fontSize}) buildDbBox,
     required Widget Function() buildSizeToggle,
+    required Widget Function() buildFadeTransportRow,
   }) {
     // Resolve display curve
     final String shapeName = widget.fadeShape;
@@ -617,62 +797,34 @@ class _GainCardState extends State<GainCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Top row: size toggle + title + HELP + dB box + mute
+        // Top row: Standard Header Row
+        buildSizeToggle(),
+        const SizedBox(height: 8),
+
+        // Plugin URI link + dB box
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            buildSizeToggle(),
-            const SizedBox(width: 4),
             Expanded(
               child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onHighlightPressed,
-                onLongPress: widget.onRenamePressed,
+                onTap: () => widget.onOpenUri(widget.pedal.uri),
                 child: Text(
-                  widget.displayName.toUpperCase(),
+                  widget.pedal.uri,
                   style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: accentColor,
+                    fontSize: 8.5,
+                    color: widget.isDarkMode
+                        ? const Color(0xFF00FFCC)
+                        : const Color(0xFF00B3FF),
+                    decoration: TextDecoration.underline,
+                    fontFamily: 'monospace',
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
             ),
-            GestureDetector(
-              onTap: () =>
-                  ModuleHelpSheet.show(context, 'gain', widget.isDarkMode),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Icon(
-                  Icons.help_outline,
-                  size: 14,
-                  color: accentColor.withOpacity(0.7),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             buildDbBox(),
-            const SizedBox(width: 4),
-            buildMuteIcon(),
           ],
-        ),
-        const SizedBox(height: 8),
-
-        // Plugin URI link
-        GestureDetector(
-          onTap: () => widget.onOpenUri(widget.pedal.uri),
-          child: Text(
-            widget.pedal.uri,
-            style: TextStyle(
-              fontSize: 8.5,
-              color: widget.isDarkMode
-                  ? const Color(0xFF00FFCC)
-                  : const Color(0xFF00B3FF),
-              decoration: TextDecoration.underline,
-              fontFamily: 'monospace',
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
         ),
         const SizedBox(height: 6),
 
@@ -817,101 +969,7 @@ class _GainCardState extends State<GainCard> {
         ],
 
         // Fade & Transport buttons
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: FadeButton(
-                label: 'FADE IN',
-                icon: Icons.trending_up,
-                isBypassed: isBypassed,
-                onTap: () => widget.onTriggerFade(true),
-                accentColor: accentColor,
-                isFading: widget.isFadingIn,
-              ),
-            ),
-            if (widget.isFading || widget.isFadePaused) ...[
-              const SizedBox(width: 4),
-              // Play/Pause button
-              Expanded(
-                flex: 2,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  child: ElevatedButton.icon(
-                    onPressed: isBypassed ? null : widget.onPauseResumeFade,
-                    icon: Icon(
-                      widget.isFadePaused ? Icons.play_arrow : Icons.pause,
-                      size: 13,
-                      color: Colors.amber,
-                    ),
-                    label: Text(
-                      widget.isFadePaused ? 'RESUME' : 'PAUSE',
-                      style: const TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                        color: Colors.amber,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber.withValues(alpha: 0.15),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: Colors.amber, width: 1.5),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Stop button
-              Expanded(
-                flex: 2,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  child: ElevatedButton.icon(
-                    onPressed: isBypassed ? null : widget.onStopFade,
-                    icon: const Icon(
-                      Icons.stop,
-                      size: 13,
-                      color: Color(0xFFFF5252),
-                    ),
-                    label: const Text(
-                      'STOP',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
-                        color: Color(0xFFFF5252),
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF5252).withValues(alpha: 0.15),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Expanded(
-              flex: 3,
-              child: FadeButton(
-                label: 'FADE OUT',
-                icon: Icons.trending_down,
-                isBypassed: isBypassed,
-                onTap: () => widget.onTriggerFade(false),
-                accentColor: accentColor,
-                isFading: widget.isFadingOut,
-              ),
-            ),
-          ],
-        ),
+        buildFadeTransportRow(),
       ],
     );
   }

@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../../models/plugin_instance.dart';
+import '../common/size_toggle_button.dart';
 
 /// Switch/routing controller card widget with dual layout modes:
 /// 1. Route Mode: 2-Path selection (Path A vs Path B) with custom labels in high-contrast button boxes
@@ -17,6 +18,7 @@ class SwitchCard extends StatelessWidget {
   final String pathAName;
   final String pathBName;
   final bool isInverted;
+  final VoidCallback onSizeToggled;
   final ValueChanged<bool> onBypassToggle;
   final VoidCallback onRenamePressed;
   final VoidCallback onHighlightPressed;
@@ -35,6 +37,7 @@ class SwitchCard extends StatelessWidget {
     this.pathAName = 'PATH A',
     this.pathBName = 'PATH B',
     this.isInverted = false,
+    required this.onSizeToggled,
     required this.onBypassToggle,
     required this.onRenamePressed,
     required this.onHighlightPressed,
@@ -139,9 +142,18 @@ class SwitchCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Top Header Row (Name + Edit + Radar + Power Button) ──
+                // ── Top Header Row (Size + Name + Info + Edit + Focus + Power Button) ──
                 Row(
                   children: [
+                    SizeToggleButton(
+                      instanceId: pedal.instance,
+                      currentSize: size,
+                      accentColor: accentColor,
+                      isDarkMode: isDarkMode,
+                      onTap: onSizeToggled,
+                    ),
+                    const SizedBox(width: 6),
+
                     // Card Title in high-contrast capsule
                     Expanded(
                       child: Container(
@@ -168,7 +180,32 @@ class SwitchCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
+
+                    // Info Button
+                    GestureDetector(
+                      onTap: () => onOpenUri(pedal.uri),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? const Color(0xFF1C2433)
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.info_outline,
+                          size: 13,
+                          color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
 
                     // Edit Pen Button
                     GestureDetector(
@@ -195,7 +232,7 @@ class SwitchCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
 
-                    // Radar Highlight Button
+                    // Focus / Radar Highlight Button
                     GestureDetector(
                       onTap: onHighlightPressed,
                       behavior: HitTestBehavior.opaque,

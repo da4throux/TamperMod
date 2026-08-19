@@ -24,6 +24,7 @@ class LooperCard extends StatefulWidget {
   final VoidCallback onHighlightPressed;
   final VoidCallback onSizeToggled;
   final VoidCallback onBpmTap;
+  final ValueChanged<bool> onBypassToggle;
 
   const LooperCard({
     super.key,
@@ -39,6 +40,7 @@ class LooperCard extends StatefulWidget {
     required this.onHighlightPressed,
     required this.onSizeToggled,
     required this.onBpmTap,
+    required this.onBypassToggle,
   });
 
   @override
@@ -68,9 +70,11 @@ class _LooperCardState extends State<LooperCard> {
             ? const Color(0xFF00FFCC)
             : const Color(0xFF00B3FF);
 
-        // Find symbols dynamically
+        final int selectedLoopNum = widget.looperController.selectedLoopNum;
         final String thresholdPort =
-            _findPortSymbol(widget.pedal, 'threshold') ?? 'threshold';
+            _findPortSymbol(widget.pedal, 'threshold') ??
+            _findPortSymbol(widget.pedal, 'rec_thresh') ??
+            'threshold';
         final String clickPort =
             _findPortSymbol(widget.pedal, 'click') ??
             _findPortSymbol(widget.pedal, 'metronome') ??
@@ -84,8 +88,7 @@ class _LooperCardState extends State<LooperCard> {
             widget.pedal.parameters[thresholdPort] ?? -40.0;
         final double clickValue = widget.pedal.parameters[clickPort] ?? 0.0;
         final double mixValue = widget.pedal.parameters[mixPort] ?? 50.0;
-
-        final int selectedLoopNum = widget.looperController.selectedLoopNum;
+        final bool isClickMuted = clickValue <= 0.0;
 
         return BaseCard(
           glowColor: widget.glowColor,
@@ -93,15 +96,14 @@ class _LooperCardState extends State<LooperCard> {
           isBypassed: widget.pedal.isBypassed,
           onLongPress: widget.onColorPickerPressed,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title / Header Row
+                // Title / Header Row (Standardized)
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Size toggle button for ALO looper (extended/regular modes)
+                    // 1. Size toggle
                     SizeToggleButton(
                       instanceId: widget.pedal.instance,
                       currentSize: 'expanded',
@@ -111,55 +113,143 @@ class _LooperCardState extends State<LooperCard> {
                       onTap: widget.onSizeToggled,
                       onLongPress: widget.onRenamePressed,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
+
+                    // 2. Card Name (Expanded)
                     Expanded(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: widget.onHighlightPressed,
                         onLongPress: widget.onRenamePressed,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.music_video,
-                              color: looperAccentColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                widget.displayName.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.0,
-                                  color: widget.isDarkMode
-                                      ? Colors.white
-                                      : Colors.black,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              icon: Icon(
-                                Icons.help_outline,
-                                size: 14,
-                                color: primaryThemeColor.withOpacity(0.8),
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              onPressed: () => ModuleHelpSheet.show(
-                                context,
-                                'looper',
-                                widget.isDarkMode,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          widget.displayName.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: widget.isDarkMode
+                                ? Colors.white
+                                : Colors.black,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(width: 4),
 
-                    // Metronome BPM indicator/badge
+                    // 3. Info Button
+                    GestureDetector(
+                      onTap: () => ModuleHelpSheet.show(
+                        context,
+                        'looper',
+                        widget.isDarkMode,
+                      ),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.info_outline,
+                          size: 13,
+                          color: widget.isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+
+                    // 4. Edit Button
+                    GestureDetector(
+                      onTap: widget.onRenamePressed,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.edit,
+                          size: 13,
+                          color: widget.isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+
+                    // 5. Focus Button
+                    GestureDetector(
+                      onTap: widget.onHighlightPressed,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.radar,
+                          size: 13,
+                          color: looperAccentColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+
+                    // 6. Power Button
+                    GestureDetector(
+                      onTap: () => widget.onBypassToggle(!widget.pedal.isBypassed),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: !widget.pedal.isBypassed
+                              ? widget.glowColor.withOpacity(widget.isDarkMode ? 0.25 : 0.18)
+                              : (widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200]),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: !widget.pedal.isBypassed ? widget.glowColor : Colors.grey[700]!,
+                            width: !widget.pedal.isBypassed ? 1.2 : 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.power_settings_new,
+                          size: 14,
+                          color: !widget.pedal.isBypassed ? widget.glowColor : Colors.grey[500],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Sub-header Row: Metronome BPM badge
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'LOOP SEQUENCER',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
                     MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: GestureDetector(
@@ -167,7 +257,7 @@ class _LooperCardState extends State<LooperCard> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
-                            vertical: 4,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
                             color: widget.isDarkMode

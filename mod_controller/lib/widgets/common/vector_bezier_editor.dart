@@ -474,25 +474,35 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
-                        // Physical distance from M to finger in unconstrained space
+                        // Distance from M to finger in normalized space
                         final double totalDist1 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
 
-                        // Visible diamond handle stays inside the box frame
-                        final double visualLen1 = math.min(totalDist1, baseMaxRadius);
-
-                        // Strength s1 grows continuously as user pulls further beyond the box (up to 10.0)
-                        final double newS1 = (totalDist1 <= baseMaxRadius)
-                            ? (totalDist1 / baseMaxRadius).clamp(0.1, 1.0)
-                            : (1.0 + (totalDist1 - baseMaxRadius) * 4.0).clamp(1.0, 10.0);
+                        // Maximum allowable handle length within the [0, 1] unit box along direction theta
+                        final double maxLen1 = math.max(
+                          0.02,
+                          math.min(
+                            cosT > 1e-4 ? _mx / cosT : 1.0,
+                            sinT > 1e-4 ? _my / sinT : 1.0,
+                          ),
+                        );
+                        final double visualLen1 = math.min(totalDist1, maxLen1 - 0.001).clamp(0.02, maxLen1);
 
                         // Opposite handle H2 strictly PRESERVES its existing scalar length!
                         final double curDx2 = math.max(0.0, _x2 - _mx);
                         final double curDy2 = math.max(0.0, _y2 - _my);
-                        final double preservedLen2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
+                        final double maxLen2 = math.max(
+                          0.02,
+                          math.min(
+                            cosT > 1e-4 ? (1.0 - _mx) / cosT : 1.0,
+                            sinT > 1e-4 ? (1.0 - _my) / sinT : 1.0,
+                          ),
+                        );
+                        final double curLen2 = math.max(0.02, math.sqrt(curDx2 * curDx2 + curDy2 * curDy2));
+                        final double preservedLen2 = math.min(curLen2, maxLen2 - 0.001).clamp(0.02, maxLen2);
 
-                        final double newH1x = (_mx - visualLen1 * cosT).clamp(0.0, _mx);
+                        final double newH1x = (_mx - visualLen1 * cosT).clamp(0.0001, _mx - 0.0001);
                         final double newH1y = (_my - visualLen1 * sinT).clamp(0.0, _my);
-                        final double newH2x = (_mx + preservedLen2 * cosT).clamp(_mx, 1.0);
+                        final double newH2x = (_mx + preservedLen2 * cosT).clamp(_mx + 0.0001, 0.9999);
                         final double newH2y = (_my + preservedLen2 * sinT).clamp(_my, 1.0);
 
                         _activeOnChanged({
@@ -503,8 +513,8 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                           'h2y': newH2y,
                           'mx': _mx,
                           'my': _my,
-                          's1': newS1,
-                          's2': _s2,
+                          's1': 1.0,
+                          's2': 1.0,
                         });
                       }
                       break;
@@ -521,30 +531,42 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                         if (clampedDx <= 1e-5) {
                           theta = math.pi / 2; // 100% pure vertical!
                         } else if (clampedDy <= 1e-5) {
-                          theta = 0.001; // nearly horizontal
+                          theta = 0.0001; // pure horizontal
                         } else {
-                          theta = math.atan2(clampedDy, clampedDx).clamp(0.001, math.pi / 2);
+                          theta = math.atan2(clampedDy, clampedDx).clamp(0.0001, math.pi / 2);
                         }
 
                         final double cosT = math.cos(theta);
                         final double sinT = math.sin(theta);
 
                         final double totalDist2 = math.max(0.02, math.sqrt(rawDx * rawDx + rawDy * rawDy));
-                        final double visualLen2 = math.min(totalDist2, baseMaxRadius);
 
-                        // Strength s2 grows continuously as user pulls further beyond the box (up to 10.0)
-                        final double newS2 = (totalDist2 <= baseMaxRadius)
-                            ? (totalDist2 / baseMaxRadius).clamp(0.1, 1.0)
-                            : (1.0 + (totalDist2 - baseMaxRadius) * 4.0).clamp(1.0, 10.0);
+                        // Maximum allowable handle length within the [0, 1] unit box along direction theta
+                        final double maxLen2 = math.max(
+                          0.02,
+                          math.min(
+                            cosT > 1e-4 ? (1.0 - _mx) / cosT : 1.0,
+                            sinT > 1e-4 ? (1.0 - _my) / sinT : 1.0,
+                          ),
+                        );
+                        final double visualLen2 = math.min(totalDist2, maxLen2 - 0.001).clamp(0.02, maxLen2);
 
                         // Opposite handle H1 strictly PRESERVES its existing scalar length!
                         final double curDx1 = math.max(0.0, _mx - _x1);
                         final double curDy1 = math.max(0.0, _my - _y1);
-                        final double preservedLen1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
+                        final double maxLen1 = math.max(
+                          0.02,
+                          math.min(
+                            cosT > 1e-4 ? _mx / cosT : 1.0,
+                            sinT > 1e-4 ? _my / sinT : 1.0,
+                          ),
+                        );
+                        final double curLen1 = math.max(0.02, math.sqrt(curDx1 * curDx1 + curDy1 * curDy1));
+                        final double preservedLen1 = math.min(curLen1, maxLen1 - 0.001).clamp(0.02, maxLen1);
 
-                        final double newH2x = (_mx + visualLen2 * cosT).clamp(_mx, 1.0);
+                        final double newH2x = (_mx + visualLen2 * cosT).clamp(_mx + 0.0001, 0.9999);
                         final double newH2y = (_my + visualLen2 * sinT).clamp(_my, 1.0);
-                        final double newH1x = (_mx - preservedLen1 * cosT).clamp(0.0, _mx);
+                        final double newH1x = (_mx - preservedLen1 * cosT).clamp(0.0001, _mx - 0.0001);
                         final double newH1y = (_my - preservedLen1 * sinT).clamp(0.0, _my);
 
                         _activeOnChanged({
@@ -555,8 +577,8 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                           'h2y': newH2y,
                           'mx': _mx,
                           'my': _my,
-                          's1': _s1,
-                          's2': newS2,
+                          's1': 1.0,
+                          's2': 1.0,
                         });
                       }
                       break;
@@ -942,24 +964,18 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     canvas.drawLine(Offset(pad, pm.dy), Offset(pad + cw, pm.dy), guidePaint);
 
     // 4. Main Continuous Bézier Spline with Gradient Glow (Exact Parametric Form strictly bounded [0.0, 1.0])
-    final double vh1x = h1x.clamp(0.001, mx - 0.0001);
+    final double vh1x = h1x.clamp(0.0001, mx - 0.0001);
     final double vh1y = h1y.clamp(0.0, my);
-    final double c02x = (mx - (mx - vh1x) / math.max(1.0, s1)).clamp(0.0, mx);
-    final double c02y = (s1 <= 1.0)
-        ? (my - (my - vh1y) * s1).clamp(0.0, my)
-        : (my - (my - vh1y) - vh1y * (1.0 - 1.0 / s1)).clamp(0.0, my);
-    final double c01Ratio = (s1 / (1.0 + s1)).clamp(0.1, 0.98);
-    final double c01x = (mx * c01Ratio).clamp(0.0, c02x);
+    final double c02x = vh1x;
+    final double c02y = vh1y;
+    final double c01x = c02x * 0.5;
     final double c01y = 0.0;
 
-    final double vh2x = h2x.clamp(mx + 0.0001, 0.999);
+    final double vh2x = h2x.clamp(mx + 0.0001, 0.9999);
     final double vh2y = h2y.clamp(my, 1.0);
-    final double c11x = (mx + (vh2x - mx) / math.max(1.0, s2)).clamp(mx, 1.0);
-    final double c11y = (s2 <= 1.0)
-        ? (my + (vh2y - my) * s2).clamp(my, 1.0)
-        : (my + (vh2y - my) + (1.0 - vh2y) * (1.0 - 1.0 / s2)).clamp(my, 1.0);
-    final double c12Ratio = (1.0 / (1.0 + s2)).clamp(0.02, 0.9);
-    final double c12x = (mx + (1.0 - mx) / (1.0 + s2)).clamp(c11x, 1.0);
+    final double c11x = vh2x;
+    final double c11y = vh2y;
+    final double c12x = c11x + (1.0 - c11x) * 0.5;
     final double c12y = 1.0;
 
     final cp01 = toScreen(c01x, c01y);
