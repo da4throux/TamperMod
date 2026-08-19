@@ -1,9 +1,7 @@
 // Copyright (c) 2026 TamperMod Contributors
 // Licensed under the MIT License
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../utils/curves.dart';
 
 enum _ActiveDragTarget {
@@ -13,23 +11,28 @@ enum _ActiveDragTarget {
   endHandle,
 }
 
-/// Interactive Vectorized Bézier Curve Editor with separate Fade In / Fade Out tabs
+/// Interactive Vectorized Bézier Curve Editor with separate Fade In / Fade Out tabs,
+/// Undo/Redo history, visual top-to-bottom Fade Out, and user-saved custom presets.
 class VectorBezierEditor extends StatefulWidget {
   final Map<String, double> paramsIn;
   final Map<String, double> paramsOut;
+  final Map<String, Map<String, double>> customPresets;
   final Color accentColor;
   final bool isDarkMode;
   final ValueChanged<Map<String, double>> onParamsInChanged;
   final ValueChanged<Map<String, double>> onParamsOutChanged;
+  final ValueChanged<Map<String, Map<String, double>>>? onCustomPresetsChanged;
 
   const VectorBezierEditor({
     super.key,
     required this.paramsIn,
     required this.paramsOut,
+    this.customPresets = const {},
     required this.accentColor,
     required this.isDarkMode,
     required this.onParamsInChanged,
     required this.onParamsOutChanged,
+    this.onCustomPresetsChanged,
   });
 
   @override
@@ -40,45 +43,159 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
   bool _isEditingFadeIn = true;
   _ActiveDragTarget _dragTarget = _ActiveDragTarget.none;
 
+  final List<Map<String, double>> _undoStackIn = [];
+  final List<Map<String, double>> _undoStackOut = [];
+
   Map<String, double> get _activeParams =>
       _isEditingFadeIn ? widget.paramsIn : widget.paramsOut;
 
   ValueChanged<Map<String, double>> get _activeOnChanged =>
       _isEditingFadeIn ? widget.onParamsInChanged : widget.onParamsOutChanged;
 
-  double get _x1 => _activeParams['h1x'] ?? _activeParams['x1'] ?? 0.25;
-  double get _y1 => _activeParams['h1y'] ?? _activeParams['y1'] ?? 0.1;
-  double get _mx => _activeParams['mx'] ?? 0.5;
-  double get _my => _activeParams['my'] ?? 0.5;
-  double get _x2 => _activeParams['h2x'] ?? _activeParams['x2'] ?? 0.75;
-  double get _y2 => _activeParams['h2y'] ?? _activeParams['y2'] ?? 0.9;
+  double get _x1 => (_activeParams['h1x'] ?? _activeParams['x1'] ?? 0.25).clamp(0.0, 1.0);
+  double get _y1 => (_activeParams['h1y'] ?? _activeParams['y1'] ?? 0.10).clamp(0.0, 1.0);
+  double get _mx => (_activeParams['mx'] ?? 0.50).clamp(0.05, 0.95);
+  double get _my => (_activeParams['my'] ?? 0.50).clamp(0.0, 1.0);
+  double get _x2 => (_activeParams['h2x'] ?? _activeParams['x2'] ?? 0.75).clamp(0.0, 1.0);
+  double get _y2 => (_activeParams['h2y'] ?? _activeParams['y2'] ?? 0.90).clamp(0.0, 1.0);
+
+  void _recordHistory() {
+    final copy = Map<String, double>.from(_activeParams);
+    if (_isEditingFadeIn) {
+      if (_undoStackIn.length >= 20) _undoStackIn.removeAt(0);
+      _undoStackIn.add(copy);
+    } else {
+      if (_undoStackOut.length >= 20) _undoStackOut.removeAt(0);
+      _undoStackOut.add(copy);
+    }
+  }
+
+  void _undo() {
+    final stack = _isEditingFadeIn ? _undoStackIn : _undoStackOut;
+    if (stack.isNotEmpty) {
+      final prev = stack.removeLast();
+      setState(() {
+        _activeOnChanged(prev);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reverted curve change'),
+          duration: Duration(milliseconds: 800),
+        ),
+      );
+    }
+  }
 
   void _applyPreset(Map<String, double> preset) {
+    _recordHistory();
     _activeOnChanged({
       ..._activeParams,
       ...preset,
     });
   }
 
-  void _copyOpposite() {
-    if (_isEditingFadeIn) {
-      widget.onParamsInChanged(VectorBezierCurve.copy(widget.paramsOut));
-    } else {
-      widget.onParamsOutChanged(VectorBezierCurve.copy(widget.paramsIn));
-    }
+  void _copyFadeInToOut() {
+    _recordHistory();
+    widget.onParamsOutChanged(VectorBezierCurve.copy(widget.paramsIn));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Fade In curve copied to Fade Out'),
+        duration: Duration(seconds: 1),
+      ),
+    );
   }
 
-  void _mirrorOpposite() {
-    if (_isEditingFadeIn) {
-      widget.onParamsInChanged(VectorBezierCurve.mirror(widget.paramsOut));
-    } else {
-      widget.onParamsOutChanged(VectorBezierCurve.mirror(widget.paramsIn));
-    }
+  void _mirrorFadeInToOut() {
+    _recordHistory();
+    widget.onParamsOutChanged(VectorBezierCurve.mirror(widget.paramsIn));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Fade In curve mirrored to Fade Out'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showSavePresetDialog() {
+    final TextEditingController nameController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: widget.isDarkMode ? const Color(0xFF141922) : Colors.white,
+        title: Text(
+          'Save Custom Curve Preset',
+          style: TextStyle(
+            color: widget.isDarkMode ? Colors.white : Colors.black,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter a name for this custom Bézier shape:',
+              style: TextStyle(
+                color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              style: TextStyle(
+                color: widget.isDarkMode ? Colors.white : Colors.black,
+                fontSize: 13,
+              ),
+              decoration: InputDecoration(
+                hintText: 'e.g. Steep Drop, Gentle Swell',
+                hintStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
+                filled: true,
+                fillColor: widget.isDarkMode ? const Color(0xFF0D1117) : const Color(0xFFF1F3F5),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: widget.accentColor,
+              foregroundColor: Colors.black,
+            ),
+            onPressed: () {
+              final String name = nameController.text.trim();
+              if (name.isNotEmpty) {
+                final updated = Map<String, Map<String, double>>.from(widget.customPresets);
+                updated[name] = Map<String, double>.from(_activeParams);
+                widget.onCustomPresetsChanged?.call(updated);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Preset "$name" saved!'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              }
+            },
+            child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final VectorBezierCurve curve = VectorBezierCurve.fromMap(_activeParams);
+    final canUndo = (_isEditingFadeIn ? _undoStackIn : _undoStackOut).isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,47 +296,42 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
         ),
         const SizedBox(height: 6),
 
-        // Action Toolbar (Mirror, Copy, Export)
+        // Action Toolbar (Undo, Mirror, Copy, Save Preset)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
                 _buildActionButton(
+                  icon: Icons.undo,
+                  label: 'UNDO',
+                  enabled: canUndo,
+                  onTap: _undo,
+                ),
+                const SizedBox(width: 4),
+                _buildActionButton(
                   icon: Icons.flip,
-                  label: _isEditingFadeIn ? 'MIRROR OUT' : 'MIRROR IN',
-                  onTap: _mirrorOpposite,
+                  label: _isEditingFadeIn ? 'MIRROR → FADE OUT' : 'MIRROR ← FADE IN',
+                  onTap: _mirrorFadeInToOut,
                 ),
                 const SizedBox(width: 4),
                 _buildActionButton(
                   icon: Icons.content_copy,
-                  label: _isEditingFadeIn ? 'COPY OUT' : 'COPY IN',
-                  onTap: _copyOpposite,
+                  label: _isEditingFadeIn ? 'COPY → FADE OUT' : 'COPY ← FADE IN',
+                  onTap: _copyFadeInToOut,
                 ),
               ],
             ),
             _buildActionButton(
-              icon: Icons.share,
-              label: 'EXPORT',
-              onTap: () {
-                final String json = jsonEncode({
-                  'curve': _isEditingFadeIn ? 'fadeIn' : 'fadeOut',
-                  ..._activeParams,
-                });
-                Clipboard.setData(ClipboardData(text: json));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Curve copied to clipboard'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
+              icon: Icons.bookmark_add,
+              label: 'SAVE PRESET',
+              onTap: _showSavePresetDialog,
             ),
           ],
         ),
         const SizedBox(height: 6),
 
-        // Interactive 3-Point Vector Canvas (H1 -> M -> H2)
+        // Interactive Continuous Bézier Canvas
         Container(
           height: 140,
           width: double.infinity,
@@ -237,13 +349,25 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
               final double cw = constraints.maxWidth - 2 * pad;
               final double ch = constraints.maxHeight - 2 * pad;
 
+              // For Fade In: (0,0) is bottom-left, (1,1) is top-right
+              // For Fade Out: (0,1) is top-left (100% volume), (1,0) is bottom-right (0% volume)
               Offset toScreen(double normX, double normY) {
-                return Offset(pad + normX * cw, pad + (1.0 - normY) * ch);
+                if (_isEditingFadeIn) {
+                  return Offset(pad + normX * cw, pad + (1.0 - normY) * ch);
+                } else {
+                  // Top-to-bottom orientation for Fade Out
+                  return Offset(pad + normX * cw, pad + normY * ch);
+                }
               }
 
               Offset toNormalized(Offset screenPos) {
                 final double nx = ((screenPos.dx - pad) / cw).clamp(0.0, 1.0);
-                final double ny = (1.0 - (screenPos.dy - pad) / ch).clamp(0.0, 1.0);
+                final double ny;
+                if (_isEditingFadeIn) {
+                  ny = (1.0 - (screenPos.dy - pad) / ch).clamp(0.0, 1.0);
+                } else {
+                  ny = ((screenPos.dy - pad) / ch).clamp(0.0, 1.0);
+                }
                 return Offset(nx, ny);
               }
 
@@ -256,6 +380,7 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onPanStart: (details) {
+                  _recordHistory();
                   final pos = details.localPosition;
                   const double hitRadius = 26.0;
 
@@ -286,29 +411,29 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                     case _ActiveDragTarget.startHandle:
                       _activeOnChanged({
                         ..._activeParams,
-                        'h1x': norm.dx.clamp(0.0, _mx),
+                        'h1x': norm.dx.clamp(0.0, _x2),
                         'h1y': norm.dy.clamp(0.0, 1.0),
                       });
                       break;
                     case _ActiveDragTarget.midpoint:
-                      // Moving the center point adjusts the inflection point
-                      // and shifts the vector handles smoothly
-                      final double deltaX = norm.dx - _mx;
-                      final double deltaY = norm.dy - _my;
+                      // Moving the center inflection point shifts the S-curve balance
+                      // (where the steep rise/drop occurs) and coordinates the handles
+                      final double newMx = norm.dx.clamp(0.10, 0.90);
+                      final double newMy = norm.dy.clamp(0.05, 0.95);
                       _activeOnChanged({
                         ..._activeParams,
-                        'mx': norm.dx.clamp(0.1, 0.9),
-                        'my': norm.dy.clamp(0.05, 0.95),
-                        'h1x': (_x1 + deltaX * 0.5).clamp(0.0, norm.dx),
-                        'h1y': (_y1 + deltaY * 0.5).clamp(0.0, 1.0),
-                        'h2x': (_x2 + deltaX * 0.5).clamp(norm.dx, 1.0),
-                        'h2y': (_y2 + deltaY * 0.5).clamp(0.0, 1.0),
+                        'mx': newMx,
+                        'my': newMy,
+                        'h1x': (newMx * 0.50).clamp(0.0, newMx),
+                        'h1y': (newMy * 0.20).clamp(0.0, 1.0),
+                        'h2x': (newMx + (1.0 - newMx) * 0.50).clamp(newMx, 1.0),
+                        'h2y': (newMy + (1.0 - newMy) * 0.80).clamp(0.0, 1.0),
                       });
                       break;
                     case _ActiveDragTarget.endHandle:
                       _activeOnChanged({
                         ..._activeParams,
-                        'h2x': norm.dx.clamp(_mx, 1.0),
+                        'h2x': norm.dx.clamp(_x1, 1.0),
                         'h2y': norm.dy.clamp(0.0, 1.0),
                       });
                       break;
@@ -321,6 +446,7 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
                 child: CustomPaint(
                   painter: _VectorBezierCanvasPainter(
                     curve: curve,
+                    isFadeIn: _isEditingFadeIn,
                     accentColor: widget.accentColor,
                     isDarkMode: widget.isDarkMode,
                     pad: pad,
@@ -340,11 +466,16 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
         ),
         const SizedBox(height: 6),
 
-        // Quick Shape Presets
+        // Quick Shape Presets & Saved Curves
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
+              // Built-in presets
+              _buildPresetButton(
+                label: 'RESET',
+                preset: VectorBezierCurve.balancedSPreset,
+              ),
               _buildPresetButton(
                 label: 'SMOOTH S',
                 preset: {
@@ -356,35 +487,43 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
               _buildPresetButton(
                 label: 'PUNCHY ATTACK',
                 preset: {
-                  'h1x': 0.05, 'h1y': 0.75,
-                  'mx': 0.35, 'my': 0.85,
-                  'h2x': 0.65, 'h2y': 0.98,
+                  'h1x': 0.10, 'h1y': 0.65,
+                  'mx': 0.35, 'my': 0.80,
+                  'h2x': 0.70, 'h2y': 0.95,
                 },
               ),
               _buildPresetButton(
                 label: 'LATE SWELL',
                 preset: {
-                  'h1x': 0.40, 'h1y': 0.05,
-                  'mx': 0.70, 'my': 0.20,
-                  'h2x': 0.95, 'h2y': 0.60,
+                  'h1x': 0.35, 'h1y': 0.05,
+                  'mx': 0.65, 'my': 0.20,
+                  'h2x': 0.90, 'h2y': 0.40,
                 },
               ),
               _buildPresetButton(
                 label: 'LINEAR',
                 preset: {
-                  'h1x': 0.25, 'h1y': 0.25,
+                  'h1x': 0.33, 'h1y': 0.33,
                   'mx': 0.50, 'my': 0.50,
-                  'h2x': 0.75, 'h2y': 0.75,
+                  'h2x': 0.67, 'h2y': 0.67,
                 },
               ),
-              _buildPresetButton(
-                label: 'RESET',
-                preset: {
-                  'h1x': 0.25, 'h1y': 0.10,
-                  'mx': 0.50, 'my': 0.50,
-                  'h2x': 0.75, 'h2y': 0.90,
-                },
-              ),
+
+              // User-saved custom presets
+              if (widget.customPresets.isNotEmpty) ...[
+                Container(
+                  height: 16,
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  color: Colors.grey[700],
+                ),
+                ...widget.customPresets.entries.map((entry) {
+                  return _buildCustomPresetChip(
+                    name: entry.key,
+                    preset: entry.value,
+                  );
+                }),
+              ],
             ],
           ),
         ),
@@ -396,27 +535,35 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    bool enabled = true,
   }) {
+    final color = enabled ? widget.accentColor : Colors.grey[600]!;
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
         decoration: BoxDecoration(
-          color: widget.accentColor.withValues(alpha: 0.12),
+          color: enabled
+              ? widget.accentColor.withValues(alpha: 0.12)
+              : Colors.grey.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: widget.accentColor.withValues(alpha: 0.4)),
+          border: Border.all(
+            color: enabled
+                ? widget.accentColor.withValues(alpha: 0.4)
+                : Colors.grey.withValues(alpha: 0.2),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 10, color: widget.accentColor),
+            Icon(icon, size: 10, color: color),
             const SizedBox(width: 3),
             Text(
               label,
               style: TextStyle(
                 fontSize: 8.5,
                 fontWeight: FontWeight.w700,
-                color: widget.accentColor,
+                color: color,
                 letterSpacing: 0.5,
               ),
             ),
@@ -458,10 +605,56 @@ class _VectorBezierEditorState extends State<VectorBezierEditor> {
       ),
     );
   }
+
+  Widget _buildCustomPresetChip({
+    required String name,
+    required Map<String, double> preset,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 5),
+      child: Container(
+        padding: const EdgeInsets.only(left: 7, right: 3, top: 2, bottom: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF9100).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(
+            color: const Color(0xFFFF9100).withValues(alpha: 0.4),
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () => _applyPreset(preset),
+              child: Text(
+                name.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFFFB74D),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () {
+                final updated = Map<String, Map<String, double>>.from(widget.customPresets);
+                updated.remove(name);
+                widget.onCustomPresetsChanged?.call(updated);
+              },
+              child: const Icon(Icons.close, size: 10, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _VectorBezierCanvasPainter extends CustomPainter {
   final VectorBezierCurve curve;
+  final bool isFadeIn;
   final Color accentColor;
   final bool isDarkMode;
   final double pad;
@@ -475,6 +668,7 @@ class _VectorBezierCanvasPainter extends CustomPainter {
 
   _VectorBezierCanvasPainter({
     required this.curve,
+    required this.isFadeIn,
     required this.accentColor,
     required this.isDarkMode,
     required this.pad,
@@ -493,7 +687,12 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     final double ch = size.height - 2 * pad;
 
     Offset toScreen(double normX, double normY) {
-      return Offset(pad + normX * cw, pad + (1.0 - normY) * ch);
+      if (isFadeIn) {
+        return Offset(pad + normX * cw, pad + (1.0 - normY) * ch);
+      } else {
+        // Fade Out descends top-to-bottom
+        return Offset(pad + normX * cw, pad + normY * ch);
+      }
     }
 
     // 1. Grid lines
@@ -508,7 +707,7 @@ class _VectorBezierCanvasPainter extends CustomPainter {
       canvas.drawLine(Offset(x, pad), Offset(x, pad + ch), gridPaint);
     }
 
-    // 2. Diagonal helper reference
+    // 2. Reference diagonal
     final refPaint = Paint()
       ..color = Colors.white.withValues(alpha: 0.1)
       ..strokeWidth = 0.8;
@@ -530,14 +729,14 @@ class _VectorBezierCanvasPainter extends CustomPainter {
     // End tangent arm
     canvas.drawLine(p1, h2, armPaint);
 
-    // Center point indicator line (subtle guide to center)
+    // Center point subtle indicator guides
     final guidePaint = Paint()
       ..color = const Color(0xFFFF9100).withValues(alpha: 0.25)
       ..strokeWidth = 1.0;
     canvas.drawLine(Offset(pm.dx, pad), Offset(pm.dx, pad + ch), guidePaint);
     canvas.drawLine(Offset(pad, pm.dy), Offset(pad + cw, pm.dy), guidePaint);
 
-    // 4. Main Bézier Spline with Gradient Glow
+    // 4. Main Continuous Bézier Spline with Gradient Glow
     final splinePath = Path();
     const int steps = 100;
     for (int i = 0; i <= steps; i++) {

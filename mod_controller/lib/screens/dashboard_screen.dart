@@ -68,6 +68,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, Map<String, double>> _fadeCustomParams = {};
   // Per-pedal custom S-curve params: h1x, h1y, mx, my, h2x, h2y (Fade Out)
   final Map<String, Map<String, double>> _fadeCustomParamsOut = {};
+  // User-saved custom curve presets
+  final Map<String, Map<String, double>> _savedCustomCurvePresets = {};
 
   // Live fade progress [0.0–1.0] — transient, not persisted
   final Map<String, double> _fadeProgress = {};
@@ -981,6 +983,17 @@ class _DashboardScreenState extends State<DashboardScreen>
           );
         });
       }
+      final String? savedCustomPresets = prefs.getString('custom_curve_presets');
+      final Map<String, Map<String, double>> newCustomPresets = {};
+      if (savedCustomPresets != null) {
+        final Map<String, dynamic> outer = jsonDecode(savedCustomPresets);
+        outer.forEach((k, v) {
+          final Map<String, dynamic> inner = jsonDecode(v.toString());
+          newCustomPresets[k] = inner.map(
+            (ik, iv) => MapEntry(ik, (iv as num).toDouble()),
+          );
+        });
+      }
       if (savedFadeCustomOut != null) {
         final Map<String, dynamic> outer = jsonDecode(savedFadeCustomOut);
         outer.forEach((k, v) {
@@ -1036,6 +1049,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           _fadeCustomParams.addAll(newFadeCustomParams);
           _fadeCustomParamsOut.clear();
           _fadeCustomParamsOut.addAll(newFadeCustomParamsOut);
+          _savedCustomCurvePresets.clear();
+          _savedCustomCurvePresets.addAll(newCustomPresets);
 
           if (savedFadeBars != null) {
             _fadeBars = savedFadeBars;
@@ -2566,6 +2581,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onFadeShapeChanged: (shape) {
                         setState(() {
                           _fadeShapes[pedal.instance] = shape;
+                        });
+                        _saveLayoutSettings();
+                      },
+                      customPresets: _savedCustomCurvePresets,
+                      onCustomPresetsChanged: (newPresets) {
+                        setState(() {
+                          _savedCustomCurvePresets.clear();
+                          _savedCustomCurvePresets.addAll(newPresets);
                         });
                         _saveLayoutSettings();
                       },
@@ -4129,6 +4152,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setString(
         '${key}_fadeCustomParams',
         jsonEncode(customEncoded),
+      );
+      final customOutEncoded = _fadeCustomParamsOut.map(
+        (k, v) => MapEntry(k, jsonEncode(v)),
+      );
+      await prefs.setString(
+        '${key}_fadeCustomParamsOut',
+        jsonEncode(customOutEncoded),
+      );
+      final customPresetsEncoded = _savedCustomCurvePresets.map(
+        (k, v) => MapEntry(k, jsonEncode(v)),
+      );
+      await prefs.setString(
+        'custom_curve_presets',
+        jsonEncode(customPresetsEncoded),
       );
       debugPrint('Saved layout settings for $key');
     } catch (e) {

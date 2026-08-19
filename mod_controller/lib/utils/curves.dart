@@ -6,36 +6,55 @@
 import 'package:flutter/material.dart';
 
 /// Vectorized Bézier Curve with Start/End vector handles and Center Point inflection
+/// Formulated as a single continuous cubic Bézier with guaranteed monotonic smoothness.
 class VectorBezierCurve extends Curve {
   /// Start point tangent handle (x1, y1)
   final double x1;
   final double y1;
-  /// End point tangent handle (x2, y2)
-  final double x2;
-  final double y2;
-  
+
   /// Center point inflection (mx, my)
   final double mx;
   final double my;
 
+  /// End point tangent handle (x2, y2)
+  final double x2;
+  final double y2;
+
   const VectorBezierCurve({
     this.x1 = 0.25,
-    this.y1 = 0.1,
-    this.mx = 0.5,
-    this.my = 0.5,
+    this.y1 = 0.10,
+    this.mx = 0.50,
+    this.my = 0.50,
     this.x2 = 0.75,
-    this.y2 = 0.9,
+    this.y2 = 0.90,
   });
+
+  /// Standard balanced S-curve preset
+  static const Map<String, double> balancedSPreset = {
+    'h1x': 0.25,
+    'h1y': 0.10,
+    'mx': 0.50,
+    'my': 0.50,
+    'h2x': 0.75,
+    'h2y': 0.90,
+  };
 
   /// Factory from parameters map with fallback to classic parameters
   factory VectorBezierCurve.fromMap(Map<String, double> map) {
+    final double h1x = (map['h1x'] ?? map['x1'] ?? 0.25).clamp(0.0, 1.0);
+    final double h1y = (map['h1y'] ?? map['y1'] ?? 0.10).clamp(0.0, 1.0);
+    final double mx = (map['mx'] ?? 0.50).clamp(0.05, 0.95);
+    final double my = (map['my'] ?? 0.50).clamp(0.0, 1.0);
+    final double h2x = (map['h2x'] ?? map['x2'] ?? 0.75).clamp(0.0, 1.0);
+    final double h2y = (map['h2y'] ?? map['y2'] ?? 0.90).clamp(0.0, 1.0);
+
     return VectorBezierCurve(
-      x1: (map['h1x'] ?? map['x1'] ?? 0.25).clamp(0.0, 1.0),
-      y1: (map['h1y'] ?? map['y1'] ?? 0.1).clamp(0.0, 1.0),
-      mx: (map['mx'] ?? 0.5).clamp(0.05, 0.95),
-      my: (map['my'] ?? 0.5).clamp(0.0, 1.0),
-      x2: (map['h2x'] ?? map['x2'] ?? 0.75).clamp(0.0, 1.0),
-      y2: (map['h2y'] ?? map['y2'] ?? 0.9).clamp(0.0, 1.0),
+      x1: h1x,
+      y1: h1y,
+      mx: mx,
+      my: my,
+      x2: h2x,
+      y2: h2y,
     );
   }
 
@@ -53,11 +72,11 @@ class VectorBezierCurve extends Curve {
   /// Creates a mirrored curve (e.g. for Fade Out opposite to Fade In)
   static Map<String, double> mirror(Map<String, double> src) {
     final double inH1x = src['h1x'] ?? src['x1'] ?? 0.25;
-    final double inH1y = src['h1y'] ?? src['y1'] ?? 0.1;
-    final double inMx = src['mx'] ?? 0.5;
-    final double inMy = src['my'] ?? 0.5;
+    final double inH1y = src['h1y'] ?? src['y1'] ?? 0.10;
+    final double inMx = src['mx'] ?? 0.50;
+    final double inMy = src['my'] ?? 0.50;
     final double inH2x = src['h2x'] ?? src['x2'] ?? 0.75;
-    final double inH2y = src['h2y'] ?? src['y2'] ?? 0.9;
+    final double inH2y = src['h2y'] ?? src['y2'] ?? 0.90;
 
     return {
       'h1x': (1.0 - inH2x).clamp(0.0, 1.0),
@@ -79,21 +98,8 @@ class VectorBezierCurve extends Curve {
     if (t.isNaN || t <= 0.0) return 0.0;
     if (t >= 1.0) return 1.0;
 
-    double res;
-    if (t < mx) {
-      final double segT = mx > 0.0 ? (t / mx).clamp(0.0, 1.0) : 0.0;
-      final double normH1x = mx > 0.0 ? (x1 / mx).clamp(0.0, 1.0) : 0.0;
-      // Auto-derived tangent into center point M
-      const double normMinX = 0.75;
-      res = _solveCubic(segT, 0.0, normH1x, normMinX, 1.0, 0.0, y1, my * 0.9, my);
-    } else {
-      final double segW = 1.0 - mx;
-      final double segT = segW > 0.0 ? ((t - mx) / segW).clamp(0.0, 1.0) : 1.0;
-      final double normH2x = segW > 0.0 ? ((x2 - mx) / segW).clamp(0.0, 1.0) : 1.0;
-      // Auto-derived tangent out of center point M
-      const double normMoutX = 0.25;
-      res = _solveCubic(segT, 0.0, normMoutX, normH2x, 1.0, my, my + (1.0 - my) * 0.1, y2, 1.0);
-    }
+    // Evaluate single cubic Bézier from (0,0) with control handles (x1, y1) and (x2, y2) to (1,1)
+    final double res = _solveCubic(t, 0.0, x1, x2, 1.0, 0.0, y1, y2, 1.0);
 
     if (res.isNaN) return t.clamp(0.0, 1.0);
     return res.clamp(0.0, 1.0);
