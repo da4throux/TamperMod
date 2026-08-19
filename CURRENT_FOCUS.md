@@ -1,5 +1,10 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.79)
+- **Timestamped Backup Export & Lenient Layout Matching**:
+  1. **Timestamped Filenames**: Exporting configurations now produces uniquely timestamped files (e.g. `tampermod_backup_YYYY-MM-DD_HHMMSS.json`) and bundles custom curve presets.
+  2. **Lenient Layout Matching**: When loading a pedalboard whose exact hash is new (e.g. 1 pedal was added/removed), TamperMod automatically discovers the closest matching saved layout, preserves all card positions, colors, sizes, titles, and fade curves, gracefully removing only the missing items.
+
 ## ✅ Completed (v1.3.78)
 - **Zero-Distortion Collinear Tangent & Seamless $C^1$ Continuity at Midpoint $M$**:
   1. **Eliminated False Vertical Rise on Horizontal Drag**: Removed artificial vertical $s_2$ scaling factor that distorted horizontal control points into steep upward angles.

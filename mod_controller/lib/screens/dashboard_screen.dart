@@ -723,13 +723,37 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       final key = _getPedalboardKey();
-      final List<String>? savedOrder = prefs.getStringList('${key}_order');
-      final List<String>? savedEnabled = prefs.getStringList('${key}_enabled');
-      final String? savedColorsJson = prefs.getString('${key}_colors');
-      final String? savedSizesJson = prefs.getString('${key}_sizes');
-      final String? savedTitlesJson = prefs.getString('${key}_custom_titles');
-      final String? savedGlowEnabledJson = prefs.getString('${key}_glow_enabled');
-      final int? savedFadeBars = prefs.getInt('${key}_fade_bars');
+      String effectiveKey = key;
+      List<String>? savedOrder = prefs.getStringList('${key}_order');
+
+      // Lenient matching: if current exact pedalboard key has no saved order,
+      // find the most similar saved pedalboard layout configuration and inherit its settings!
+      if (savedOrder == null) {
+        final matchingKey = _findBestMatchingPedalboardKey(prefs, currentIds);
+        if (matchingKey != null) {
+          effectiveKey = matchingKey;
+          savedOrder = prefs.getStringList('${effectiveKey}_order');
+          debugPrint('Lenient matching: inherited layout from $matchingKey for $key');
+        }
+      }
+
+      final List<String>? savedEnabled = prefs.getStringList('${effectiveKey}_enabled');
+      final String? savedColorsJson = prefs.getString('${effectiveKey}_colors');
+      final String? savedSizesJson = prefs.getString('${effectiveKey}_sizes');
+      final String? savedTitlesJson = prefs.getString('${effectiveKey}_custom_titles');
+      final String? savedGlowEnabledJson = prefs.getString('${effectiveKey}_glow_enabled');
+      final int? savedFadeBars = prefs.getInt('${effectiveKey}_fade_bars');
+      final String? savedCustomVisibleParamsJson = prefs.getString('${effectiveKey}_custom_card_visible_params');
+      final String? savedCustomVisibleCompactParamsJson = prefs.getString('${effectiveKey}_custom_card_visible_compact_params');
+      final String? savedSwitchModesJson = prefs.getString('${effectiveKey}_switch_modes');
+      final String? savedSwitchPathANamesJson = prefs.getString('${effectiveKey}_switch_path_a_names');
+      final String? savedSwitchPathBNamesJson = prefs.getString('${effectiveKey}_switch_path_b_names');
+      final String? savedSwitchInvertedJson = prefs.getString('${effectiveKey}_switch_inverted');
+      final String? savedFadeStart = prefs.getString('${effectiveKey}_fadeRangeStart');
+      final String? savedFadeEnd = prefs.getString('${effectiveKey}_fadeRangeEnd');
+      final String? savedFadeShapes = prefs.getString('${effectiveKey}_fadeShapes');
+      final String? savedFadeCustom = prefs.getString('${effectiveKey}_fadeCustomParams');
+      final String? savedFadeCustomOut = prefs.getString('${effectiveKey}_fadeCustomParamsOut');
 
       // 1. Order
       List<String> newOrder = [];
@@ -838,7 +862,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       // 5.5. Custom Card Visible Params
-      final String? savedCustomVisibleParamsJson = prefs.getString('${key}_custom_card_visible_params');
       final Map<String, List<String>> newCustomVisibleParams = {};
       if (savedCustomVisibleParamsJson != null) {
         try {
@@ -854,7 +877,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       // 5.6. Custom Compact Card Visible Params
-      final String? savedCustomVisibleCompactParamsJson = prefs.getString('${key}_custom_card_visible_compact_params');
       final Map<String, List<String>> newCustomVisibleCompactParams = {};
       if (savedCustomVisibleCompactParamsJson != null) {
         try {
@@ -870,7 +892,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       // 5.7. Switch Configs
-      final String? savedSwitchModesJson = prefs.getString('${key}_switch_modes');
       final Map<String, String> newSwitchModes = {};
       if (savedSwitchModesJson != null) {
         try {
@@ -881,7 +902,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
 
-      final String? savedSwitchPathANamesJson = prefs.getString('${key}_switch_path_a_names');
       final Map<String, String> newSwitchPathANames = {};
       if (savedSwitchPathANamesJson != null) {
         try {
@@ -892,7 +912,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
 
-      final String? savedSwitchPathBNamesJson = prefs.getString('${key}_switch_path_b_names');
       final Map<String, String> newSwitchPathBNames = {};
       if (savedSwitchPathBNamesJson != null) {
         try {
@@ -903,7 +922,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
 
-      final String? savedSwitchInvertedJson = prefs.getString('${key}_switch_inverted');
       final Map<String, bool> newSwitchInverted = {};
       if (savedSwitchInvertedJson != null) {
         try {
@@ -924,15 +942,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
 
       // 7. Fade range cursors
-      final String? savedFadeStart = prefs.getString('${key}_fadeRangeStart');
-      final String? savedFadeEnd = prefs.getString('${key}_fadeRangeEnd');
-      final String? savedFadeShapes = prefs.getString('${key}_fadeShapes');
-      final String? savedFadeCustom = prefs.getString(
-        '${key}_fadeCustomParams',
-      );
-      final String? savedFadeCustomOut = prefs.getString(
-        '${key}_fadeCustomParamsOut',
-      );
       final Map<String, double> newFadeStart = {};
       final Map<String, double> newFadeEnd = {};
       final Map<String, String> newFadeShapes = {};
@@ -3865,6 +3874,37 @@ class _DashboardScreenState extends State<DashboardScreen>
     return '${base}_$_activeConfig';
   }
 
+  String? _findBestMatchingPedalboardKey(
+    SharedPreferences prefs,
+    List<String> currentIds,
+  ) {
+    final Set<String> allKeys = prefs.getKeys();
+    String? bestKey;
+    int bestScore = 0;
+
+    for (final k in allKeys) {
+      if (k.startsWith('pedalboard_') && k.endsWith('_order')) {
+        final candidateKey = k.substring(0, k.length - '_order'.length);
+        final List<String>? candidateOrder = prefs.getStringList(k);
+        if (candidateOrder == null || candidateOrder.isEmpty) continue;
+
+        int matchingCount = 0;
+        for (final id in candidateOrder) {
+          if (currentIds.contains(id)) {
+            matchingCount++;
+          }
+        }
+
+        if (matchingCount > bestScore) {
+          bestScore = matchingCount;
+          bestKey = candidateKey;
+        }
+      }
+    }
+
+    return bestScore > 0 ? bestKey : null;
+  }
+
   Future<void> _duplicateCurrentConfig() async {
     final baseKey = _getPedalboardBaseKey();
     if (baseKey == 'default_pedalboard') return;
@@ -4354,7 +4394,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       final Map<String, dynamic> backupData = {};
 
       for (final key in keys) {
-        if (key.startsWith('pedalboard_') || key == 'is_dark_mode') {
+        if (key.startsWith('pedalboard_') || key == 'is_dark_mode' || key == 'custom_curve_presets') {
           final value = prefs.get(key);
           backupData[key] = value;
         }
@@ -4362,13 +4402,18 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       final jsonString = jsonEncode(backupData);
       final tempDir = Directory.systemTemp;
-      final tempFile = File('${tempDir.path}/tampermod_layouts_backup.json');
+      final now = DateTime.now();
+      final timestamp =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}_'
+          '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+      final fileName = 'tampermod_backup_$timestamp.json';
+      final tempFile = File('${tempDir.path}/$fileName');
       await tempFile.writeAsString(jsonString);
 
       await Share.shareXFiles(
         [XFile(tempFile.path)],
-        subject: 'TamperMod Layout Backup',
-        text: 'TamperMod Layout configurations backup JSON file.',
+        subject: 'TamperMod Backup ($timestamp)',
+        text: 'TamperMod configurations backup JSON file ($timestamp).',
       );
     } catch (e) {
       debugPrint('Error exporting configurations: $e');
