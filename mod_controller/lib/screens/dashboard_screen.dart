@@ -4671,162 +4671,191 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                       const SizedBox(height: 16),
 
-                      // Collapsible Raw Text Options
-                      ExpansionTile(
-                        iconColor: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
-                        collapsedIconColor: Colors.grey,
-                        title: Text(
-                          'Advanced: Raw Clipboard JSON',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                      // Direct Raw Text Options (No expansion required)
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.code_rounded,
+                            size: 14,
+                            color: _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'CLIPBOARD & RAW JSON BACKUP',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                              color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: jsonTextController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: 'Paste layout backup JSON string here...',
+                          hintStyle: const TextStyle(fontSize: 10.5, color: Colors.grey),
+                          fillColor: _isDarkMode ? const Color(0xFF070A0F) : Colors.grey[50],
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: _isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                            ),
                           ),
                         ),
+                        style: const TextStyle(fontSize: 9.5, fontFamily: 'monospace'),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: jsonTextController,
-                            maxLines: 4,
-                            decoration: InputDecoration(
-                              hintText: 'Paste layout backup JSON string here...',
-                              hintStyle: const TextStyle(fontSize: 11, color: Colors.grey),
-                              fillColor: _isDarkMode ? const Color(0xFF070A0F) : Colors.grey[50],
-                              filled: true,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00FFCC),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              textStyle: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
                             ),
-                            style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF00FFCC),
-                                  foregroundColor: Colors.black,
-                                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
-                                icon: const Icon(Icons.copy_rounded, size: 14),
-                                label: const Text('COPY CURRENT JSON'),
-                                onPressed: () async {
-                                  try {
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final Set<String> keys = prefs.getKeys();
-                                    final Map<String, dynamic> backupData = {};
-                                    for (final key in keys) {
-                                      if (key.startsWith('pedalboard_') || key == 'is_dark_mode') {
-                                        backupData[key] = prefs.get(key);
-                                      }
-                                    }
-                                    final jsonStr = jsonEncode(backupData);
-                                    await Clipboard.setData(ClipboardData(text: jsonStr));
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('JSON copied to clipboard!'),
-                                          backgroundColor: Color(0xFF00FFCC),
-                                        ),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    debugPrint('Error copying JSON: $e');
+                            icon: const Icon(Icons.copy_rounded, size: 14),
+                            label: const Text('COPY JSON'),
+                            onPressed: () async {
+                              try {
+                                final prefs = await SharedPreferences.getInstance();
+                                final Set<String> keys = prefs.getKeys();
+                                final Map<String, dynamic> backupData = {};
+                                for (final key in keys) {
+                                  if (key.startsWith('pedalboard_') || key == 'is_dark_mode' || key == 'custom_curve_presets') {
+                                    backupData[key] = prefs.get(key);
                                   }
-                                },
-                              ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFF007F),
-                                  foregroundColor: Colors.white,
-                                  textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
-                                icon: const Icon(Icons.paste_rounded, size: 14),
-                                label: const Text('IMPORT FROM TEXT'),
-                                onPressed: () async {
-                                  final text = jsonTextController.text.trim();
-                                  if (text.isEmpty) return;
-                                  Navigator.pop(context);
-                                  
-                                  try {
-                                    final Map<String, dynamic> decoded = jsonDecode(text);
-                                    if (decoded.isEmpty || !decoded.keys.any((k) => k.startsWith('pedalboard_'))) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Invalid backup JSON!'),
-                                          backgroundColor: Color(0xFFFF007F),
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                    
-                                    final bool? confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (context) {
-                                        return AlertDialog(
-                                          backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
-                                          title: const Text('CONFIRM RESTORE', style: TextStyle(color: Color(0xFFFF007F), fontWeight: FontWeight.bold, fontSize: 16)),
-                                          content: const Text('Are you sure you want to overwrite all configurations with this JSON?'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(context, false),
-                                              child: Text('CANCEL', style: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[600])),
-                                            ),
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF007F), foregroundColor: Colors.white),
-                                              onPressed: () => Navigator.pop(context, true),
-                                              child: const Text('RESTORE', style: TextStyle(fontWeight: FontWeight.bold)),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                    
-                                    if (confirm != true) return;
-                                    
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final Set<String> currentKeys = prefs.getKeys();
-                                    for (final key in currentKeys) {
-                                      if (key.startsWith('pedalboard_')) {
-                                        await prefs.remove(key);
-                                      }
-                                    }
-                                    for (final entry in decoded.entries) {
-                                      final key = entry.key;
-                                      final val = entry.value;
-                                      if (val is bool) {
-                                        await prefs.setBool(key, val);
-                                      } else if (val is int) {
-                                        await prefs.setInt(key, val);
-                                      } else if (val is double) {
-                                        await prefs.setDouble(key, val);
-                                      } else if (val is String) {
-                                        await prefs.setString(key, val);
-                                      } else if (val is List) {
-                                        await prefs.setStringList(key, val.map((e) => e.toString()).toList());
-                                      }
-                                    }
-                                    await _syncAndLoadLayoutSettings();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Layout configurations restored successfully!'),
-                                        backgroundColor: Color(0xFF00FFCC),
-                                      ),
-                                    );
-                                  } catch (e) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Error restoring JSON: $e'),
-                                        backgroundColor: const Color(0xFFFF007F),
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
+                                }
+                                final jsonStr = jsonEncode(backupData);
+                                await Clipboard.setData(ClipboardData(text: jsonStr));
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('JSON copied to clipboard!'),
+                                      backgroundColor: Color(0xFF00FFCC),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                debugPrint('Error copying JSON: $e');
+                              }
+                            },
                           ),
-                          const SizedBox(height: 10),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFF007F),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              textStyle: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                            ),
+                            icon: const Icon(Icons.paste_rounded, size: 14),
+                            label: const Text('PASTE & RESTORE'),
+                            onPressed: () async {
+                              String text = jsonTextController.text.trim();
+                              if (text.isEmpty) {
+                                final clipboardData = await Clipboard.getData('text/plain');
+                                if (clipboardData?.text != null && clipboardData!.text!.isNotEmpty) {
+                                  text = clipboardData.text!.trim();
+                                  jsonTextController.text = text;
+                                }
+                              }
+                              if (text.isEmpty) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please paste or copy JSON first!'),
+                                      backgroundColor: Color(0xFFFF007F),
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+                              if (!context.mounted) return;
+                              Navigator.pop(context);
+                              
+                              try {
+                                final Map<String, dynamic> decoded = jsonDecode(text);
+                                if (decoded.isEmpty || !decoded.keys.any((k) => k.startsWith('pedalboard_'))) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Invalid backup JSON!'),
+                                      backgroundColor: Color(0xFFFF007F),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                
+                                final bool? confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) {
+                                    return AlertDialog(
+                                      backgroundColor: _isDarkMode ? const Color(0xFF0F141C) : Colors.white,
+                                      title: const Text('CONFIRM RESTORE', style: TextStyle(color: Color(0xFFFF007F), fontWeight: FontWeight.bold, fontSize: 16)),
+                                      content: const Text('Are you sure you want to overwrite all configurations with this JSON?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, false),
+                                          child: Text('CANCEL', style: TextStyle(color: _isDarkMode ? Colors.grey : Colors.grey[600])),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF007F), foregroundColor: Colors.white),
+                                          onPressed: () => Navigator.pop(context, true),
+                                          child: const Text('RESTORE', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                                
+                                if (confirm != true) return;
+                                
+                                final prefs = await SharedPreferences.getInstance();
+                                final Set<String> currentKeys = prefs.getKeys();
+                                for (final key in currentKeys) {
+                                  if (key.startsWith('pedalboard_')) {
+                                    await prefs.remove(key);
+                                  }
+                                }
+                                for (final entry in decoded.entries) {
+                                  final key = entry.key;
+                                  final val = entry.value;
+                                  if (val is bool) {
+                                    await prefs.setBool(key, val);
+                                  } else if (val is int) {
+                                    await prefs.setInt(key, val);
+                                  } else if (val is double) {
+                                    await prefs.setDouble(key, val);
+                                  } else if (val is String) {
+                                    await prefs.setString(key, val);
+                                  } else if (val is List) {
+                                    await prefs.setStringList(key, val.map((e) => e.toString()).toList());
+                                  }
+                                }
+                                await _syncAndLoadLayoutSettings();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Layout configurations restored successfully!'),
+                                    backgroundColor: Color(0xFF00FFCC),
+                                  ),
+                                );
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error restoring JSON: $e'),
+                                    backgroundColor: const Color(0xFFFF007F),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
                         ],
                       ),
                     ],

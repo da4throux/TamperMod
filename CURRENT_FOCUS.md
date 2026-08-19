@@ -1,5 +1,10 @@
 # TamperMod — Current Focus
 
+## ✅ Completed (v1.3.80)
+- **Inline Single-Screen Clipboard JSON Backup & Restore**:
+  1. **Zero-Expansion Direct Visibility**: Raw JSON text field, `COPY JSON`, and `PASTE & RESTORE` action buttons are now directly embedded on the Backup & Restore screen without requiring an ExpansionTile.
+  2. **1-Tap Paste & Restore**: `PASTE & RESTORE` automatically checks and extracts system clipboard JSON if the text field is empty, enabling instant one-tap restoration.
+
 ## ✅ Completed (v1.3.79)
 - **Timestamped Backup Export & Lenient Layout Matching**:
   1. **Timestamped Filenames**: Exporting configurations now produces uniquely timestamped files (e.g. `tampermod_backup_YYYY-MM-DD_HHMMSS.json`) and bundles custom curve presets.
