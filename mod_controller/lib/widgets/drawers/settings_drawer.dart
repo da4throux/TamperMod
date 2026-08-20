@@ -6,6 +6,12 @@ import '../../models/plugin_instance.dart';
 import '../../utils/color_utils.dart';
 import '../../utils/plugin_category.dart';
 
+enum InactivePoolExpansion {
+  minimal,
+  partial,
+  full,
+}
+
 /// Settings drawer widget (puzzle organizer)
 class SettingsDrawer extends StatefulWidget {
   final bool isDarkMode;
@@ -66,7 +72,7 @@ class SettingsDrawer extends StatefulWidget {
 }
 
 class _SettingsDrawerState extends State<SettingsDrawer> {
-  bool _isInactivePoolCollapsed = false;
+  InactivePoolExpansion _inactivePoolExpansion = InactivePoolExpansion.partial;
   final Map<String, GlobalKey> _activeTileKeys = {};
   final Set<PluginCategoryType> _selectedCategoryFilters = {};
 
@@ -362,6 +368,119 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     );
   }
 
+  Widget _buildInactivePoolHeader(int count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 15,
+            color: count == 0
+                ? Colors.grey
+                : (widget.isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    'AVAILABLE POOL (INACTIVE)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10.5,
+                      color: widget.isDarkMode ? Colors.grey : Colors.grey[700],
+                      letterSpacing: 1.0,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (count > 0) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: (widget.isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055))
+                          .withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: widget.isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // 3-way Segmented Expansion Pills: MIN / MID / MAX
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: widget.isDarkMode ? Colors.grey[900] : Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildExpansionPill('MIN', InactivePoolExpansion.minimal),
+                _buildExpansionPill('MID', InactivePoolExpansion.partial),
+                _buildExpansionPill('MAX', InactivePoolExpansion.full),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpansionPill(String label, InactivePoolExpansion mode) {
+    final bool isSelected = _inactivePoolExpansion == mode;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _inactivePoolExpansion = mode;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (widget.isDarkMode ? const Color(0xFFFF007F).withValues(alpha: 0.25) : const Color(0xFFFF0055).withValues(alpha: 0.25))
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? (widget.isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055))
+                : Colors.transparent,
+            width: 1.0,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 7.5,
+            fontWeight: FontWeight.w900,
+            color: isSelected
+                ? (widget.isDarkMode ? const Color(0xFFFF007F) : const Color(0xFFFF0055))
+                : (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600]),
+            letterSpacing: 0.4,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMiniPuzzleTile({
     required PluginInstance pedal,
     required bool isActive,
@@ -506,43 +625,6 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       );
     }
 
-    double width = rWidth;
-    double height = 46.0;
-    if (isActive) {
-      if (isSpacer) {
-        if (size == 'compact') {
-          width = cWidth;
-          height = 40.0;
-        } else if (size == 'regular') {
-          width = rWidth;
-          height = 48.0;
-        } else {
-          width = eWidth;
-          height = 56.0;
-        }
-      } else if (category.type == PluginCategoryType.looper) {
-        if (size == 'regular') {
-          width = rWidth;
-          height = 48.0;
-        } else {
-          width = eWidth;
-          height = 56.0;
-        }
-      } else if (size == 'compact') {
-        width = cWidth;
-        height = 40.0;
-      } else if (size == 'regular') {
-        width = rWidth;
-        height = 48.0;
-      } else {
-        width = eWidth;
-        height = 56.0;
-      }
-    } else {
-      width = rWidth;
-      height = 46.0;
-    }
-
     final String colorHex = isSpacer
         ? ''
         : (widget.pedalGlowColors[instanceId] ??
@@ -553,6 +635,173 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
     final IconData typeIcon = category.icon;
 
+    // INACTIVE POOL: Full-width row tile for maximum legibility and ease of browsing
+    if (!isActive) {
+      final inactiveContent = Container(
+        width: eWidth,
+        height: 38.0,
+        margin: const EdgeInsets.symmetric(vertical: 2.5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: widget.isDarkMode
+              ? glowColor.withValues(alpha: 0.08)
+              : glowColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: glowColor.withValues(alpha: widget.isDarkMode ? 0.45 : 0.6),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Category Icon with glow circle
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: glowColor.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(typeIcon, size: 13, color: glowColor),
+            ),
+            const SizedBox(width: 8),
+
+            // Title (Full, untruncated)
+            Expanded(
+              child: Text(
+                (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+                style: TextStyle(
+                  color: widget.isDarkMode ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10.0,
+                  letterSpacing: 0.5,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+
+            // Category Badge
+            GestureDetector(
+              onTap: () => _showCategoryHelpDialog(initialCategory: category.type),
+              child: Container(
+                margin: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: category.defaultColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: category.defaultColor.withValues(alpha: 0.5),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  category.shortCode,
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    color: category.defaultColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ),
+
+            // Quick Add button
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  widget.enabledPluginInstances.add(instanceId);
+                  widget.orderedPluginInstances.remove(instanceId);
+                  widget.orderedPluginInstances.add(instanceId);
+                });
+                widget.onLayoutSettingsChanged();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00FFCC).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: const Color(0xFF00FFCC).withValues(alpha: 0.6),
+                    width: 1.0,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, size: 10, color: Color(0xFF00FFCC)),
+                    SizedBox(width: 2),
+                    Text(
+                      'ADD',
+                      style: TextStyle(
+                        fontSize: 8.0,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00FFCC),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      return KeyedSubtree(
+        key: _getTileKey(instanceId),
+        child: Draggable<String>(
+          data: instanceId,
+          feedback: Material(
+            color: Colors.transparent,
+            child: Opacity(
+              opacity: 0.9,
+              child: SizedBox(
+                width: eWidth,
+                child: inactiveContent,
+              ),
+            ),
+          ),
+          childWhenDragging: Opacity(
+            opacity: 0.3,
+            child: inactiveContent,
+          ),
+          child: inactiveContent,
+        ),
+      );
+    }
+
+    // ACTIVE TILE
+    double width = rWidth;
+    double height = 46.0;
+    if (isSpacer) {
+      if (size == 'compact') {
+        width = cWidth;
+        height = 40.0;
+      } else if (size == 'regular') {
+        width = rWidth;
+        height = 48.0;
+      } else {
+        width = eWidth;
+        height = 56.0;
+      }
+    } else if (category.type == PluginCategoryType.looper) {
+      if (size == 'regular') {
+        width = rWidth;
+        height = 48.0;
+      } else {
+        width = eWidth;
+        height = 56.0;
+      }
+    } else if (size == 'compact') {
+      width = cWidth;
+      height = 40.0;
+    } else if (size == 'regular') {
+      width = rWidth;
+      height = 48.0;
+    } else {
+      width = eWidth;
+      height = 56.0;
+    }
+
     final tileContent = Container(
       width: width,
       height: height,
@@ -561,19 +810,17 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         vertical: 4,
       ),
       decoration: BoxDecoration(
-        color: isActive
-            ? (isSpacer
-                ? Colors.transparent
-                : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18))
-            : Colors.transparent,
+        color: isSpacer
+            ? Colors.transparent
+            : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: (widget.highlightedInstanceId == instanceId)
               ? Colors.white
               : (isSpacer
                   ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
-                  : glowColor.withOpacity(isActive ? 0.9 : 0.4)),
-          width: (widget.highlightedInstanceId == instanceId) ? 2.5 : (isActive ? 1.5 : 1.0),
+                  : glowColor.withOpacity(0.9)),
+          width: (widget.highlightedInstanceId == instanceId) ? 2.5 : 1.5,
           style: BorderStyle.solid,
         ),
         boxShadow: (widget.highlightedInstanceId == instanceId)
@@ -589,7 +836,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   spreadRadius: 3,
                 ),
               ]
-            : (isActive && !isSpacer
+            : (!isSpacer
                 ? [
                     BoxShadow(
                       color: glowColor.withOpacity(0.3),
@@ -631,10 +878,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             onTap: isSpacer ? null : () => _showCategoryHelpDialog(initialCategory: category.type),
             child: Icon(
               typeIcon,
-              size: (size == 'compact' && isActive ? 11 : 13),
+              size: (size == 'compact' ? 11 : 13),
               color: isSpacer
                   ? (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600])
-                  : (category.type == PluginCategoryType.looper && isActive ? const Color(0xFFFF0055) : glowColor),
+                  : (category.type == PluginCategoryType.looper ? const Color(0xFFFF0055) : glowColor),
             ),
           ),
           const SizedBox(width: 4),
@@ -648,11 +895,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               style: TextStyle(
                 color: isSpacer
                     ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
-                    : (isActive
-                        ? (widget.isDarkMode ? Colors.white : Colors.black)
-                        : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700])),
+                    : (widget.isDarkMode ? Colors.white : Colors.black),
                 fontWeight: FontWeight.bold,
-                fontSize: (size == 'compact' && isActive ? 8 : 9.5),
+                fontSize: (size == 'compact' ? 8 : 9.5),
                 letterSpacing: 0.5,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -688,7 +933,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           ],
 
           // Right panel options (Delete for Spacer)
-          if (isActive && isSpacer) ...[
+          if (isSpacer) ...[
             GestureDetector(
               onTap: () => widget.onDeleteSpacer(instanceId),
               child: Container(
@@ -934,6 +1179,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 }
               }
             }
+
+            final int activeFlex = _inactivePoolExpansion == InactivePoolExpansion.minimal
+                ? 1
+                : (_inactivePoolExpansion == InactivePoolExpansion.partial ? 5 : 2);
+            final int inactiveFlex = _inactivePoolExpansion == InactivePoolExpansion.minimal
+                ? 0
+                : (_inactivePoolExpansion == InactivePoolExpansion.partial ? 4 : 7);
 
             return Column(
               children: [
@@ -1267,6 +1519,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 _buildCategoryFilterBar(allPlugins),
 
                 Expanded(
+                  flex: activeFlex,
                   child: DragTarget<String>(
                     onMove: (details) {
                       final draggedId = details.data;
@@ -1391,135 +1644,45 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ),
                 ),
 
-                // INACTIVE / AVAILABLE POOL (Foldable Header)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: () {
-                      setState(() {
-                        _isInactivePoolCollapsed = !_isInactivePoolCollapsed;
-                      });
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.inventory_2_outlined,
-                            size: 15,
-                            color: inactivePedals.isEmpty
-                                ? Colors.grey
-                                : (widget.isDarkMode
-                                      ? const Color(0xFFFF007F)
-                                      : const Color(0xFFFF0055)),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'AVAILABLE POOL (INACTIVE)',
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10.5,
-                                      color: widget.isDarkMode
-                                          ? Colors.grey
-                                          : Colors.grey[700],
-                                      letterSpacing: 1.0,
-                                    ),
-                                  ),
-                                ),
-                                if (inactivePedals.isNotEmpty) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 1.5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: (widget.isDarkMode
-                                              ? const Color(0xFFFF007F)
-                                              : const Color(0xFFFF0055))
-                                          .withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '${inactivePedals.length}',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                        color: widget.isDarkMode
-                                            ? const Color(0xFFFF007F)
-                                            : const Color(0xFFFF0055),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            _isInactivePoolCollapsed
-                                ? Icons.expand_more_rounded
-                                : Icons.expand_less_rounded,
-                            size: 16,
-                            color: widget.isDarkMode
-                                ? Colors.grey[400]
-                                : Colors.grey[600],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                // INACTIVE / AVAILABLE POOL (Header with MIN / MID / MAX Toggle)
+                _buildInactivePoolHeader(inactivePedals.length),
 
-                if (!_isInactivePoolCollapsed)
-                  Container(
-                    height: 120,
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 2,
-                    ),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: widget.isDarkMode
-                          ? const Color(0xFF0B0E14).withOpacity(0.6)
-                          : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: (widget.isDarkMode
-                            ? Colors.grey[900]
-                            : Colors.grey[300])!,
-                        width: 1.5,
+                if (_inactivePoolExpansion != InactivePoolExpansion.minimal)
+                  Expanded(
+                    flex: inactiveFlex,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 2,
                       ),
-                    ),
-                    child: inactivePedals.isEmpty
-                        ? Center(
-                            child: Text(
-                              'All pedals are currently active on dashboard',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: widget.isDarkMode
-                                    ? Colors.grey[600]
-                                    : Colors.grey[500],
-                                fontStyle: FontStyle.italic,
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: widget.isDarkMode
+                            ? const Color(0xFF0B0E14).withOpacity(0.6)
+                            : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: (widget.isDarkMode
+                              ? Colors.grey[900]
+                              : Colors.grey[300])!,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: inactivePedals.isEmpty
+                          ? Center(
+                              child: Text(
+                                'All pedals are currently active on dashboard',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: widget.isDarkMode
+                                      ? Colors.grey[600]
+                                      : Colors.grey[500],
+                                  fontStyle: FontStyle.italic,
+                                ),
                               ),
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            child: Wrap(
-                              spacing: spacing,
-                              runSpacing: spacing,
-                              alignment: WrapAlignment.start,
-                              runAlignment: WrapAlignment.start,
-                              crossAxisAlignment: WrapCrossAlignment.start,
+                            )
+                          : ListView(
+                              padding: EdgeInsets.zero,
                               children: (_selectedCategoryFilters.isEmpty
                                       ? inactivePedals
                                       : inactivePedals.where((pedal) {
@@ -1539,7 +1702,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                                 );
                               }).toList(),
                             ),
-                          ),
+                    ),
                   ),
               ],
             );

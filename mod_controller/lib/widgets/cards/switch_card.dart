@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../../models/plugin_instance.dart';
+import '../../utils/plugin_category.dart';
 import '../common/size_toggle_button.dart';
 
 /// Switch/routing controller card widget with dual layout modes:
@@ -150,11 +151,12 @@ class SwitchCard extends StatelessWidget {
                       currentSize: size,
                       accentColor: accentColor,
                       isDarkMode: isDarkMode,
+                      pedal: pedal,
                       onTap: onSizeToggled,
                     ),
                     const SizedBox(width: 6),
 
-                    // Card Title in high-contrast capsule
+                    // Card Title in high-contrast capsule + Category Badge
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -168,15 +170,42 @@ class SwitchCard extends StatelessWidget {
                             width: 0.8,
                           ),
                         ),
-                        child: Text(
-                          displayName.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: size == 'compact' ? 11.5 : 13.0,
-                            fontWeight: FontWeight.w900,
-                            color: isDarkMode ? Colors.white : Colors.black87,
-                            letterSpacing: 0.8,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                displayName.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: size == 'compact' ? 11.5 : 13.0,
+                                  fontWeight: FontWeight.w900,
+                                  color: isDarkMode ? Colors.white : Colors.black87,
+                                  letterSpacing: 0.8,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: PluginCategoryHelper.getCategoryForPlugin(pedal).defaultColor.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: PluginCategoryHelper.getCategoryForPlugin(pedal).defaultColor.withValues(alpha: 0.5),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                PluginCategoryHelper.getCategoryForPlugin(pedal).shortCode,
+                                style: TextStyle(
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: PluginCategoryHelper.getCategoryForPlugin(pedal).defaultColor,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

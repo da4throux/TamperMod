@@ -8,6 +8,7 @@ import '../../services/looper_controller.dart';
 import '../../services/websocket_service.dart';
 import '../common/module_help_sheet.dart';
 import '../common/size_toggle_button.dart';
+import '../../utils/plugin_category.dart';
 import 'base_card.dart';
 
 /// ALO looper controller card widget
@@ -103,35 +104,63 @@ class _LooperCardState extends State<LooperCard> {
                 // Title / Header Row (Standardized)
                 Row(
                   children: [
-                    // 1. Size toggle
+                    // 1. Size toggle & Category Icon
                     SizeToggleButton(
                       instanceId: widget.pedal.instance,
                       currentSize: 'expanded',
                       accentColor: looperAccentColor,
                       isDarkMode: widget.isDarkMode,
                       isEnabled: true,
+                      pedal: widget.pedal,
                       onTap: widget.onSizeToggled,
                       onLongPress: widget.onRenamePressed,
                     ),
                     const SizedBox(width: 6),
 
-                    // 2. Card Name (Expanded)
+                    // 2. Card Name (Expanded) + Category Micro-Badge
                     Expanded(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: widget.onHighlightPressed,
                         onLongPress: widget.onRenamePressed,
-                        child: Text(
-                          widget.displayName.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                            color: widget.isDarkMode
-                                ? Colors.white
-                                : Colors.black,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.displayName.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                  color: widget.isDarkMode
+                                      ? Colors.white
+                                      : Colors.black,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: PluginCategoryHelper.getCategoryForPlugin(widget.pedal).defaultColor.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: PluginCategoryHelper.getCategoryForPlugin(widget.pedal).defaultColor.withValues(alpha: 0.5),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                PluginCategoryHelper.getCategoryForPlugin(widget.pedal).shortCode,
+                                style: TextStyle(
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: PluginCategoryHelper.getCategoryForPlugin(widget.pedal).defaultColor,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

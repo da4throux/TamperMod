@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/plugin_instance.dart';
 import '../../utils/curves.dart';
+import '../../utils/plugin_category.dart';
 import '../common/fade_button.dart';
 import '../common/module_help_sheet.dart';
 import '../common/size_toggle_button.dart';
@@ -277,6 +278,8 @@ class _GainCardState extends State<GainCard> {
       );
     }
 
+    final category = PluginCategoryHelper.getCategoryForPlugin(widget.pedal);
+
     // ── Size-toggle icon ─────────────────────────────────────────────
     Widget buildSizeToggle() {
       return SizeToggleButton(
@@ -284,6 +287,7 @@ class _GainCardState extends State<GainCard> {
         currentSize: widget.size,
         accentColor: accentColor,
         isDarkMode: widget.isDarkMode,
+        pedal: widget.pedal,
         onTap: widget.onSizeToggled,
         onLongPress: widget.onRenamePressed,
       );
@@ -292,25 +296,52 @@ class _GainCardState extends State<GainCard> {
     Widget buildStandardHeaderRow(BuildContext context) {
       return Row(
         children: [
-          // 1. Size Toggle
+          // 1. Size Toggle & Category Icon
           buildSizeToggle(),
           const SizedBox(width: 6),
 
-          // 2. Card Name (Expanded)
+          // 2. Card Name (Expanded) + Category Micro-Badge
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: widget.onHighlightPressed,
               onLongPress: widget.onRenamePressed,
-              child: Text(
-                widget.displayName.toUpperCase(),
-                style: TextStyle(
-                  fontSize: widget.size == 'compact' ? 13.0 : 16.0,
-                  fontWeight: FontWeight.w900,
-                  color: accentColor,
-                  letterSpacing: 0.8,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      widget.displayName.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: widget.size == 'compact' ? 13.0 : 16.0,
+                        fontWeight: FontWeight.w900,
+                        color: accentColor,
+                        letterSpacing: 0.8,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: category.defaultColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: category.defaultColor.withValues(alpha: 0.5),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      category.shortCode,
+                      style: TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w900,
+                        color: category.defaultColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

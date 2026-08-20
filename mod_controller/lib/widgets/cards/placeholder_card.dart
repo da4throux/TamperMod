@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../../models/plugin_instance.dart';
 import '../../models/parameter_metadata.dart';
+import '../../utils/plugin_category.dart';
 import '../common/size_toggle_button.dart';
 import 'base_card.dart';
 
@@ -413,6 +414,7 @@ class PlaceholderCard extends StatelessWidget {
     final Color powerIconColor = isBypassed ? const Color(0xFFFF007F) : glowColor;
 
     final allMetadata = _getResolvedMetadata();
+    final category = PluginCategoryHelper.getCategoryForPlugin(pedal);
 
     Widget buildSizeToggle() {
       return SizeToggleButton(
@@ -420,6 +422,7 @@ class PlaceholderCard extends StatelessWidget {
         currentSize: size,
         accentColor: accentColor,
         isDarkMode: isDarkMode,
+        pedal: pedal,
         onTap: onSizeToggled,
         onLongPress: onRenamePressed,
       );
@@ -428,25 +431,52 @@ class PlaceholderCard extends StatelessWidget {
     Widget buildStandardHeaderRow(BuildContext context) {
       return Row(
         children: [
-          // 1. Size Toggle
+          // 1. Size Toggle & Category Icon
           buildSizeToggle(),
           const SizedBox(width: 6),
 
-          // 2. Card Name (Expanded)
+          // 2. Card Name (Expanded) + Category Micro-Badge
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: onHighlightPressed,
               onLongPress: onRenamePressed,
-              child: Text(
-                displayName.toUpperCase(),
-                style: TextStyle(
-                  fontSize: size == 'compact' ? 13.0 : (size == 'regular' ? 15.0 : 17.0),
-                  fontWeight: FontWeight.w900,
-                  color: accentColor,
-                  letterSpacing: 0.8,
-                  overflow: TextOverflow.ellipsis,
-                ),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      displayName.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: size == 'compact' ? 13.0 : (size == 'regular' ? 15.0 : 17.0),
+                        fontWeight: FontWeight.w900,
+                        color: accentColor,
+                        letterSpacing: 0.8,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: category.defaultColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: category.defaultColor.withValues(alpha: 0.5),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      category.shortCode,
+                      style: TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w900,
+                        color: category.defaultColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
