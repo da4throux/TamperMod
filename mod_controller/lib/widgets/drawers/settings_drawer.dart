@@ -587,14 +587,11 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         key: _getTileKey(instanceId),
         child: DragTarget<String>(
           onWillAccept: (data) => data != instanceId,
-          onMove: (details) {
-            final draggedId = details.data;
-            if (draggedId == instanceId) return;
-
-            final idxA = widget.orderedPluginInstances.indexOf(draggedId);
-            final idxB = widget.orderedPluginInstances.indexOf(instanceId);
-            if (idxA != -1 && idxB != -1 && idxA != idxB) {
-              setState(() {
+          onAccept: (draggedId) {
+            setState(() {
+              final idxA = widget.orderedPluginInstances.indexOf(draggedId);
+              final idxB = widget.orderedPluginInstances.indexOf(instanceId);
+              if (idxA != -1 && idxB != -1 && idxA != idxB) {
                 final item = widget.orderedPluginInstances.removeAt(idxA);
                 widget.orderedPluginInstances.insert(idxB, item);
                 if (isActive) {
@@ -608,11 +605,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     widget.enabledPluginInstances.insert(activeB, aItem);
                   }
                 }
-              });
-              widget.onLayoutSettingsChanged();
-            }
-          },
-          onAccept: (draggedId) {
+              }
+            });
             widget.onLayoutSettingsChanged();
           },
           builder: (context, _, __) {
@@ -1148,72 +1142,41 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       ),
     );
 
-    // Draggable wrapping with live interactive reordering while moving
+    // Draggable wrapping with interactive reordering on drop
     return KeyedSubtree(
       key: _getTileKey(instanceId),
       child: DragTarget<String>(
-      onWillAccept: (data) => data != instanceId,
-      onMove: (details) {
-        final draggedId = details.data;
-        if (draggedId == instanceId) return;
-
-        final idxA = widget.orderedPluginInstances.indexOf(draggedId);
-        final idxB = widget.orderedPluginInstances.indexOf(instanceId);
-        if (idxA != -1 && idxB != -1 && idxA != idxB) {
+        onWillAccept: (data) => data != instanceId,
+        onAccept: (draggedId) {
           setState(() {
-            final item = widget.orderedPluginInstances.removeAt(idxA);
-            widget.orderedPluginInstances.insert(idxB, item);
+            // Reorder list order
+            final idxA = widget.orderedPluginInstances.indexOf(draggedId);
+            final idxB = widget.orderedPluginInstances.indexOf(instanceId);
+            if (idxA != -1 && idxB != -1 && idxA != idxB) {
+              final item = widget.orderedPluginInstances.removeAt(idxA);
+              widget.orderedPluginInstances.insert(idxB, item);
+            }
 
-            if (isActive) {
-              // Hovering over active grid: activate immediately so space opens up and preview is live
-              if (!widget.enabledPluginInstances.contains(draggedId)) {
-                widget.enabledPluginInstances.add(draggedId);
-              }
-              final activeA = widget.enabledPluginInstances.indexOf(draggedId);
-              final activeB = widget.enabledPluginInstances.indexOf(instanceId);
-              if (activeA != -1 && activeB != -1 && activeA != activeB) {
-                final aItem = widget.enabledPluginInstances.removeAt(activeA);
-                widget.enabledPluginInstances.insert(activeB, aItem);
-              }
-            } else {
-              // Hovering over inactive pool: deactivate so it returns to pool
-              if (widget.enabledPluginInstances.contains(draggedId)) {
-                widget.enabledPluginInstances.remove(draggedId);
-              }
+            // If dragged item was inactive, activate it at target index
+            if (!widget.enabledPluginInstances.contains(draggedId)) {
+              widget.enabledPluginInstances.add(draggedId);
+            }
+
+            // Also sync reorder inside active visibility list
+            final activeA = widget.enabledPluginInstances.indexOf(draggedId);
+            final activeB = widget.enabledPluginInstances.indexOf(instanceId);
+            if (activeA != -1 && activeB != -1 && activeA != activeB) {
+              final item = widget.enabledPluginInstances.removeAt(activeA);
+              widget.enabledPluginInstances.insert(activeB, item);
             }
           });
-        }
-      },
-      onAccept: (draggedId) {
-        setState(() {
-          // Reorder list order
-          final idxA = widget.orderedPluginInstances.indexOf(draggedId);
-          final idxB = widget.orderedPluginInstances.indexOf(instanceId);
-          if (idxA != -1 && idxB != -1 && idxA != idxB) {
-            final item = widget.orderedPluginInstances.removeAt(idxA);
-            widget.orderedPluginInstances.insert(idxB, item);
-          }
-
-          // If dragged item was inactive, activate it at target index
-          if (!widget.enabledPluginInstances.contains(draggedId)) {
-            widget.enabledPluginInstances.add(draggedId);
-          }
-
-          // Also sync reorder inside active visibility list
-          final activeA = widget.enabledPluginInstances.indexOf(draggedId);
-          final activeB = widget.enabledPluginInstances.indexOf(instanceId);
-          if (activeA != -1 && activeB != -1 && activeA != activeB) {
-            final item = widget.enabledPluginInstances.removeAt(activeA);
-            widget.enabledPluginInstances.insert(activeB, item);
-          }
-        });
-        widget.onLayoutSettingsChanged();
-      },
-      builder: (context, _, __) {
-        return LongPressDraggable<String>(
-          data: instanceId,
-          delay: const Duration(milliseconds: 150),
-          onDragEnd: (_) => widget.onLayoutSettingsChanged(),
+          widget.onLayoutSettingsChanged();
+        },
+        builder: (context, _, __) {
+          return LongPressDraggable<String>(
+            data: instanceId,
+            delay: const Duration(milliseconds: 150),
+            onDragEnd: (_) => widget.onLayoutSettingsChanged(),
           feedback: Material(
             color: Colors.transparent,
             child: Opacity(
@@ -1701,16 +1664,6 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 Expanded(
                   flex: activeFlex,
                   child: DragTarget<String>(
-                    onMove: (details) {
-                      final draggedId = details.data;
-                      if (!widget.enabledPluginInstances.contains(draggedId)) {
-                        setState(() {
-                          widget.enabledPluginInstances.add(draggedId);
-                          widget.orderedPluginInstances.remove(draggedId);
-                          widget.orderedPluginInstances.add(draggedId);
-                        });
-                      }
-                    },
                     onAccept: (draggedId) {
                       final bool wasAlreadyActive =
                           widget.enabledPluginInstances.contains(draggedId);
