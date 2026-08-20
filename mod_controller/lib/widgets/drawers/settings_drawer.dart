@@ -93,14 +93,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   void _scrollToHighlightedTile(String instanceId) {
-    final bool isInactive = !widget.enabledPluginInstances.contains(instanceId);
-    if (isInactive && _inactivePoolExpansion == InactivePoolExpansion.minimal) {
-      setState(() {
-        _inactivePoolExpansion = InactivePoolExpansion.partial;
-      });
-    }
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final bool isInactive = !widget.enabledPluginInstances.contains(instanceId);
+      if (isInactive && _inactivePoolExpansion == InactivePoolExpansion.minimal) {
+        setState(() {
+          _inactivePoolExpansion = InactivePoolExpansion.partial;
+        });
+      }
+
       final key = _activeTileKeys[instanceId];
       final targetContext = key?.currentContext;
       if (targetContext != null) {

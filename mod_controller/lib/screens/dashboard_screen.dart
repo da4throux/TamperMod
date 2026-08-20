@@ -5805,7 +5805,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   void _handlePedalSearchClick(String rawInstanceId) {
     debugPrint('PedalClickChannel received rawInstanceId: $rawInstanceId');
-    _triggerSearchHighlight(rawInstanceId, shouldScroll: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _triggerSearchHighlight(rawInstanceId, shouldScroll: true);
+    });
   }
 
   void _triggerSearchHighlight(
@@ -5853,33 +5856,40 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     // Trigger synchronized flashing strobe on dashboard card and puzzle tile for 5 seconds
-    setState(() {
-      _highlightedInstanceId = targetId;
-      _isFlashStateOn = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _highlightedInstanceId = targetId;
+        _isFlashStateOn = true;
+      });
     });
 
     _highlightTimer?.cancel();
     _flashStrobeTimer?.cancel();
 
-    // Pulse flash state every 250ms for an active breathing strobe
+    // Pulse flash state every 250ms for an active breathing strobe safely post-frame
     _flashStrobeTimer = Timer.periodic(const Duration(milliseconds: 250), (timer) {
-      if (mounted && _highlightedInstanceId != null) {
-        setState(() {
-          _isFlashStateOn = !_isFlashStateOn;
-        });
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _highlightedInstanceId != null) {
+          setState(() {
+            _isFlashStateOn = !_isFlashStateOn;
+          });
+        }
+      });
     });
 
     _highlightTimer = Timer(const Duration(milliseconds: 5000), () {
       _flashStrobeTimer?.cancel();
-      if (mounted) {
-        setState(() {
-          if (_highlightedInstanceId == targetId) {
-            _highlightedInstanceId = null;
-            _isFlashStateOn = false;
-          }
-        });
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            if (_highlightedInstanceId == targetId) {
+              _highlightedInstanceId = null;
+              _isFlashStateOn = false;
+            }
+          });
+        }
+      });
     });
   }
 
