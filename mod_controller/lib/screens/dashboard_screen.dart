@@ -83,10 +83,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, bool> _pedalGlowEnabled = {};
   final Map<String, String> _pedalSizes = {};
 
-  // Pedal Search mode (click on pedal in WebView to focus/scroll & blink)
-  bool _isPedalSearchMode = true;
+  // Pedal Search mode (click on pedal in WebView to focus/scroll & blink, off by default)
+  bool _isPedalSearchMode = false;
   String? _highlightedInstanceId;
   Timer? _highlightTimer;
+  Timer? _flashStrobeTimer;
+  bool _isFlashStateOn = false;
 
   GlobalKey _getCardKey(String instanceId) {
     return _cardKeys.putIfAbsent(instanceId, () => GlobalKey());
@@ -580,6 +582,68 @@ class _DashboardScreenState extends State<DashboardScreen>
             }
           }
         }
+
+        // Hover Tooltip
+        let hoverTooltip = document.getElementById('tamper-pedal-hover-tooltip');
+        if (!hoverTooltip) {
+          hoverTooltip = document.createElement('div');
+          hoverTooltip.id = 'tamper-pedal-hover-tooltip';
+          hoverTooltip.style.position = 'fixed';
+          hoverTooltip.style.pointerEvents = 'none';
+          hoverTooltip.style.zIndex = '999999';
+          hoverTooltip.style.padding = '6px 12px';
+          hoverTooltip.style.borderRadius = '8px';
+          hoverTooltip.style.backgroundColor = 'rgba(11, 14, 20, 0.94)';
+          hoverTooltip.style.border = '1.5px solid #00FFCC';
+          hoverTooltip.style.color = '#FFFFFF';
+          hoverTooltip.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+          hoverTooltip.style.fontSize = '12px';
+          hoverTooltip.style.fontWeight = 'bold';
+          hoverTooltip.style.letterSpacing = '0.8px';
+          hoverTooltip.style.boxShadow = '0 4px 20px rgba(0, 255, 204, 0.45), 0 0 10px rgba(0, 0, 0, 0.8)';
+          hoverTooltip.style.opacity = '0';
+          hoverTooltip.style.transition = 'opacity 0.12s ease';
+          hoverTooltip.style.transform = 'translate(-50%, -130%)';
+          document.body.appendChild(hoverTooltip);
+        }
+
+        function getPedalDisplayName(el, inst) {
+          if (!el) return inst;
+          const titleEl = el.querySelector && el.querySelector('.pedal-label, .title, .name, [class*="label"], [class*="title"], text');
+          let name = titleEl ? titleEl.textContent.trim() : '';
+          if (!name) {
+            name = el.getAttribute('title') || el.getAttribute('data-name') || '';
+          }
+          if (!name && inst) {
+            name = inst.split('/').pop().replace(/_/g, ' ');
+          }
+          return name || inst;
+        }
+
+        function handlePointerMove(e) {
+          const inst = findPedalInstance(e.target);
+          if (inst) {
+            let pedalEl = e.target;
+            if (e.target.closest) {
+              pedalEl = e.target.closest('[mod-instance]') || e.target.closest('.mod-pedal, .pedal') || e.target;
+            }
+            const displayName = getPedalDisplayName(pedalEl, inst);
+            hoverTooltip.innerHTML = '<span style="color:#00FFCC;margin-right:4px;">🔍</span> ' + displayName.toUpperCase();
+            hoverTooltip.style.left = e.clientX + 'px';
+            hoverTooltip.style.top = e.clientY + 'px';
+            hoverTooltip.style.opacity = '1';
+          } else {
+            if (hoverTooltip.style.opacity !== '0') {
+              hoverTooltip.style.opacity = '0';
+            }
+          }
+        }
+
+        document.addEventListener('pointermove', handlePointerMove, true);
+        document.addEventListener('mousemove', handlePointerMove, true);
+        document.addEventListener('mouseleave', function() {
+          if (hoverTooltip) hoverTooltip.style.opacity = '0';
+        });
 
         ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach(function(evt) {
           document.addEventListener(evt, handleInteraction, true);
@@ -1735,6 +1799,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _highlightTimer?.cancel();
+    _flashStrobeTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_handleGlobalKeyEvents);
     WidgetsBinding.instance.removeObserver(this);
     _webSocketService.gainPedals.removeListener(_initializeLocalVolumes);
@@ -2489,6 +2554,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           onAddLineBreak: _addLineBreak,
                           onDeleteLineBreak: _deleteLineBreak,
                           highlightedInstanceId: _highlightedInstanceId,
+                          isFlashStateOn: _isFlashStateOn,
                         ),
                       ),
                     ),
@@ -3189,7 +3255,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   final bool isHighlighted = _highlightedInstanceId == pedal.instance;
 
                   return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
+                    duration: const Duration(milliseconds: 200),
                     key: _getCardKey(pedal.instance),
                     width: cardWidth,
                     height: cardHeight,
@@ -3197,21 +3263,29 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ? BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.white,
-                              width: 2.5,
+                              color: _isFlashStateOn ? Colors.white : glowColor,
+                              width: _isFlashStateOn ? 3.5 : 1.5,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                blurRadius: 16,
-                                spreadRadius: 3,
-                              ),
-                              BoxShadow(
-                                color: glowColor.withValues(alpha: 0.9),
-                                blurRadius: 28,
-                                spreadRadius: 6,
-                              ),
-                            ],
+                            boxShadow: _isFlashStateOn
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.white.withValues(alpha: 0.95),
+                                      blurRadius: 20,
+                                      spreadRadius: 4,
+                                    ),
+                                    BoxShadow(
+                                      color: glowColor.withValues(alpha: 0.95),
+                                      blurRadius: 36,
+                                      spreadRadius: 8,
+                                    ),
+                                  ]
+                                : [
+                                    BoxShadow(
+                                      color: glowColor.withValues(alpha: 0.4),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
                           )
                         : null,
                     child: cardWidget,
@@ -3365,7 +3439,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Temporarily accelerate transition speeds
           el.style.transition = "outline 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease";
           
-          // Blink 5 times over 2 seconds (each cycle takes 400ms: 200ms white, 200ms default/off)
+          // Blink for 5 seconds (each cycle takes 400ms: 200ms white, 200ms default/off)
           let flashCount = 0;
           const interval = setInterval(() => {
             const isWhite = (flashCount % 2 === 0);
@@ -3381,7 +3455,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               el.style.backgroundColor = hexToRgba(color, 0.3);
             }
             flashCount++;
-            if (flashCount > 9) { // 5 complete blinking cycles (2 seconds)
+            if (flashCount > 24) { // 12.5 complete blinking cycles (5 seconds)
               clearInterval(interval);
               
               // Restore permanent glow state cleanly!
@@ -5596,17 +5670,31 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Scroll dashboard card into view if card is present
     _scrollToCard(targetId);
 
-    // Trigger synchronized blinking on dashboard card and puzzle tile
+    // Trigger synchronized flashing strobe on dashboard card and puzzle tile for 5 seconds
     setState(() {
       _highlightedInstanceId = targetId;
+      _isFlashStateOn = true;
     });
 
     _highlightTimer?.cancel();
-    _highlightTimer = Timer(const Duration(milliseconds: 2400), () {
+    _flashStrobeTimer?.cancel();
+
+    // Pulse flash state every 250ms for an active breathing strobe
+    _flashStrobeTimer = Timer.periodic(const Duration(milliseconds: 250), (timer) {
+      if (mounted && _highlightedInstanceId != null) {
+        setState(() {
+          _isFlashStateOn = !_isFlashStateOn;
+        });
+      }
+    });
+
+    _highlightTimer = Timer(const Duration(milliseconds: 5000), () {
+      _flashStrobeTimer?.cancel();
       if (mounted) {
         setState(() {
           if (_highlightedInstanceId == targetId) {
             _highlightedInstanceId = null;
+            _isFlashStateOn = false;
           }
         });
       }

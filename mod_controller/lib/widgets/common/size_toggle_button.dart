@@ -32,10 +32,9 @@ class SizeToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final IconData displayIcon = icon ??
-        (pedal != null
-            ? PluginCategoryHelper.getCategoryForPlugin(pedal!).icon
-            : Icons.tune);
+    final category = pedal != null ? PluginCategoryHelper.getCategoryForPlugin(pedal!) : null;
+    final IconData displayIcon = icon ?? (category?.icon ?? Icons.tune);
+    final Color iconColor = category?.defaultColor ?? accentColor;
 
     if (!isEnabled) {
       return Container(
@@ -62,29 +61,36 @@ class SizeToggleButton extends StatelessWidget {
       onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
         decoration: BoxDecoration(
-          color: (isDarkMode ? Colors.grey[800] : Colors.grey[300])!
-              .withOpacity(0.5),
+          color: (isDarkMode ? const Color(0xFF161B22) : const Color(0xFFF2F4F7))
+              .withOpacity(0.9),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: accentColor.withOpacity(0.5),
+            color: iconColor.withOpacity(0.6),
             width: 1.2,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withOpacity(0.2),
+              blurRadius: 4,
+              spreadRadius: 0.5,
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               displayIcon,
-              size: 16,
-              color: accentColor,
+              size: 15,
+              color: iconColor,
             ),
-            const SizedBox(width: 3),
+            const SizedBox(width: 3.5),
             Text(
               currentSize.isNotEmpty ? currentSize[0].toUpperCase() : 'R',
               style: TextStyle(
-                fontSize: 8.5,
+                fontSize: 9.0,
                 fontWeight: FontWeight.w900,
                 color: accentColor,
               ),

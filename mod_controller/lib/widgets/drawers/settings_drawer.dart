@@ -38,6 +38,7 @@ class SettingsDrawer extends StatefulWidget {
   final VoidCallback onAddLineBreak;
   final Function(String) onDeleteLineBreak;
   final String? highlightedInstanceId;
+  final bool isFlashStateOn;
 
   const SettingsDrawer({
     super.key,
@@ -65,6 +66,7 @@ class SettingsDrawer extends StatefulWidget {
     required this.onAddLineBreak,
     required this.onDeleteLineBreak,
     this.highlightedInstanceId,
+    this.isFlashStateOn = true,
   });
 
   @override
@@ -812,30 +814,44 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       decoration: BoxDecoration(
         color: isSpacer
             ? Colors.transparent
-            : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18),
+            : (widget.highlightedInstanceId == instanceId
+                ? (widget.isFlashStateOn
+                    ? Colors.white.withOpacity(widget.isDarkMode ? 0.35 : 0.45)
+                    : glowColor.withOpacity(widget.isDarkMode ? 0.18 : 0.24))
+                : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18)),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: (widget.highlightedInstanceId == instanceId)
-              ? Colors.white
+              ? (widget.isFlashStateOn ? Colors.white : glowColor)
               : (isSpacer
                   ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
                   : glowColor.withOpacity(0.9)),
-          width: (widget.highlightedInstanceId == instanceId) ? 2.5 : 1.5,
+          width: (widget.highlightedInstanceId == instanceId)
+              ? (widget.isFlashStateOn ? 3.0 : 1.5)
+              : 1.5,
           style: BorderStyle.solid,
         ),
         boxShadow: (widget.highlightedInstanceId == instanceId)
-            ? [
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
-                BoxShadow(
-                  color: glowColor.withValues(alpha: 0.9),
-                  blurRadius: 16,
-                  spreadRadius: 3,
-                ),
-              ]
+            ? (widget.isFlashStateOn
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      blurRadius: 16,
+                      spreadRadius: 3,
+                    ),
+                    BoxShadow(
+                      color: glowColor.withValues(alpha: 0.95),
+                      blurRadius: 24,
+                      spreadRadius: 5,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: glowColor.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ])
             : (!isSpacer
                 ? [
                     BoxShadow(
@@ -854,12 +870,12 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               onTap: () => widget.onCyclePedalSize(instanceId),
               child: Container(
                 margin: const EdgeInsets.only(right: 4),
-                padding: const EdgeInsets.all(2.5),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
                   color: widget.isDarkMode
                       ? Colors.grey[900]
                       : Colors.grey[300],
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   size[0].toUpperCase(),
@@ -873,15 +889,30 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ),
           ],
 
-          // Device Type Icon (tap to see category guide)
+          // Category Icon (with vibrant category color & tinted badge)
           GestureDetector(
             onTap: isSpacer ? null : () => _showCategoryHelpDialog(initialCategory: category.type),
-            child: Icon(
-              typeIcon,
-              size: (size == 'compact' ? 11 : 13),
-              color: isSpacer
-                  ? (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600])
-                  : (category.type == PluginCategoryType.looper ? const Color(0xFFFF0055) : glowColor),
+            child: Container(
+              padding: const EdgeInsets.all(3.0),
+              decoration: BoxDecoration(
+                color: isSpacer
+                    ? (widget.isDarkMode ? Colors.grey[800]!.withOpacity(0.5) : Colors.grey[200]!)
+                    : category.defaultColor.withValues(alpha: widget.isDarkMode ? 0.22 : 0.28),
+                borderRadius: BorderRadius.circular(5),
+                border: Border.all(
+                  color: isSpacer
+                      ? (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!)
+                      : category.defaultColor.withValues(alpha: 0.6),
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                typeIcon,
+                size: (size == 'compact' ? 12 : 13.5),
+                color: isSpacer
+                    ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
+                    : category.defaultColor,
+              ),
             ),
           ),
           const SizedBox(width: 4),
