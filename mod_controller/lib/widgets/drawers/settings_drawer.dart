@@ -862,9 +862,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     final tileContent = Container(
       width: width,
       height: height,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 4,
+      padding: EdgeInsets.symmetric(
+        horizontal: (size == 'compact') ? 2.0 : 5.0,
+        vertical: 4.0,
       ),
       decoration: BoxDecoration(
         color: isSpacer
@@ -917,109 +917,202 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ]
                 : null),
       ),
-      child: Row(
-        mainAxisAlignment: (size == 'compact') ? MainAxisAlignment.center : MainAxisAlignment.start,
-        children: [
-          // Size Toggle C/R/E (Top Left, before title)
-          if (!isSpacer) ...[
-            GestureDetector(
-              onTap: () => widget.onCyclePedalSize(instanceId),
-              child: Container(
-                margin: EdgeInsets.only(right: size == 'compact' ? 3 : 4),
-                padding: const EdgeInsets.symmetric(horizontal: 3.5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: widget.isDarkMode
-                      ? Colors.grey[900]
-                      : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(4),
+      child: size == 'compact'
+          ? Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (!isSpacer) ...[
+                      GestureDetector(
+                        onTap: () => widget.onCyclePedalSize(instanceId),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 2.5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3.0,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: widget.isDarkMode
+                                ? Colors.grey[900]
+                                : Colors.grey[300],
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            size[0].toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w900,
+                              color: widget.isDarkMode
+                                  ? Colors.white
+                                  : Colors.black,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    GestureDetector(
+                      onTap: isSpacer
+                          ? null
+                          : () => _showCategoryHelpDialog(
+                              initialCategory: category.type),
+                      child: Container(
+                        padding: const EdgeInsets.all(2.0),
+                        decoration: BoxDecoration(
+                          color: isSpacer
+                              ? (widget.isDarkMode
+                                  ? Colors.grey[800]!.withOpacity(0.5)
+                                  : Colors.grey[200]!)
+                              : category.defaultColor.withValues(
+                                  alpha: widget.isDarkMode ? 0.22 : 0.28),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isSpacer
+                                ? (widget.isDarkMode
+                                    ? Colors.grey[700]!
+                                    : Colors.grey[400]!)
+                                : category.defaultColor.withValues(alpha: 0.6),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Icon(
+                          typeIcon,
+                          size: 11.5,
+                          color: isSpacer
+                              ? (widget.isDarkMode
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600])
+                              : category.defaultColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  size[0].toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                    color: widget.isDarkMode ? Colors.white : Colors.black,
+              ),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                // Size Toggle C/R/E (Top Left, before title)
+                if (!isSpacer) ...[
+                  GestureDetector(
+                    onTap: () => widget.onCyclePedalSize(instanceId),
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 3.5,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: widget.isDarkMode
+                            ? Colors.grey[900]
+                            : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        size[0].toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          color: widget.isDarkMode ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // Category Icon (with vibrant category color & tinted badge)
+                GestureDetector(
+                  onTap: isSpacer
+                      ? null
+                      : () => _showCategoryHelpDialog(
+                          initialCategory: category.type),
+                  child: Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: isSpacer
+                          ? (widget.isDarkMode
+                              ? Colors.grey[800]!.withOpacity(0.5)
+                              : Colors.grey[200]!)
+                          : category.defaultColor.withValues(
+                              alpha: widget.isDarkMode ? 0.22 : 0.28),
+                      borderRadius: BorderRadius.circular(5),
+                      border: Border.all(
+                        color: isSpacer
+                            ? (widget.isDarkMode
+                                ? Colors.grey[700]!
+                                : Colors.grey[400]!)
+                            : category.defaultColor.withValues(alpha: 0.6),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Icon(
+                      typeIcon,
+                      size: 13.0,
+                      color: isSpacer
+                          ? (widget.isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey[600])
+                          : category.defaultColor,
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
 
-          // Category Icon (with vibrant category color & tinted badge)
-          GestureDetector(
-            onTap: isSpacer ? null : () => _showCategoryHelpDialog(initialCategory: category.type),
-            child: Container(
-              padding: const EdgeInsets.all(2.5),
-              decoration: BoxDecoration(
-                color: isSpacer
-                    ? (widget.isDarkMode ? Colors.grey[800]!.withOpacity(0.5) : Colors.grey[200]!)
-                    : category.defaultColor.withValues(alpha: widget.isDarkMode ? 0.22 : 0.28),
-                borderRadius: BorderRadius.circular(5),
-                border: Border.all(
-                  color: isSpacer
-                      ? (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!)
-                      : category.defaultColor.withValues(alpha: 0.6),
-                  width: 0.8,
-                ),
-              ),
-              child: Icon(
-                typeIcon,
-                size: (size == 'compact' ? 12 : 13.0),
-                color: isSpacer
-                    ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
-                    : category.defaultColor,
-              ),
-            ),
-          ),
-
-          // Title (Only on regular and expanded tiles, hidden on compact)
-          if (size != 'compact') ...[
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                isSpacer
-                    ? 'SPACER'
-                    : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
-                style: TextStyle(
-                  color: isSpacer
-                      ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
-                      : (widget.isDarkMode ? Colors.white : Colors.black),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 9.0,
-                  letterSpacing: 0.3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-
-          // Category Micro-Badge Pill (Shown on expanded tiles to prevent overflow on regular)
-          if (!isSpacer && size == 'expanded') ...[
-            GestureDetector(
-              onTap: () => _showCategoryHelpDialog(initialCategory: category.type),
-              child: Container(
-                margin: const EdgeInsets.only(left: 3, right: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 3.5, vertical: 1.5),
-                decoration: BoxDecoration(
-                  color: category.defaultColor.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(
-                    color: category.defaultColor.withValues(alpha: 0.5),
-                    width: 0.6,
+                // Title (Only on regular and expanded tiles)
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    isSpacer
+                        ? 'SPACER'
+                        : (widget.customTitles[instanceId] ?? pedal.title)
+                            .toUpperCase(),
+                    style: TextStyle(
+                      color: isSpacer
+                          ? (widget.isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey[600])
+                          : (widget.isDarkMode ? Colors.white : Colors.black),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 9.0,
+                      letterSpacing: 0.3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-                child: Text(
-                  category.shortCode,
-                  style: TextStyle(
-                    fontSize: 7.0,
-                    fontWeight: FontWeight.w900,
-                    color: category.defaultColor,
-                    letterSpacing: 0.4,
+
+                // Category Micro-Badge Pill (Shown on expanded tiles to prevent overflow on regular)
+                if (!isSpacer && size == 'expanded') ...[
+                  GestureDetector(
+                    onTap: () => _showCategoryHelpDialog(
+                        initialCategory: category.type),
+                    child: Container(
+                      margin: const EdgeInsets.only(left: 3, right: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 3.5,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: category.defaultColor.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: category.defaultColor.withValues(alpha: 0.5),
+                          width: 0.6,
+                        ),
+                      ),
+                      child: Text(
+                        category.shortCode,
+                        style: TextStyle(
+                          fontSize: 7.0,
+                          fontWeight: FontWeight.w900,
+                          color: category.defaultColor,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-          ],
+                ],
 
           // Right panel options (Delete for Spacer)
           if (isSpacer) ...[
