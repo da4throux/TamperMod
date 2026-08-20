@@ -696,21 +696,27 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         ),
         child: Row(
             children: [
-              // Category Icon with glow circle
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: isHighlighted
-                      ? Colors.white.withOpacity(0.3)
-                      : glowColor.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  typeIcon,
-                  size: 13,
-                  color: isHighlighted && widget.isFlashStateOn
-                      ? Colors.white
-                      : glowColor,
+              // Category Icon with glow circle -> Triggers physical pedal highlight in WebView
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  widget.onHighlightPedal(pedal);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isHighlighted
+                        ? Colors.white.withOpacity(0.3)
+                        : glowColor.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    typeIcon,
+                    size: 13,
+                    color: isHighlighted && widget.isFlashStateOn
+                        ? Colors.white
+                        : glowColor,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -733,6 +739,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
               // Category Badge
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => _showCategoryHelpDialog(initialCategory: category.type),
                 child: Container(
                   margin: const EdgeInsets.only(right: 6),
@@ -759,6 +766,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
               // Quick Add button
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   setState(() {
                     widget.enabledPluginInstances.add(instanceId);
@@ -922,12 +930,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   children: [
                     if (!isSpacer) ...[
                       GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => widget.onCyclePedalSize(instanceId),
                         child: Container(
                           margin: const EdgeInsets.only(right: 2.5),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 3.0,
-                            vertical: 1.5,
+                            horizontal: 4.0,
+                            vertical: 2.0,
                           ),
                           decoration: BoxDecoration(
                             color: widget.isDarkMode
@@ -949,12 +958,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       ),
                     ],
                     GestureDetector(
+                      behavior: HitTestBehavior.opaque,
                       onTap: isSpacer
                           ? null
-                          : () => _showCategoryHelpDialog(
-                              initialCategory: category.type),
+                          : () {
+                              widget.onHighlightPedal(pedal);
+                              widget.onScrollToCard(instanceId);
+                            },
                       child: Container(
-                        padding: const EdgeInsets.all(2.0),
+                        padding: const EdgeInsets.all(2.5),
                         decoration: BoxDecoration(
                           color: isSpacer
                               ? (widget.isDarkMode
@@ -993,12 +1005,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 // Size Toggle C/R/E (Top Left, before title)
                 if (!isSpacer) ...[
                   GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: () => widget.onCyclePedalSize(instanceId),
                     child: Container(
                       margin: const EdgeInsets.only(right: 4),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 3.5,
-                        vertical: 2,
+                        horizontal: 4.5,
+                        vertical: 2.5,
                       ),
                       decoration: BoxDecoration(
                         color: widget.isDarkMode
@@ -1018,14 +1031,17 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ),
                 ],
 
-                // Category Icon (with vibrant category color & tinted badge)
+                // Category Icon (Speaker / Type Icon) -> Triggers location (highlight + scroll)
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: isSpacer
                       ? null
-                      : () => _showCategoryHelpDialog(
-                          initialCategory: category.type),
+                      : () {
+                          widget.onHighlightPedal(pedal);
+                          widget.onScrollToCard(instanceId);
+                        },
                   child: Container(
-                    padding: const EdgeInsets.all(2.5),
+                    padding: const EdgeInsets.all(3.0),
                     decoration: BoxDecoration(
                       color: isSpacer
                           ? (widget.isDarkMode
@@ -1245,18 +1261,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ),
           ),
           child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () {
-              // Simple tap on tile board does not trigger strobe highlight or scrolling
-            },
-            onDoubleTap: () {
-              if (isActive) {
-                if (!isLineBreak) {
-                  widget.onCyclePedalSize(instanceId);
-                }
-              } else {
-                if (!isSpacer && !isLineBreak) {
-                  widget.onShowColorPicker(pedal);
-                }
+              if (isActive && !isLineBreak) {
+                widget.onCyclePedalSize(instanceId);
               }
             },
             child: tileContent,
