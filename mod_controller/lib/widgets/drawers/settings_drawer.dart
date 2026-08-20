@@ -1,6 +1,7 @@
 // Copyright (c) 2026 TamperMod Contributors
 // Licensed under the MIT License
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/plugin_instance.dart';
 import '../../utils/color_utils.dart';
@@ -432,7 +433,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ),
           ),
 
-          // 3-way Segmented Expansion Pills: MIN / MID / MAX
+          // 3-way Segmented Expansion Pills: MAX / MID / MIN
           Container(
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
@@ -446,9 +447,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildExpansionPill('MIN', InactivePoolExpansion.minimal),
-                _buildExpansionPill('MID', InactivePoolExpansion.partial),
                 _buildExpansionPill('MAX', InactivePoolExpansion.full),
+                _buildExpansionPill('MID', InactivePoolExpansion.partial),
+                _buildExpansionPill('MIN', InactivePoolExpansion.minimal),
               ],
             ),
           ),
@@ -1464,12 +1465,29 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               }
             }
 
-            final int activeFlex = _inactivePoolExpansion == InactivePoolExpansion.minimal
-                ? 1
-                : (_inactivePoolExpansion == InactivePoolExpansion.partial ? 5 : 2);
-            final int inactiveFlex = _inactivePoolExpansion == InactivePoolExpansion.minimal
-                ? 0
-                : (_inactivePoolExpansion == InactivePoolExpansion.partial ? 4 : 7);
+            final List<PluginInstance> displayedInactivePedals = _selectedCategoryFilters.isEmpty
+                ? inactivePedals
+                : inactivePedals.where((pedal) {
+                    final cat = PluginCategoryHelper.getCategoryForPlugin(pedal);
+                    if (cat.type == PluginCategoryType.lineBreak || cat.type == PluginCategoryType.spacer) {
+                      return true;
+                    }
+                    return _selectedCategoryFilters.contains(cat.type);
+                  }).toList();
+
+            final double naturalInactiveStackHeight = displayedInactivePedals.isEmpty
+                ? 40.0
+                : (displayedInactivePedals.length * 44.0 + 16.0);
+
+            // Inactive pool height calculation:
+            // MAX: full stack height (never exceeds 65% of drawer height to preserve active canvas space)
+            // MID: half of the stack height
+            // MIN: completely folded (0px)
+            final double fullHeight = math.min(naturalInactiveStackHeight, constraints.maxHeight * 0.65);
+            final double midHeight = math.min(math.max(48.0, naturalInactiveStackHeight / 2.0), constraints.maxHeight * 0.40);
+            final double inactivePoolHeight = _inactivePoolExpansion == InactivePoolExpansion.full
+                ? fullHeight
+                : (_inactivePoolExpansion == InactivePoolExpansion.partial ? midHeight : 0.0);
 
             return Column(
               children: [
@@ -1803,7 +1821,6 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 _buildCategoryFilterBar(allPlugins),
 
                 Expanded(
-                  flex: activeFlex,
                   child: DragTarget<String>(
                     onAccept: (draggedId) {
                       final bool wasAlreadyActive =
@@ -1922,8 +1939,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 _buildInactivePoolHeader(inactivePedals.length),
 
                 if (_inactivePoolExpansion != InactivePoolExpansion.minimal)
-                  Expanded(
-                    flex: inactiveFlex,
+                  SizedBox(
+                    height: inactivePoolHeight,
                     child: DragTarget<String>(
                       onAccept: (draggedId) {
                         setState(() {
