@@ -485,8 +485,7 @@ class _GainCardState extends State<GainCard> {
     // ── Direct Gain & Mute UI Component ──────────────────────────────
     Widget buildGiantMuteGainButton({required bool isCompact, bool takeFullHeight = false}) {
       final bool isMuted = widget.isMuted;
-      final double displayDb = widget.liveMeterValue ?? clampedValue;
-      final bool hasDistinctMeter = widget.liveMeterValue != null && (widget.liveMeterValue! - clampedValue).abs() > 0.05;
+      final bool hasLiveMeter = widget.liveMeterValue != null;
       
       // Neutral muted colors (greyish/charcoal, NO bright red/pink glow)
       final Color activeColor = isMuted ? const Color(0xFF8B949E) : accentColor;
@@ -571,8 +570,9 @@ class _GainCardState extends State<GainCard> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // Primary Gain Setting Readout
                               Text(
-                                '${displayDb >= 0 ? "+" : ""}${displayDb.toStringAsFixed(1)} dB',
+                                '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
                                 style: TextStyle(
                                   fontSize: isCompact ? 14 : 17,
                                   fontWeight: FontWeight.w900,
@@ -583,20 +583,25 @@ class _GainCardState extends State<GainCard> {
                                   letterSpacing: 0.5,
                                 ),
                               ),
-                              if (hasDistinctMeter) ...[
+                              // Live Pedal Display / VU Meter Readout Badge
+                              if (hasLiveMeter) ...[
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                   decoration: BoxDecoration(
-                                    color: activeColor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(3),
+                                    color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.15 : 0.10),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.5 : 0.35),
+                                      width: 0.8,
+                                    ),
                                   ),
                                   child: Text(
-                                    'KNOB: ${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)}',
+                                    'VU: ${widget.liveMeterValue! >= 0 ? "+" : ""}${widget.liveMeterValue!.toStringAsFixed(1)}',
                                     style: TextStyle(
-                                      fontSize: 7.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: isMuted ? Colors.grey[500] : activeColor.withOpacity(0.9),
+                                      fontSize: 8.0,
+                                      fontWeight: FontWeight.w900,
+                                      color: isMuted ? Colors.grey[500] : const Color(0xFF00FFCC),
                                       fontFamily: 'monospace',
                                     ),
                                   ),
