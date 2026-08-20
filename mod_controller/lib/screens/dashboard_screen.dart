@@ -550,23 +550,58 @@ class _DashboardScreenState extends State<DashboardScreen>
           try {
             if (window.PedalMeterChannel) {
               var displays = {};
+
+              // 1. Check Backbone models (direct DSP control outputs)
+              try {
+                if (window.pedalboard && typeof window.pedalboard.get === 'function') {
+                  var pluginsColl = window.pedalboard.get('plugins');
+                  if (pluginsColl && typeof pluginsColl.each === 'function') {
+                    pluginsColl.each(function(p) {
+                      var inst = (typeof p.get === 'function') ? p.get('instance') : p.instance;
+                      if (inst) {
+                        var cPorts = (typeof p.get === 'function') ? p.get('ports') : p.ports;
+                        if (cPorts && cPorts.control && cPorts.control.output) {
+                          cPorts.control.output.forEach(function(outPort) {
+                            var val = typeof outPort.get === 'function' ? outPort.get('value') : outPort.value;
+                            if (val !== undefined && val !== null) {
+                              var n = parseFloat(val);
+                              if (!isNaN(n)) displays[inst] = n;
+                            }
+                          });
+                        }
+                      }
+                    });
+                  }
+                }
+              } catch(e) {}
+
+              // 2. Check DOM elements (specifically LCD / display / meter elements)
               document.querySelectorAll('.mod-pedal, [mod\\:instance], [data-instance]').forEach(function(el) {
                 var inst = el.getAttribute('mod:instance') || (el.dataset && el.dataset.instance) || el.id;
                 if (inst) {
-                  var disp = el.querySelector('.mod-display, .mod-display-text, text.display, text, [class*="display"], [class*="meter"]');
-                  if (disp) {
+                  var candidates = el.querySelectorAll('.mod-display, .mod-display-text, [class*="lcd"], [class*="display"], [class*="meter"], g.display text, g.lcd text, g.meter text, text[class*="display"], text[class*="meter"], text[class*="lcd"]');
+                  var found = null;
+                  candidates.forEach(function(disp) {
+                    if (found !== null) return;
                     var t = (disp.textContent || disp.innerText || '').trim();
-                    var n = parseFloat(t.replace(/[^0-9.-]/g, ''));
-                    if (!isNaN(n)) displays[inst] = n;
+                    var match = t.match(/[-+]?\d+(\.\d+)?/);
+                    if (match) {
+                      var n = parseFloat(match[0]);
+                      if (!isNaN(n)) found = n;
+                    }
+                  });
+                  if (found !== null) {
+                    displays[inst] = found;
                   }
                 }
               });
+
               if (Object.keys(displays).length > 0) {
                 window.PedalMeterChannel.postMessage(JSON.stringify(displays));
               }
             }
           } catch(e) {}
-        }, 350);
+        }, 250);
       })();
     ''';
 

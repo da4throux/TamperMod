@@ -565,53 +565,114 @@ class _GainCardState extends State<GainCard> {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Flexible(
+                        Expanded(
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Primary Gain Setting Readout
-                              Text(
-                                '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
-                                style: TextStyle(
-                                  fontSize: isCompact ? 14 : 17,
-                                  fontWeight: FontWeight.w900,
-                                  color: isMuted
-                                      ? (widget.isDarkMode ? const Color(0xFFC9D1D9) : Colors.grey[800])
-                                      : activeColor,
-                                  fontFamily: 'monospace',
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              // Live Pedal Display / VU Meter Readout Badge
+                              // VU Meter (LCD input reading)
                               if (hasLiveMeter) ...[
+                                Expanded(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: isCompact ? 6 : 8,
+                                      vertical: isCompact ? 3 : 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.12 : 0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.5 : 0.35),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'VU METER',
+                                          style: TextStyle(
+                                            fontSize: isCompact ? 7.0 : 7.5,
+                                            fontWeight: FontWeight.w900,
+                                            color: isMuted ? Colors.grey[500] : const Color(0xFF00FFCC),
+                                            letterSpacing: 0.4,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 1),
+                                        Text(
+                                          '${widget.liveMeterValue! >= 0 ? "+" : ""}${widget.liveMeterValue!.toStringAsFixed(1)} dB',
+                                          style: TextStyle(
+                                            fontSize: isCompact ? 13 : 15,
+                                            fontWeight: FontWeight.w900,
+                                            color: isMuted
+                                                ? (widget.isDarkMode ? const Color(0xFFC9D1D9) : Colors.grey[800])
+                                                : const Color(0xFF00FFCC),
+                                            fontFamily: 'monospace',
+                                            letterSpacing: 0.3,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              ],
+                              // GAIN KNOB setting
+                              Expanded(
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isCompact ? 6 : 8,
+                                    vertical: isCompact ? 3 : 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.15 : 0.10),
-                                    borderRadius: BorderRadius.circular(4),
+                                    color: activeColor.withOpacity(widget.isDarkMode ? 0.12 : 0.08),
+                                    borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.5 : 0.35),
+                                      color: activeColor.withOpacity(widget.isDarkMode ? 0.5 : 0.35),
                                       width: 0.8,
                                     ),
                                   ),
-                                  child: Text(
-                                    'VU: ${widget.liveMeterValue! >= 0 ? "+" : ""}${widget.liveMeterValue!.toStringAsFixed(1)}',
-                                    style: TextStyle(
-                                      fontSize: 8.0,
-                                      fontWeight: FontWeight.w900,
-                                      color: isMuted ? Colors.grey[500] : const Color(0xFF00FFCC),
-                                      fontFamily: 'monospace',
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'GAIN KNOB',
+                                        style: TextStyle(
+                                          fontSize: isCompact ? 7.0 : 7.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: isMuted ? Colors.grey[500] : activeColor,
+                                          letterSpacing: 0.4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+                                        style: TextStyle(
+                                          fontSize: isCompact ? 13 : 15,
+                                          fontWeight: FontWeight.w900,
+                                          color: isMuted
+                                              ? (widget.isDarkMode ? const Color(0xFFC9D1D9) : Colors.grey[800])
+                                              : activeColor,
+                                          fontFamily: 'monospace',
+                                          letterSpacing: 0.3,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           decoration: BoxDecoration(
                             color: isMuted
                                 ? (widget.isDarkMode ? const Color(0xFF21262D) : const Color(0xFFD1D5DB))
