@@ -950,7 +950,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     for (var pedal in gains) {
       if (pedal.gainPortSymbol != null) {
         final double? serverValue = pedal.parameters[pedal.gainPortSymbol];
-        if (serverValue != null && !_localVolumes.containsKey(pedal.instance)) {
+        if (serverValue != null && (_fadeTimers[pedal.instance] == null) && !_mutedVolumes.containsKey(pedal.instance)) {
           _localVolumes[pedal.instance] = serverValue;
         }
       }
@@ -3350,12 +3350,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       },
                     );
                   } else if (isGainOrVolume) {
-                    final double currentValue =
-                        _localVolumes[pedal.instance] ??
-                        (pedal.gainPortSymbol != null
-                            ? pedal.parameters[pedal.gainPortSymbol]
-                            : null) ??
-                        0.0;
+                    final double? serverVal = (pedal.gainPortSymbol != null ? pedal.parameters[pedal.gainPortSymbol] : null);
+                    final bool isMuted = _isMuted(pedal);
+                    final double currentValue = (_fadeTimers[pedal.instance] != null)
+                        ? (_localVolumes[pedal.instance] ?? serverVal ?? 0.0)
+                        : (isMuted
+                            ? (_mutedVolumes[pedal.instance] ?? serverVal ?? _localVolumes[pedal.instance] ?? 0.0)
+                            : (serverVal ?? _localVolumes[pedal.instance] ?? 0.0));
                     final bool isFading = (_fadeTimers[pedal.instance] != null) || (_fadePaused[pedal.instance] == true);
                     final bool isFadePaused = _fadePaused[pedal.instance] ?? false;
                     final bool isFadingIn =

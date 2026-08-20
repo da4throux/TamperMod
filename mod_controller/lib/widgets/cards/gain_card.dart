@@ -538,9 +538,7 @@ class _GainCardState extends State<GainCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        isMuted
-                            ? 'MUTED'
-                            : '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+                        '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
                         style: TextStyle(
                           fontSize: isCompact ? 15 : 18,
                           fontWeight: FontWeight.w900,
@@ -552,9 +550,16 @@ class _GainCardState extends State<GainCard> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: activeColor.withOpacity(0.2),
+                          color: isMuted
+                              ? const Color(0xFFFF007F).withOpacity(0.25)
+                              : activeColor.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: activeColor.withOpacity(0.5), width: 0.8),
+                          border: Border.all(
+                            color: isMuted
+                                ? const Color(0xFFFF007F).withOpacity(0.6)
+                                : activeColor.withOpacity(0.5),
+                            width: 0.8,
+                          ),
                         ),
                         child: Text(
                           isMuted ? 'MUTED' : 'ACTIVE',
@@ -571,8 +576,8 @@ class _GainCardState extends State<GainCard> {
                   const SizedBox(height: 2),
                   Text(
                     isMuted
-                        ? 'TAP TO UNMUTE'
-                        : 'TAP TO MUTE / SILENCE',
+                        ? 'MUTED • TAP TO RESTORE'
+                        : 'ACTIVE • TAP TO MUTE',
                     style: TextStyle(
                       fontSize: isCompact ? 8.0 : 8.5,
                       fontWeight: FontWeight.bold,
