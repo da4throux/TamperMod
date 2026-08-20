@@ -553,7 +553,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         function findPedalInstance(el) {
           let curr = el;
-          for (let i = 0; i < 12 && curr && curr !== document && curr !== window; i++) {
+          for (let i = 0; i < 15 && curr && curr !== document && curr !== window; i++) {
             if (curr.getAttribute) {
               const inst = curr.getAttribute('mod-instance');
               if (inst) return inst;
@@ -566,11 +566,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                 }
               }
             }
-            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal'))) {
+            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin'))) {
               const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
               if (inst) return inst;
             }
-            curr = curr.parentElement;
+            curr = curr.parentElement || curr.parentNode;
           }
           return null;
         }
@@ -579,16 +579,20 @@ class _DashboardScreenState extends State<DashboardScreen>
         let lastSentInst = '';
 
         function handleInteraction(e) {
-          const inst = findPedalInstance(e.target);
-          if (inst) {
-            const now = Date.now();
-            if (inst === lastSentInst && (now - lastSentTime < 350)) return;
-            lastSentTime = now;
-            lastSentInst = inst;
-            console.log("TAMPER_PEDAL_CLICK_DISPATCH: " + inst);
-            if (window.PedalClickChannel) {
-              window.PedalClickChannel.postMessage(inst);
+          try {
+            const inst = findPedalInstance(e.target);
+            if (inst) {
+              const now = Date.now();
+              if (inst === lastSentInst && (now - lastSentTime < 300)) return;
+              lastSentTime = now;
+              lastSentInst = inst;
+              console.log("TAMPER_PEDAL_CLICK_DISPATCH: " + inst);
+              if (window.PedalClickChannel) {
+                window.PedalClickChannel.postMessage(inst);
+              }
             }
+          } catch(err) {
+            console.error('Tamper click error:', err);
           }
         }
 
@@ -617,45 +621,57 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
 
         function getPedalDisplayName(el, inst) {
-          let title = '';
-          let custom = '';
-          if (window._tamperPedalTitles && inst) {
-            const cleanInst = inst.replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
-            for (const [k, v] of Object.entries(window._tamperPedalTitles)) {
-              const cleanK = k.replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
-              if (k.toLowerCase() === inst.toLowerCase() || cleanK === cleanInst || cleanK.endsWith(cleanInst) || cleanInst.endsWith(cleanK)) {
-                title = v.title || '';
-                custom = v.custom || '';
-                break;
+          try {
+            let title = '';
+            let custom = '';
+            if (window._tamperPedalTitles && typeof window._tamperPedalTitles === 'object' && inst) {
+              const cleanInst = String(inst).replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
+              for (const [k, v] of Object.entries(window._tamperPedalTitles)) {
+                if (!v) continue;
+                const cleanK = String(k).replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
+                if (String(k).toLowerCase() === String(inst).toLowerCase() || cleanK === cleanInst || cleanK.endsWith(cleanInst) || cleanInst.endsWith(cleanK)) {
+                  title = v.title || '';
+                  custom = v.custom || '';
+                  break;
+                }
               }
             }
+            if (!title && el && el.getAttribute) {
+              title = el.getAttribute('title') || el.getAttribute('data-name') || '';
+            }
+            if (!title && inst) {
+              title = String(inst).split('/').pop().replace(/_/g, ' ');
+            }
+            
+            if (custom && custom.trim().toUpperCase() !== title.trim().toUpperCase()) {
+              return title + ' / ' + custom;
+            }
+            return title || inst;
+          } catch(err) {
+            return String(inst || '');
           }
-          if (!title && inst) {
-            title = inst.split('/').pop().replace(/_/g, ' ');
-          }
-          
-          if (custom && custom.trim().toUpperCase() !== title.trim().toUpperCase()) {
-            return title + ' / ' + custom;
-          }
-          return title || inst;
         }
 
         function handlePointerMove(e) {
-          const inst = findPedalInstance(e.target);
-          if (inst) {
-            let pedalEl = e.target;
-            if (e.target.closest) {
-              pedalEl = e.target.closest('[mod-instance]') || e.target.closest('.mod-pedal, .pedal') || e.target;
+          try {
+            const inst = findPedalInstance(e.target);
+            if (inst) {
+              let pedalEl = e.target;
+              if (e.target.closest) {
+                pedalEl = e.target.closest('[mod-instance]') || e.target.closest('.mod-pedal, .pedal') || e.target;
+              }
+              const displayName = getPedalDisplayName(pedalEl, inst);
+              hoverTooltip.innerHTML = '<span style="color:#00FFCC;margin-right:4px;">🔍</span> ' + displayName.toUpperCase();
+              hoverTooltip.style.left = (e.clientX || 0) + 'px';
+              hoverTooltip.style.top = (e.clientY || 0) + 'px';
+              hoverTooltip.style.opacity = '1';
+            } else {
+              if (hoverTooltip && hoverTooltip.style.opacity !== '0') {
+                hoverTooltip.style.opacity = '0';
+              }
             }
-            const displayName = getPedalDisplayName(pedalEl, inst);
-            hoverTooltip.innerHTML = '<span style="color:#00FFCC;margin-right:4px;">🔍</span> ' + displayName.toUpperCase();
-            hoverTooltip.style.left = e.clientX + 'px';
-            hoverTooltip.style.top = e.clientY + 'px';
-            hoverTooltip.style.opacity = '1';
-          } else {
-            if (hoverTooltip.style.opacity !== '0') {
-              hoverTooltip.style.opacity = '0';
-            }
+          } catch(err) {
+            console.error('Tamper pointer error:', err);
           }
         }
 

@@ -336,13 +336,10 @@ class _LooperCardState extends State<LooperCard> {
                 const SizedBox(height: 12),
 
                 // Selected Loop Timeline and Controls
-                SizedBox(
-                  height: 140,
-                  child: _buildLooperTrackSegment(
-                    selectedLoopNum,
-                    looperAccentColor,
-                    widget.pedal,
-                  ),
+                _buildLooperTrackSegment(
+                  selectedLoopNum,
+                  looperAccentColor,
+                  widget.pedal,
                 ),
                 const SizedBox(height: 12),
                 Divider(

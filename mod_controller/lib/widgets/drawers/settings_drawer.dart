@@ -918,14 +918,15 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 : null),
       ),
       child: Row(
+        mainAxisAlignment: (size == 'compact') ? MainAxisAlignment.center : MainAxisAlignment.start,
         children: [
           // Size Toggle C/R/E (Top Left, before title)
           if (!isSpacer) ...[
             GestureDetector(
               onTap: () => widget.onCyclePedalSize(instanceId),
               child: Container(
-                margin: const EdgeInsets.only(right: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                margin: EdgeInsets.only(right: size == 'compact' ? 3 : 4),
+                padding: const EdgeInsets.symmetric(horizontal: 3.5, vertical: 2),
                 decoration: BoxDecoration(
                   color: widget.isDarkMode
                       ? Colors.grey[900]
@@ -948,7 +949,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           GestureDetector(
             onTap: isSpacer ? null : () => _showCategoryHelpDialog(initialCategory: category.type),
             child: Container(
-              padding: const EdgeInsets.all(3.0),
+              padding: const EdgeInsets.all(2.5),
               decoration: BoxDecoration(
                 color: isSpacer
                     ? (widget.isDarkMode ? Colors.grey[800]!.withOpacity(0.5) : Colors.grey[200]!)
@@ -963,35 +964,37 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               ),
               child: Icon(
                 typeIcon,
-                size: (size == 'compact' ? 12 : 13.5),
+                size: (size == 'compact' ? 12 : 13.0),
                 color: isSpacer
                     ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
                     : category.defaultColor,
               ),
             ),
           ),
-          const SizedBox(width: 4),
 
-          // Title
-          Expanded(
-            child: Text(
-              isSpacer
-                  ? 'SPACER'
-                  : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
-              style: TextStyle(
-                color: isSpacer
-                    ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
-                    : (widget.isDarkMode ? Colors.white : Colors.black),
-                fontWeight: FontWeight.bold,
-                fontSize: (size == 'compact' ? 8 : 9.5),
-                letterSpacing: 0.5,
-                overflow: TextOverflow.ellipsis,
+          // Title (Only on regular and expanded tiles, hidden on compact)
+          if (size != 'compact') ...[
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                isSpacer
+                    ? 'SPACER'
+                    : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+                style: TextStyle(
+                  color: isSpacer
+                      ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
+                      : (widget.isDarkMode ? Colors.white : Colors.black),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 9.0,
+                  letterSpacing: 0.3,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
-          ),
+          ],
 
-          // Category Micro-Badge Pill (tap to view effect guide)
-          if (!isSpacer && size != 'compact') ...[
+          // Category Micro-Badge Pill (Shown on expanded tiles to prevent overflow on regular)
+          if (!isSpacer && size == 'expanded') ...[
             GestureDetector(
               onTap: () => _showCategoryHelpDialog(initialCategory: category.type),
               child: Container(
