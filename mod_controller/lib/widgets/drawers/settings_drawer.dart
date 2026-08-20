@@ -92,16 +92,25 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   }
 
   void _scrollToHighlightedTile(String instanceId) {
-    final key = _activeTileKeys[instanceId];
-    final targetContext = key?.currentContext;
-    if (targetContext != null) {
-      Scrollable.ensureVisible(
-        targetContext,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeInOutCubic,
-        alignment: 0.1,
-      );
+    final bool isInactive = !widget.enabledPluginInstances.contains(instanceId);
+    if (isInactive && _inactivePoolExpansion == InactivePoolExpansion.minimal) {
+      setState(() {
+        _inactivePoolExpansion = InactivePoolExpansion.partial;
+      });
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final key = _activeTileKeys[instanceId];
+      final targetContext = key?.currentContext;
+      if (targetContext != null) {
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOutCubic,
+          alignment: 0.1,
+        );
+      }
+    });
   }
 
   void _showCategoryHelpDialog({PluginCategoryType? initialCategory}) {
@@ -639,112 +648,158 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
     // INACTIVE POOL: Full-width row tile for maximum legibility and ease of browsing
     if (!isActive) {
-      final inactiveContent = Container(
+      final bool isHighlighted = widget.highlightedInstanceId == instanceId;
+
+      final inactiveContent = AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         width: eWidth,
         height: 38.0,
         margin: const EdgeInsets.symmetric(vertical: 2.5),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: widget.isDarkMode
-              ? glowColor.withValues(alpha: 0.08)
-              : glowColor.withValues(alpha: 0.12),
+          color: isHighlighted
+              ? (widget.isFlashStateOn
+                  ? Colors.white.withOpacity(widget.isDarkMode ? 0.35 : 0.45)
+                  : glowColor.withOpacity(widget.isDarkMode ? 0.22 : 0.28))
+              : (widget.isDarkMode
+                  ? glowColor.withValues(alpha: 0.08)
+                  : glowColor.withValues(alpha: 0.12)),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: glowColor.withValues(alpha: widget.isDarkMode ? 0.45 : 0.6),
-            width: 1.0,
+            color: isHighlighted
+                ? (widget.isFlashStateOn ? Colors.white : glowColor)
+                : glowColor.withValues(alpha: widget.isDarkMode ? 0.45 : 0.6),
+            width: isHighlighted ? (widget.isFlashStateOn ? 3.0 : 1.5) : 1.0,
           ),
-        ),
-        child: Row(
-          children: [
-            // Category Icon with glow circle
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: glowColor.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(typeIcon, size: 13, color: glowColor),
-            ),
-            const SizedBox(width: 8),
-
-            // Title (Full, untruncated)
-            Expanded(
-              child: Text(
-                (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
-                style: TextStyle(
-                  color: widget.isDarkMode ? Colors.white : Colors.black87,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10.0,
-                  letterSpacing: 0.5,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-
-            // Category Badge
-            GestureDetector(
-              onTap: () => _showCategoryHelpDialog(initialCategory: category.type),
-              child: Container(
-                margin: const EdgeInsets.only(right: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: category.defaultColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: category.defaultColor.withValues(alpha: 0.5),
-                    width: 0.8,
-                  ),
-                ),
-                child: Text(
-                  category.shortCode,
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                    color: category.defaultColor,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            ),
-
-            // Quick Add button
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  widget.enabledPluginInstances.add(instanceId);
-                  widget.orderedPluginInstances.remove(instanceId);
-                  widget.orderedPluginInstances.add(instanceId);
-                });
-                widget.onLayoutSettingsChanged();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00FFCC).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: const Color(0xFF00FFCC).withValues(alpha: 0.6),
-                    width: 1.0,
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add, size: 10, color: Color(0xFF00FFCC)),
-                    SizedBox(width: 2),
-                    Text(
-                      'ADD',
-                      style: TextStyle(
-                        fontSize: 8.0,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF00FFCC),
+          boxShadow: isHighlighted
+              ? (widget.isFlashStateOn
+                  ? [
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        blurRadius: 16,
+                        spreadRadius: 3,
                       ),
-                    ),
-                  ],
+                      BoxShadow(
+                        color: glowColor.withValues(alpha: 0.95),
+                        blurRadius: 24,
+                        spreadRadius: 5,
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: glowColor.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ])
+              : null,
+        ),
+        child: InkWell(
+          onTap: () {
+            widget.onHighlightPedal(pedal);
+          },
+          child: Row(
+            children: [
+              // Category Icon with glow circle
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isHighlighted
+                      ? Colors.white.withOpacity(0.3)
+                      : glowColor.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  typeIcon,
+                  size: 13,
+                  color: isHighlighted && widget.isFlashStateOn
+                      ? Colors.white
+                      : glowColor,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+
+              // Title (Full, untruncated)
+              Expanded(
+                child: Text(
+                  (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+                  style: TextStyle(
+                    color: isHighlighted && widget.isFlashStateOn
+                        ? Colors.white
+                        : (widget.isDarkMode ? Colors.white : Colors.black87),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.0,
+                    letterSpacing: 0.5,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+
+              // Category Badge
+              GestureDetector(
+                onTap: () => _showCategoryHelpDialog(initialCategory: category.type),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: category.defaultColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: category.defaultColor.withValues(alpha: 0.5),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    category.shortCode,
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      color: category.defaultColor,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Quick Add button
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    widget.enabledPluginInstances.add(instanceId);
+                    widget.orderedPluginInstances.remove(instanceId);
+                    widget.orderedPluginInstances.add(instanceId);
+                  });
+                  widget.onLayoutSettingsChanged();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00FFCC).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFF00FFCC).withValues(alpha: 0.6),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 10, color: Color(0xFF00FFCC)),
+                      SizedBox(width: 2),
+                      Text(
+                        'ADD',
+                        style: TextStyle(
+                          fontSize: 8.0,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF00FFCC),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
 

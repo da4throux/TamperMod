@@ -138,11 +138,20 @@ class _DashboardScreenState extends State<DashboardScreen>
       debugPrint('Error accessing looper controller: $e');
     }
 
+    final Map<String, Map<String, String>> titlesMap = {};
+    for (final p in _webSocketService.allPlugins.value) {
+      titlesMap[p.instance] = {
+        'title': p.title,
+        'custom': _customTitles[p.instance] ?? '',
+      };
+    }
+
     final String jsCode =
         '''
       (function() {
         const configs = ${jsonEncode(configs)};
-        console.log("TamperMod: Updating permanent glows", configs);
+        window._tamperPedalTitles = ${jsonEncode(titlesMap)};
+        console.log("TamperMod: Updating permanent glows and pedal titles", configs);
         
         // Remove all previous glows
         const existing = document.querySelectorAll(".tamper-highlight, .tamper-permanent-glow");
@@ -608,16 +617,27 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
 
         function getPedalDisplayName(el, inst) {
-          if (!el) return inst;
-          const titleEl = el.querySelector && el.querySelector('.pedal-label, .title, .name, [class*="label"], [class*="title"], text');
-          let name = titleEl ? titleEl.textContent.trim() : '';
-          if (!name) {
-            name = el.getAttribute('title') || el.getAttribute('data-name') || '';
+          let title = '';
+          let custom = '';
+          if (window._tamperPedalTitles && inst) {
+            const cleanInst = inst.replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
+            for (const [k, v] of Object.entries(window._tamperPedalTitles)) {
+              const cleanK = k.replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
+              if (k.toLowerCase() === inst.toLowerCase() || cleanK === cleanInst || cleanK.endsWith(cleanInst) || cleanInst.endsWith(cleanK)) {
+                title = v.title || '';
+                custom = v.custom || '';
+                break;
+              }
+            }
           }
-          if (!name && inst) {
-            name = inst.split('/').pop().replace(/_/g, ' ');
+          if (!title && inst) {
+            title = inst.split('/').pop().replace(/_/g, ' ');
           }
-          return name || inst;
+          
+          if (custom && custom.trim().toUpperCase() !== title.trim().toUpperCase()) {
+            return title + ' / ' + custom;
+          }
+          return title || inst;
         }
 
         function handlePointerMove(e) {
@@ -2544,7 +2564,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                             _updateAllGlowsInWebView();
                             _saveLayoutSettings();
                           },
-                          onHighlightPedal: _highlightPedalInWebView,
+                          onHighlightPedal: (pedal) =>
+                              _triggerSearchHighlight(pedal.instance, pedal: pedal),
                           onShowColorPicker: _showColorPickerDialog,
                           onCyclePedalSize: _cyclePedalSize,
                           onScrollToCard: _scrollToCard,
@@ -2949,7 +2970,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         onColorPickerPressed: () =>
                             _showColorPickerDialog(pedal),
                         onHighlightPressed: () =>
-                            _highlightPedalInWebView(pedal),
+                            _triggerSearchHighlight(pedal.instance, pedal: pedal),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
                         onBpmTap: _showBpmDialog,
                         onBypassToggle: (val) {
@@ -2981,7 +3002,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         onColorPickerPressed: () =>
                             _showColorPickerDialog(pedal),
                         onHighlightPressed: () =>
-                            _highlightPedalInWebView(pedal),
+                            _triggerSearchHighlight(pedal.instance, pedal: pedal),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
                         onBpmTap: _showBpmDialog,
                         onBypassToggle: (val) {
@@ -3027,7 +3048,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         }
                       },
                       onRenamePressed: () => _showSwitchConfigDialog(pedal),
-                      onHighlightPressed: () => _highlightPedalInWebView(pedal),
+                      onHighlightPressed: () =>
+                          _triggerSearchHighlight(pedal.instance, pedal: pedal),
                       onColorPickerPressed: () => _showSwitchConfigDialog(pedal),
                       onOpenUri: _openPluginUri,
                       onSwitchPathChanged: (port, val) {
@@ -3116,7 +3138,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onMuteToggled: () => _toggleMute(pedal),
                       onRenamePressed: () => _showRenameDialog(pedal),
                       onColorPickerPressed: () => _showColorPickerDialog(pedal),
-                      onHighlightPressed: () => _highlightPedalInWebView(pedal),
+                      onHighlightPressed: () =>
+                          _triggerSearchHighlight(pedal.instance, pedal: pedal),
                       onSizeToggled: () {
                         setState(() {
                           final current =
@@ -3199,7 +3222,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         }
                       },
                       onRenamePressed: () => _showRenameDialog(pedal),
-                      onHighlightPressed: () => _highlightPedalInWebView(pedal),
+                      onHighlightPressed: () =>
+                          _triggerSearchHighlight(pedal.instance, pedal: pedal),
                       onColorPickerPressed: () => _showColorPickerDialog(pedal),
                       onSizeToggled: () {
                         setState(() {
@@ -5642,27 +5666,32 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _handlePedalSearchClick(String rawInstanceId) {
     debugPrint('PedalClickChannel received rawInstanceId: $rawInstanceId, isPedalSearchMode: $_isPedalSearchMode');
     if (!_isPedalSearchMode) return;
+    _triggerSearchHighlight(rawInstanceId);
+  }
 
+  void _triggerSearchHighlight(String rawTargetId, {PluginInstance? pedal}) {
     final plugins = _webSocketService.allPlugins.value;
-    PluginInstance? matchingPedal;
-    final String cleanRaw = rawInstanceId.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
-    for (final p in plugins) {
-      final String cleanP = p.instance.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
-      if (p.instance == rawInstanceId ||
-          cleanP == cleanRaw ||
-          p.instance.toLowerCase().endsWith(cleanRaw) ||
-          rawInstanceId.toLowerCase().endsWith(cleanP) ||
-          p.instance.endsWith('/${rawInstanceId.split('/').last}') ||
-          rawInstanceId.endsWith('/${p.instance.split('/').last}')) {
-        matchingPedal = p;
-        break;
+    PluginInstance? matchingPedal = pedal;
+    if (matchingPedal == null) {
+      final String cleanRaw = rawTargetId.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
+      for (final p in plugins) {
+        final String cleanP = p.instance.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
+        if (p.instance == rawTargetId ||
+            cleanP == cleanRaw ||
+            p.instance.toLowerCase().endsWith(cleanRaw) ||
+            rawTargetId.toLowerCase().endsWith(cleanP) ||
+            p.instance.endsWith('/${rawTargetId.split('/').last}') ||
+            rawTargetId.endsWith('/${p.instance.split('/').last}')) {
+          matchingPedal = p;
+          break;
+        }
       }
     }
 
-    final String targetId = matchingPedal?.instance ?? rawInstanceId;
-    debugPrint('PedalSearch matched targetId: $targetId');
+    final String targetId = matchingPedal?.instance ?? rawTargetId;
+    debugPrint('triggerSearchHighlight targetId: $targetId');
 
-    // Blink physical pedal in WebView
+    // Blink physical pedal in WebView for 5 seconds
     if (matchingPedal != null) {
       _highlightPedalInWebView(matchingPedal);
     }
