@@ -1,19 +1,21 @@
 # TamperMod — Current Focus
 
-## ✅ Completed (v1.4.9)
-- **Top-Most Spatial LCD Extraction & Flexible Instance Matching**:
-  1. **Top-Most Spatial Sort**:
-     - Leaf SVG `<text>` elements inside the pedal visual are sorted by screen `top` coordinate, ensuring the upper LCD screen (`-71.5 dB`) is always selected instead of the lower knob setting (`-5.64 dB`).
-  2. **Flexible Instance Matching**:
-     - Added `_getMeterDisplayForPedal()` to robustly map sanitized and graph-prefixed instance identifiers between the DOM and WebSocket states.
-  3. **Broadened WebSocket Protocol Support**:
-     - Added support for `output_set`, `output`, `meter`, and `monitor` commands in `websocket_service.dart`.
+## ✅ Completed (v1.5.0)
+- **Fade View VU & Gain Readout and Range Display on Fade Buttons**:
+  1. **Sub-Slider VU & Gain Readout Row**:
+     - Added a dedicated row below the slider in Fade View showing:
+       - **`VU: -71.5 dB`** (neon cyan `#00FFCC` pill)
+       - **`GAIN: -5.6 dB`** (glowing accent pill)
+       - Range endpoints (`MIN dB` and `MAX dB`) on the outer flanks.
+  2. **Fade In & Fade Out Range Display on Buttons**:
+     - **FADE IN** button displays live start → end dB values (e.g. `-20.0 → +0.0 dB`).
+     - **FADE OUT** button displays live end → start dB values (e.g. `+0.0 → -20.0 dB`).
 
 ## 📋 Remaining Tasks
 - **A2. WebView Controls**: WebView full-screen toggle, separation layout adjustment.
 - **E2. Default Fadeout Values**: Mapping default values for fader/automation objects.
 
 ## 🔧 Quick Context
-- **App Version:** v1.4.9
-- **Last commit:** Gemini3.7Flash(v1.4.9) - Top-most spatial LCD extraction and flexible instance matching
+- **App Version:** v1.5.0
+- **Last commit:** Gemini3.7Flash(v1.5.0) - Fade view VU & Gain readout with start/end range on Fade buttons
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI

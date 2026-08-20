@@ -881,12 +881,18 @@ class _GainCardState extends State<GainCard> {
     }
 
     Widget buildFadeTransportRow({bool isCompact = false}) {
+      final double startDb = minRange + widget.rangeStart * (maxRange - minRange);
+      final double endDb = minRange + widget.rangeEnd * (maxRange - minRange);
+      final String fadeInRange = '${startDb >= 0 ? "+" : ""}${startDb.toStringAsFixed(1)} → ${endDb >= 0 ? "+" : ""}${endDb.toStringAsFixed(1)} dB';
+      final String fadeOutRange = '${endDb >= 0 ? "+" : ""}${endDb.toStringAsFixed(1)} → ${startDb >= 0 ? "+" : ""}${startDb.toStringAsFixed(1)} dB';
+
       return Row(
         children: [
           Expanded(
             flex: 3,
             child: FadeButton(
               label: 'FADE IN',
+              subLabel: fadeInRange,
               icon: Icons.trending_up,
               isBypassed: isBypassed,
               onTap: () => widget.onTriggerFade(true),
@@ -910,12 +916,86 @@ class _GainCardState extends State<GainCard> {
             flex: 3,
             child: FadeButton(
               label: 'FADE OUT',
+              subLabel: fadeOutRange,
               icon: Icons.trending_down,
               isBypassed: isBypassed,
               onTap: () => widget.onTriggerFade(false),
               accentColor: accentColor,
               isFading: widget.isFadingOut,
               isCompact: isCompact,
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget buildSubSliderGainVuRow({required bool compact}) {
+      final bool hasMeter = widget.liveMeterValue != null;
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '${minRange.toStringAsFixed(1)} dB',
+            style: TextStyle(
+              fontSize: compact ? 8.5 : 9.5,
+              color: Colors.grey[600],
+              fontFamily: 'monospace',
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasMeter) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.14 : 0.09),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: const Color(0xFF00FFCC).withOpacity(widget.isDarkMode ? 0.45 : 0.30),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    'VU: ${widget.liveMeterValue! >= 0 ? "+" : ""}${widget.liveMeterValue!.toStringAsFixed(1)}',
+                    style: TextStyle(
+                      fontSize: compact ? 8.0 : 9.0,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF00FFCC),
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 5),
+              ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(widget.isDarkMode ? 0.14 : 0.09),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: accentColor.withOpacity(widget.isDarkMode ? 0.45 : 0.30),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  'GAIN: ${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+                  style: TextStyle(
+                    fontSize: compact ? 8.0 : 9.0,
+                    fontWeight: FontWeight.w900,
+                    color: accentColor,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
+            style: TextStyle(
+              fontSize: compact ? 8.5 : 9.5,
+              color: Colors.grey[600],
+              fontFamily: 'monospace',
             ),
           ),
         ],
@@ -1061,28 +1141,8 @@ class _GainCardState extends State<GainCard> {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  // Range % + min/max labels
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${minRange.toStringAsFixed(1)} dB',
-                        style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-                      ),
-                      Text(
-                        '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: accentColor.withOpacity(0.7),
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      Text(
-                        '${maxRange.toStringAsFixed(1)} dB',
-                        style: TextStyle(fontSize: 9, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
+                  // Range % + VU & Gain Readout Row
+                  buildSubSliderGainVuRow(compact: true),
                   const SizedBox(height: 4),
                   // Row 4: Top transport controls row
                   Row(
@@ -1100,6 +1160,7 @@ class _GainCardState extends State<GainCard> {
                         Expanded(
                           child: FadeButton(
                             label: 'FADE IN',
+                            subLabel: '${(minRange + widget.rangeStart * (maxRange - minRange)) >= 0 ? "+" : ""}${(minRange + widget.rangeStart * (maxRange - minRange)).toStringAsFixed(1)} → ${(minRange + widget.rangeEnd * (maxRange - minRange)) >= 0 ? "+" : ""}${(minRange + widget.rangeEnd * (maxRange - minRange)).toStringAsFixed(1)}',
                             icon: Icons.trending_up,
                             isBypassed: isBypassed,
                             onTap: () => widget.onTriggerFade(true),
@@ -1113,6 +1174,7 @@ class _GainCardState extends State<GainCard> {
                         Expanded(
                           child: FadeButton(
                             label: 'FADE OUT',
+                            subLabel: '${(minRange + widget.rangeEnd * (maxRange - minRange)) >= 0 ? "+" : ""}${(minRange + widget.rangeEnd * (maxRange - minRange)).toStringAsFixed(1)} → ${(minRange + widget.rangeStart * (maxRange - minRange)) >= 0 ? "+" : ""}${(minRange + widget.rangeStart * (maxRange - minRange)).toStringAsFixed(1)}',
                             icon: Icons.trending_down,
                             isBypassed: isBypassed,
                             onTap: () => widget.onTriggerFade(false),
@@ -1177,40 +1239,8 @@ class _GainCardState extends State<GainCard> {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  // Labels
-                  Row(
-                    children: [
-                      Text(
-                        '${minRange.toStringAsFixed(1)} dB',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: widget.isDarkMode
-                              ? Colors.grey[isBypassed ? 700 : 600]
-                              : Colors.grey[isBypassed ? 600 : 700],
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: accentColor.withOpacity(0.7),
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: widget.isDarkMode
-                              ? Colors.grey[isBypassed ? 700 : 600]
-                              : Colors.grey[isBypassed ? 600 : 700],
-                        ),
-                      ),
-                    ],
-                  ),
+                  // Sub-slider VU & Gain row
+                  buildSubSliderGainVuRow(compact: false),
                   const SizedBox(height: 6),
                   // Fade and Transport controls
                   buildFadeTransportRow(isCompact: false),
@@ -1228,6 +1258,7 @@ class _GainCardState extends State<GainCard> {
                 buildDbBox: buildDbBox,
                 buildSizeToggle: () => buildStandardHeaderRow(context),
                 buildFadeTransportRow: () => buildFadeTransportRow(isCompact: false),
+                buildSubSliderGainVuRow: () => buildSubSliderGainVuRow(compact: false),
               ),
       ),
     );
@@ -1245,6 +1276,7 @@ class _GainCardState extends State<GainCard> {
     required Widget Function({double fontSize}) buildDbBox,
     required Widget Function() buildSizeToggle,
     required Widget Function() buildFadeTransportRow,
+    required Widget Function() buildSubSliderGainVuRow,
   }) {
     // Resolve display curve
     final String shapeName = widget.fadeShape;
@@ -1327,38 +1359,8 @@ class _GainCardState extends State<GainCard> {
         ),
         const SizedBox(height: 2),
 
-        // Range dB labels + percentage
-        Row(
-          children: [
-            Text(
-              '${minRange.toStringAsFixed(1)} dB (Start: ${startDb.toStringAsFixed(1)} dB)',
-              style: TextStyle(
-                fontSize: 9,
-                color: Colors.grey[600],
-                fontFamily: 'monospace',
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '${(widget.rangeStart * 100).round()}–${(widget.rangeEnd * 100).round()}%',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 9,
-                  color: accentColor.withOpacity(0.7),
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-            Text(
-              '${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB (End: ${endDb.toStringAsFixed(1)} dB)',
-              style: TextStyle(
-                fontSize: 9,
-                color: Colors.grey[600],
-                fontFamily: 'monospace',
-              ),
-            ),
-          ],
-        ),
+        // Sub-slider VU & Gain Row
+        buildSubSliderGainVuRow(),
         const SizedBox(height: 10),
 
         // Fade Shape Selector
