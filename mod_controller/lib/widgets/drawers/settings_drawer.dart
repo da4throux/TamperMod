@@ -1142,11 +1142,43 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       ),
     );
 
-    // Draggable wrapping with interactive reordering on drop
+    // Draggable wrapping with live interactive reordering while moving
     return KeyedSubtree(
       key: _getTileKey(instanceId),
       child: DragTarget<String>(
         onWillAccept: (data) => data != instanceId,
+        onMove: (details) {
+          final draggedId = details.data;
+          if (draggedId == instanceId) return;
+
+          final idxA = widget.orderedPluginInstances.indexOf(draggedId);
+          final idxB = widget.orderedPluginInstances.indexOf(instanceId);
+          if (idxA != -1 && idxB != -1 && idxA != idxB) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              final curA = widget.orderedPluginInstances.indexOf(draggedId);
+              final curB = widget.orderedPluginInstances.indexOf(instanceId);
+              if (curA != -1 && curB != -1 && curA != curB) {
+                setState(() {
+                  final item = widget.orderedPluginInstances.removeAt(curA);
+                  widget.orderedPluginInstances.insert(curB, item);
+
+                  if (isActive) {
+                    if (!widget.enabledPluginInstances.contains(draggedId)) {
+                      widget.enabledPluginInstances.add(draggedId);
+                    }
+                    final actA = widget.enabledPluginInstances.indexOf(draggedId);
+                    final actB = widget.enabledPluginInstances.indexOf(instanceId);
+                    if (actA != -1 && actB != -1 && actA != actB) {
+                      final aItem = widget.enabledPluginInstances.removeAt(actA);
+                      widget.enabledPluginInstances.insert(actB, aItem);
+                    }
+                  }
+                });
+              }
+            });
+          }
+        },
         onAccept: (draggedId) {
           setState(() {
             // Reorder list order

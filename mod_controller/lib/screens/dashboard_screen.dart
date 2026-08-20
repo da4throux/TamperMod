@@ -202,6 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     try {
       _webViewController.runJavaScript(jsCode);
+      _injectPedalClickListener();
     } catch (e) {
       debugPrint('Error updating all glows: $e');
     }
@@ -547,26 +548,32 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _injectPedalClickListener() {
     const String jsCode = r'''
       (function() {
-        if (window._hasInstalledPedalClickListener) return;
+        if (window._hasInstalledPedalClickListener) {
+          // Re-ensure tag exists
+          let tag = document.getElementById('tamper-pedal-hover-tag');
+          if (tag) tag.style.opacity = '0';
+          return;
+        }
         window._hasInstalledPedalClickListener = true;
         console.log("TAMPER: Installing interactive sub-pedal Hover Name Tag into WebView context");
 
         function findPedalElementAndInstance(el) {
+          if (!el) return null;
           let curr = el;
-          for (let i = 0; i < 15 && curr && curr !== document && curr !== window; i++) {
+          for (let i = 0; i < 20 && curr && curr !== document && curr !== window; i++) {
             if (curr.getAttribute) {
-              const inst = curr.getAttribute('mod-instance');
+              const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
               if (inst) return { el: curr, inst: inst };
               const uri = curr.getAttribute('mod-uri');
               if (uri) {
-                const child = curr.querySelector && curr.querySelector('[mod-instance]');
+                const child = curr.querySelector && curr.querySelector('[mod-instance], [data-instance]');
                 if (child && child.getAttribute) {
-                  const cInst = child.getAttribute('mod-instance');
+                  const cInst = child.getAttribute('mod-instance') || (child.dataset && child.dataset.instance);
                   if (cInst) return { el: curr, inst: cInst };
                 }
               }
             }
-            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin') || curr.classList.contains('mod-plugin'))) {
+            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin') || curr.classList.contains('mod-plugin') || curr.classList.contains('block'))) {
               const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
               if (inst) return { el: curr, inst: inst };
             }
@@ -584,7 +591,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           hoverTag.style.pointerEvents = 'auto';
           hoverTag.style.cursor = 'pointer';
           hoverTag.style.userSelect = 'none';
-          hoverTag.style.zIndex = '999999';
+          hoverTag.style.zIndex = '99999999';
           hoverTag.style.padding = '6px 12px';
           hoverTag.style.borderRadius = '8px';
           hoverTag.style.backgroundColor = 'rgba(11, 14, 20, 0.95)';
@@ -683,6 +690,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         function handlePointerMove(e) {
           try {
             if (isHoveringTag) return;
+            if (e.target === hoverTag || (hoverTag && hoverTag.contains && hoverTag.contains(e.target))) return;
+
             const targetPedal = findPedalElementAndInstance(e.target);
 
             if (targetPedal) {
@@ -739,8 +748,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           }
         }
 
-        document.addEventListener('pointermove', handlePointerMove, true);
-        document.addEventListener('mousemove', handlePointerMove, true);
+        window.addEventListener('pointermove', handlePointerMove, { capture: true, passive: true });
+        window.addEventListener('mousemove', handlePointerMove, { capture: true, passive: true });
+        window.addEventListener('pointerover', handlePointerMove, { capture: true, passive: true });
+        window.addEventListener('mouseover', handlePointerMove, { capture: true, passive: true });
+        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: true });
+        document.addEventListener('mousemove', handlePointerMove, { capture: true, passive: true });
+        document.addEventListener('pointerover', handlePointerMove, { capture: true, passive: true });
+        document.addEventListener('mouseover', handlePointerMove, { capture: true, passive: true });
         document.addEventListener('mouseleave', function() {
           if (!isHoveringTag) {
             hoverTag.style.opacity = '0';
