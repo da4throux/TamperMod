@@ -548,37 +548,29 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _injectPedalClickListener() {
     const String jsCode = r'''
       (function() {
-        if (window._hasInstalledPedalClickListener) {
-          // Re-ensure tag exists
-          let tag = document.getElementById('tamper-pedal-hover-tag');
-          if (tag) tag.style.opacity = '0';
-          return;
-        }
-        window._hasInstalledPedalClickListener = true;
-        console.log("TAMPER: Installing interactive sub-pedal Hover Name Tag into WebView context");
+        console.log("TAMPER: Ensuring interactive sub-pedal Hover Name Tag in WebView");
 
         function findPedalElementAndInstance(el) {
           if (!el) return null;
-          // Try closest first for fast, exact match
-          if (el.closest) {
-            const pedalEl = el.closest('[mod-instance], [data-instance], .mod-pedal, .pedal, .plugin, .mod-plugin, [mod-uri]');
-            if (pedalEl) {
-              const inst = pedalEl.getAttribute('mod-instance') || 
-                           (pedalEl.dataset && pedalEl.dataset.instance) ||
-                           (pedalEl.querySelector && (pedalEl.querySelector('[mod-instance]')?.getAttribute('mod-instance') || pedalEl.querySelector('[data-instance]')?.dataset?.instance));
-              if (inst) return { el: pedalEl, inst: inst };
-            }
-          }
-          // Fallback upwards traversal
           let curr = el;
-          for (let i = 0; i < 25 && curr && curr !== document && curr !== window; i++) {
+          // Upwards search up to 30 levels
+          for (let i = 0; i < 30 && curr && curr !== document && curr !== window; i++) {
             if (curr.getAttribute) {
               const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
               if (inst) return { el: curr, inst: inst };
+              const uri = curr.getAttribute('mod-uri');
+              if (uri) {
+                const child = curr.querySelector && curr.querySelector('[mod-instance], [data-instance]');
+                if (child && child.getAttribute) {
+                  const cInst = child.getAttribute('mod-instance') || (child.dataset && child.dataset.instance);
+                  if (cInst) return { el: curr, inst: cInst };
+                }
+              }
             }
-            if (curr.classList && curr.classList.contains) {
-              if (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin') || curr.classList.contains('mod-plugin') || curr.classList.contains('block')) {
-                const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
+            if (curr.classList) {
+              const cList = (typeof curr.className === 'string') ? curr.className : (curr.classList.value || '');
+              if (cList.indexOf('mod-pedal') !== -1 || cList.indexOf('pedal') !== -1 || cList.indexOf('plugin') !== -1 || cList.indexOf('mod-plugin') !== -1) {
+                const inst = (curr.getAttribute && curr.getAttribute('mod-instance')) || (curr.dataset && curr.dataset.instance);
                 if (inst) return { el: curr, inst: inst };
               }
             }
@@ -587,7 +579,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           return null;
         }
 
-        // Interactive Hover Name Tag
         let hoverTag = document.getElementById('tamper-pedal-hover-tag');
         if (!hoverTag) {
           hoverTag = document.createElement('div');
@@ -596,7 +587,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           hoverTag.style.pointerEvents = 'auto';
           hoverTag.style.cursor = 'pointer';
           hoverTag.style.userSelect = 'none';
-          hoverTag.style.zIndex = '99999999';
+          hoverTag.style.zIndex = '2147483647'; // Max possible z-index
           hoverTag.style.padding = '6px 12px';
           hoverTag.style.borderRadius = '8px';
           hoverTag.style.backgroundColor = 'rgba(11, 14, 20, 0.95)';
@@ -614,14 +605,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           hoverTag.style.display = 'flex';
           hoverTag.style.alignItems = 'center';
           hoverTag.style.gap = '6px';
-          document.body.appendChild(hoverTag);
+          (document.body || document.documentElement).appendChild(hoverTag);
         }
 
         let currentActiveInst = '';
         let isHoveringTag = false;
         let fadeTimer = null;
 
-        hoverTag.addEventListener('mouseenter', function() {
+        hoverTag.onmouseenter = function() {
           isHoveringTag = true;
           if (fadeTimer) {
             clearTimeout(fadeTimer);
@@ -630,9 +621,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           hoverTag.style.opacity = '1';
           hoverTag.style.transform = 'translate(-50%, -2px) scale(1.03)';
           hoverTag.style.borderColor = '#FFFFFF';
-        });
+        };
 
-        hoverTag.addEventListener('mouseleave', function() {
+        hoverTag.onmouseleave = function() {
           isHoveringTag = false;
           hoverTag.style.transform = 'translate(-50%, 0) scale(1.0)';
           hoverTag.style.borderColor = '#00FFCC';
@@ -642,7 +633,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               hoverTag.style.opacity = '0';
             }
           }, 800);
-        });
+        };
 
         function handleTagClick(e) {
           e.preventDefault();
@@ -752,19 +743,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           }
         }
 
-        window.addEventListener('pointermove', handlePointerMove, { capture: true, passive: true });
-        window.addEventListener('mousemove', handlePointerMove, { capture: true, passive: true });
-        window.addEventListener('pointerover', handlePointerMove, { capture: true, passive: true });
-        window.addEventListener('mouseover', handlePointerMove, { capture: true, passive: true });
-        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: true });
-        document.addEventListener('mousemove', handlePointerMove, { capture: true, passive: true });
-        document.addEventListener('pointerover', handlePointerMove, { capture: true, passive: true });
-        document.addEventListener('mouseover', handlePointerMove, { capture: true, passive: true });
-        document.addEventListener('mouseleave', function() {
-          if (!isHoveringTag) {
-            hoverTag.style.opacity = '0';
-          }
-        });
+        if (!window._hasBoundPedalHoverEvents) {
+          window._hasBoundPedalHoverEvents = true;
+          ['pointermove', 'mousemove', 'pointerover', 'mouseover'].forEach(function(type) {
+            window.addEventListener(type, handlePointerMove, { capture: true, passive: true });
+            document.addEventListener(type, handlePointerMove, { capture: true, passive: true });
+          });
+        }
       })();
     ''';
 
