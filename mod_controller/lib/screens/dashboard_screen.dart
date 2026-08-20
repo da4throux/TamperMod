@@ -151,6 +151,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       (function() {
         const configs = ${jsonEncode(configs)};
         window._tamperPedalTitles = ${jsonEncode(titlesMap)};
+        window._tamperPedalSearchMode = ${_isPedalSearchMode ? 'true' : 'false'};
         console.log("TamperMod: Updating permanent glows and pedal titles", configs);
         
         // Remove all previous glows
@@ -544,6 +545,16 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  void _syncPedalSearchModeToWebView() {
+    try {
+      _webViewController.runJavaScript(
+        'window._tamperPedalSearchMode = ${_isPedalSearchMode ? 'true' : 'false'};',
+      );
+    } catch (e) {
+      debugPrint('Error syncing search mode to WebView: $e');
+    }
+  }
+
   void _injectPedalClickListener() {
     const String jsCode = r'''
       (function() {
@@ -551,24 +562,24 @@ class _DashboardScreenState extends State<DashboardScreen>
         window._hasInstalledPedalClickListener = true;
         console.log("TAMPER: Installing robust multi-event Pedal Click Interceptor into WebView context");
 
-        function findPedalInstance(el) {
+        function findPedalElementAndInstance(el) {
           let curr = el;
           for (let i = 0; i < 15 && curr && curr !== document && curr !== window; i++) {
             if (curr.getAttribute) {
               const inst = curr.getAttribute('mod-instance');
-              if (inst) return inst;
+              if (inst) return { el: curr, inst: inst };
               const uri = curr.getAttribute('mod-uri');
               if (uri) {
                 const child = curr.querySelector && curr.querySelector('[mod-instance]');
                 if (child && child.getAttribute) {
                   const cInst = child.getAttribute('mod-instance');
-                  if (cInst) return cInst;
+                  if (cInst) return { el: curr, inst: cInst };
                 }
               }
             }
-            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin'))) {
+            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin') || curr.classList.contains('mod-plugin'))) {
               const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
-              if (inst) return inst;
+              if (inst) return { el: curr, inst: inst };
             }
             curr = curr.parentElement || curr.parentNode;
           }
@@ -580,15 +591,26 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         function handleInteraction(e) {
           try {
-            const inst = findPedalInstance(e.target);
-            if (inst) {
-              const now = Date.now();
-              if (inst === lastSentInst && (now - lastSentTime < 300)) return;
-              lastSentTime = now;
-              lastSentInst = inst;
-              console.log("TAMPER_PEDAL_CLICK_DISPATCH: " + inst);
-              if (window.PedalClickChannel) {
-                window.PedalClickChannel.postMessage(inst);
+            const isSearchMode = !!window._tamperPedalSearchMode;
+            const targetPedal = findPedalElementAndInstance(e.target);
+
+            if (isSearchMode) {
+              // IN SEARCH MODE:
+              // 1. Pedalboard is unresponsive to default MOD UI events (prevent zooming, dragging, opening edit windows)
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+              // 2. Tapping a pedal dispatches search highlight
+              if (targetPedal) {
+                const now = Date.now();
+                if (targetPedal.inst === lastSentInst && (now - lastSentTime < 300)) return;
+                lastSentTime = now;
+                lastSentInst = targetPedal.inst;
+                console.log("TAMPER_PEDAL_CLICK_DISPATCH: " + targetPedal.inst);
+                if (window.PedalClickChannel) {
+                  window.PedalClickChannel.postMessage(targetPedal.inst);
+                }
               }
             }
           } catch(err) {
@@ -604,7 +626,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           hoverTooltip.style.position = 'fixed';
           hoverTooltip.style.pointerEvents = 'none';
           hoverTooltip.style.zIndex = '999999';
-          hoverTooltip.style.padding = '6px 12px';
+          hoverTooltip.style.padding = '5px 12px';
           hoverTooltip.style.borderRadius = '8px';
           hoverTooltip.style.backgroundColor = 'rgba(11, 14, 20, 0.94)';
           hoverTooltip.style.border = '1.5px solid #00FFCC';
@@ -615,8 +637,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           hoverTooltip.style.letterSpacing = '0.8px';
           hoverTooltip.style.boxShadow = '0 4px 20px rgba(0, 255, 204, 0.45), 0 0 10px rgba(0, 0, 0, 0.8)';
           hoverTooltip.style.opacity = '0';
-          hoverTooltip.style.transition = 'opacity 0.12s ease';
-          hoverTooltip.style.transform = 'translate(-50%, -130%)';
+          hoverTooltip.style.transition = 'opacity 0.2s ease, left 0.1s ease, top 0.1s ease';
+          hoverTooltip.style.transform = 'translate(-50%, 0)';
+          hoverTooltip.style.whiteSpace = 'nowrap';
           document.body.appendChild(hoverTooltip);
         }
 
@@ -652,21 +675,64 @@ class _DashboardScreenState extends State<DashboardScreen>
           }
         }
 
+        let hoverFadeTimeout = null;
+        let lastHoveredPedalEl = null;
+
         function handlePointerMove(e) {
           try {
-            const inst = findPedalInstance(e.target);
-            if (inst) {
-              let pedalEl = e.target;
-              if (e.target.closest) {
-                pedalEl = e.target.closest('[mod-instance]') || e.target.closest('.mod-pedal, .pedal') || e.target;
-              }
+            const targetPedal = findPedalElementAndInstance(e.target);
+            const isSearchMode = !!window._tamperPedalSearchMode;
+
+            if (targetPedal) {
+              const pedalEl = targetPedal.el;
+              const inst = targetPedal.inst;
               const displayName = getPedalDisplayName(pedalEl, inst);
+              
               hoverTooltip.innerHTML = '<span style="color:#00FFCC;margin-right:4px;">🔍</span> ' + displayName.toUpperCase();
-              hoverTooltip.style.left = (e.clientX || 0) + 'px';
-              hoverTooltip.style.top = (e.clientY || 0) + 'px';
+              
+              // Position just below the pedal visual
+              const rect = pedalEl.getBoundingClientRect();
+              const centerX = rect.left + (rect.width / 2);
+              const bottomY = rect.bottom + 8; // 8px below pedal bottom
+
+              // If below viewport, flip to above the pedal
+              if (bottomY + 36 > window.innerHeight) {
+                hoverTooltip.style.top = Math.max(6, rect.top - 36) + 'px';
+                hoverTooltip.style.transform = 'translate(-50%, 0)';
+              } else {
+                hoverTooltip.style.top = bottomY + 'px';
+                hoverTooltip.style.transform = 'translate(-50%, 0)';
+              }
+              hoverTooltip.style.left = Math.max(20, Math.min(window.innerWidth - 20, centerX)) + 'px';
               hoverTooltip.style.opacity = '1';
+
+              if (lastHoveredPedalEl !== pedalEl) {
+                lastHoveredPedalEl = pedalEl;
+                if (hoverFadeTimeout) {
+                  clearTimeout(hoverFadeTimeout);
+                  hoverFadeTimeout = null;
+                }
+              }
+
+              // When Pedal Search is NOT ON, the hovering name disappears after 2.5 seconds
+              if (!isSearchMode) {
+                if (hoverFadeTimeout) clearTimeout(hoverFadeTimeout);
+                hoverFadeTimeout = setTimeout(function() {
+                  if (!window._tamperPedalSearchMode) {
+                    hoverTooltip.style.opacity = '0';
+                  }
+                }, 2500);
+              } else {
+                // When Pedal Search is ON: permanent while pointer is exploring
+                if (hoverFadeTimeout) {
+                  clearTimeout(hoverFadeTimeout);
+                  hoverFadeTimeout = null;
+                }
+              }
             } else {
-              if (hoverTooltip && hoverTooltip.style.opacity !== '0') {
+              // Not over a pedal
+              lastHoveredPedalEl = null;
+              if (!hoverFadeTimeout && hoverTooltip.style.opacity !== '0') {
                 hoverTooltip.style.opacity = '0';
               }
             }
@@ -679,9 +745,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         document.addEventListener('mousemove', handlePointerMove, true);
         document.addEventListener('mouseleave', function() {
           if (hoverTooltip) hoverTooltip.style.opacity = '0';
+          lastHoveredPedalEl = null;
         });
 
-        ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach(function(evt) {
+        ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick', 'contextmenu'].forEach(function(evt) {
           document.addEventListener(evt, handleInteraction, true);
           window.addEventListener(evt, handleInteraction, true);
         });
@@ -4260,6 +4327,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           setState(() {
             _isPedalSearchMode = !_isPedalSearchMode;
           });
+          _syncPedalSearchModeToWebView();
           _savePedalSearchMode();
         },
         borderRadius: BorderRadius.circular(20),
@@ -4388,6 +4456,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           if (savedDark != null) _isDarkMode = savedDark;
           if (savedSearch != null) _isPedalSearchMode = savedSearch;
         });
+        _syncPedalSearchModeToWebView();
       }
     } catch (e) {
       debugPrint('Error loading theme settings: $e');
