@@ -849,15 +849,44 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               feedback: Material(
                 color: Colors.transparent,
                 child: Opacity(
-                  opacity: 0.9,
-                  child: SizedBox(
-                    width: eWidth,
-                    child: inactiveContent,
+                  opacity: 0.85,
+                  child: Container(
+                    width: rWidth,
+                    height: 48.0,
+                    padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 4.0),
+                    decoration: BoxDecoration(
+                      color: glowColor.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: glowColor,
+                        width: 2.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: glowColor.withOpacity(0.4),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
               childWhenDragging: Opacity(
-                opacity: 0.3,
+                opacity: 0.25,
                 child: inactiveContent,
               ),
               child: inactiveContent,

@@ -1,15 +1,15 @@
 # TamperMod — Current Focus
 
-## ✅ Completed (v1.3.96)
-- **Live Fluid Drag Shifting in Available Pool**:
-  1. **Available Pool Tiles Live DragTarget**: Wrapped inactive pool tiles in `DragTarget<String>` with safe `addPostFrameCallback` live shifting, allowing smooth re-ordering within the pool and instant live placement when dragging active pedals down into the pool.
-  2. **Empty Area Pool Drop Support**: Wrapped the available pool container itself in a `DragTarget<String>` to cleanly deactivate pedals dropped onto whitespace.
+## ✅ Completed (v1.3.97)
+- **Unified Drag Feedback & Continuous Hover Persistence**:
+  1. **Regular (R) Tile Feedback from Available Pool**: When dragging a tile out of the available pool, it now displays the exact Regular puzzle tile preview (`width: rWidth, height: 48.0` with neon border and glow) instead of the wide bar, eliminating double-shape overlay artifacts.
+  2. **Continuous Hover Persistence**: Fixed hover fadeout behavior—the hover name tag stays permanently visible as long as the cursor remains over the pedal, and only fades out after the cursor leaves the pedal visual.
 
 ## 📋 Remaining Tasks
 - **A2. WebView Controls**: WebView full-screen toggle, separation layout adjustment.
 - **E2. Default Fadeout Values**: Mapping default values for fader/automation objects.
 
 ## 🔧 Quick Context
-- **App Version:** v1.3.96
-- **Last commit:** Gemini3.7Flash(v1.3.96) - Enable live fluid drag shifting and drop targets for available pool tiles
+- **App Version:** v1.3.97
+- **Last commit:** Gemini3.7Flash(v1.3.97) - Regular tile drag feedback for available pool and continuous hover persistence
 - **Architecture:** Flutter app in `mod_controller/` with modular card-based UI

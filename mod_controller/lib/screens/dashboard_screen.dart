@@ -559,23 +559,28 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         function findPedalElementAndInstance(el) {
           if (!el) return null;
+          // Try closest first for fast, exact match
+          if (el.closest) {
+            const pedalEl = el.closest('[mod-instance], [data-instance], .mod-pedal, .pedal, .plugin, .mod-plugin, [mod-uri]');
+            if (pedalEl) {
+              const inst = pedalEl.getAttribute('mod-instance') || 
+                           (pedalEl.dataset && pedalEl.dataset.instance) ||
+                           (pedalEl.querySelector && (pedalEl.querySelector('[mod-instance]')?.getAttribute('mod-instance') || pedalEl.querySelector('[data-instance]')?.dataset?.instance));
+              if (inst) return { el: pedalEl, inst: inst };
+            }
+          }
+          // Fallback upwards traversal
           let curr = el;
-          for (let i = 0; i < 20 && curr && curr !== document && curr !== window; i++) {
+          for (let i = 0; i < 25 && curr && curr !== document && curr !== window; i++) {
             if (curr.getAttribute) {
               const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
               if (inst) return { el: curr, inst: inst };
-              const uri = curr.getAttribute('mod-uri');
-              if (uri) {
-                const child = curr.querySelector && curr.querySelector('[mod-instance], [data-instance]');
-                if (child && child.getAttribute) {
-                  const cInst = child.getAttribute('mod-instance') || (child.dataset && child.dataset.instance);
-                  if (cInst) return { el: curr, inst: cInst };
-                }
-              }
             }
-            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin') || curr.classList.contains('mod-plugin') || curr.classList.contains('block'))) {
-              const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
-              if (inst) return { el: curr, inst: inst };
+            if (curr.classList && curr.classList.contains) {
+              if (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal') || curr.classList.contains('plugin') || curr.classList.contains('mod-plugin') || curr.classList.contains('block')) {
+                const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
+                if (inst) return { el: curr, inst: inst };
+              }
             }
             curr = curr.parentElement || curr.parentNode;
           }
@@ -631,11 +636,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           isHoveringTag = false;
           hoverTag.style.transform = 'translate(-50%, 0) scale(1.0)';
           hoverTag.style.borderColor = '#00FFCC';
+          if (fadeTimer) clearTimeout(fadeTimer);
           fadeTimer = setTimeout(function() {
             if (!isHoveringTag) {
               hoverTag.style.opacity = '0';
             }
-          }, 1200);
+          }, 800);
         });
 
         function handleTagClick(e) {
@@ -725,22 +731,20 @@ class _DashboardScreenState extends State<DashboardScreen>
               hoverTag.style.left = Math.max(30, Math.min(window.innerWidth - 30, centerX)) + 'px';
               hoverTag.style.opacity = '1';
 
+              // While hovering pedal: keep it visible permanently!
               if (fadeTimer) {
                 clearTimeout(fadeTimer);
+                fadeTimer = null;
               }
-              fadeTimer = setTimeout(function() {
-                if (!isHoveringTag) {
-                  hoverTag.style.opacity = '0';
-                }
-              }, 2200);
             } else {
-              // Not on a pedal
+              // Not on a pedal: give 1.5 seconds to move to tag or fade out
               if (!fadeTimer && !isHoveringTag) {
                 fadeTimer = setTimeout(function() {
                   if (!isHoveringTag) {
                     hoverTag.style.opacity = '0';
                   }
-                }, 300);
+                  fadeTimer = null;
+                }, 1500);
               }
             }
           } catch(err) {
