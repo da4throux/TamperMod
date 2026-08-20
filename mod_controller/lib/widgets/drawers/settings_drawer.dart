@@ -77,6 +77,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   InactivePoolExpansion _inactivePoolExpansion = InactivePoolExpansion.partial;
   final Map<String, GlobalKey> _activeTileKeys = {};
   final Set<PluginCategoryType> _selectedCategoryFilters = {};
+  String? _currentlyDraggedId;
 
   GlobalKey _getTileKey(String instanceId) {
     return _activeTileKeys.putIfAbsent(instanceId, () => GlobalKey());
@@ -846,6 +847,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           builder: (context, _, __) {
             return Draggable<String>(
               data: instanceId,
+              onDragStarted: () => setState(() => _currentlyDraggedId = instanceId),
+              onDragEnd: (_) {
+                setState(() => _currentlyDraggedId = null);
+                widget.onLayoutSettingsChanged();
+              },
+              onDraggableCanceled: (_, __) => setState(() => _currentlyDraggedId = null),
+              onDragCompleted: () => setState(() => _currentlyDraggedId = null),
               feedback: Material(
                 color: Colors.transparent,
                 child: Opacity(
@@ -889,7 +897,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 opacity: 0.25,
                 child: inactiveContent,
               ),
-              child: inactiveContent,
+              child: _currentlyDraggedId == instanceId
+                  ? Opacity(opacity: 0.25, child: inactiveContent)
+                  : inactiveContent,
             );
           },
         ),
@@ -1278,46 +1288,8 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           widget.onLayoutSettingsChanged();
         },
         builder: (context, _, __) {
-          return LongPressDraggable<String>(
-            data: instanceId,
-            delay: const Duration(milliseconds: 150),
-            onDragEnd: (_) => widget.onLayoutSettingsChanged(),
-          feedback: Material(
-            color: Colors.transparent,
-            child: Opacity(
-              opacity: 0.75,
-              child: Container(
-                width: width,
-                height: height,
-                decoration: BoxDecoration(
-                  color: isLineBreak
-                      ? const Color(0xFF00FFCC).withValues(alpha: 0.25)
-                      : glowColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isLineBreak ? const Color(0xFF00FFCC) : glowColor,
-                    width: 2.0,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    isLineBreak
-                        ? 'LINE BREAK'
-                        : isSpacer
-                            ? 'SPACER'
-                            : (widget.customTitles[instanceId] ?? pedal.title)
-                                .toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          childWhenDragging: Opacity(
+          final bool isBeingDragged = _currentlyDraggedId == instanceId;
+          final Widget placeholderSlot = Opacity(
             opacity: 0.25,
             child: Container(
               width: width,
@@ -1325,20 +1297,83 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               decoration: BoxDecoration(
                 color: Colors.grey[800],
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.grey[600]!,
+                  width: 1.5,
+                ),
               ),
             ),
-          ),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              if (isActive && !isLineBreak) {
-                widget.onCyclePedalSize(instanceId);
-              }
+          );
+
+          return LongPressDraggable<String>(
+            data: instanceId,
+            delay: const Duration(milliseconds: 150),
+            onDragStarted: () => setState(() => _currentlyDraggedId = instanceId),
+            onDragEnd: (_) {
+              setState(() => _currentlyDraggedId = null);
+              widget.onLayoutSettingsChanged();
             },
-            child: tileContent,
-          ),
-        );
-      },
+            onDraggableCanceled: (_, __) => setState(() => _currentlyDraggedId = null),
+            onDragCompleted: () => setState(() => _currentlyDraggedId = null),
+            feedback: Material(
+              color: Colors.transparent,
+              child: Opacity(
+                opacity: 0.85,
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
+                    color: isLineBreak
+                        ? const Color(0xFF00FFCC).withValues(alpha: 0.25)
+                        : glowColor.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isLineBreak ? const Color(0xFF00FFCC) : glowColor,
+                      width: 2.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: glowColor.withOpacity(0.4),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      isLineBreak
+                          ? 'LINE BREAK'
+                          : isSpacer
+                              ? 'SPACER'
+                              : (widget.customTitles[instanceId] ?? pedal.title)
+                                  .toUpperCase(),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            childWhenDragging: placeholderSlot,
+            child: isBeingDragged
+                ? placeholderSlot
+                : GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (isActive && !isLineBreak) {
+                        widget.onCyclePedalSize(instanceId);
+                      }
+                    },
+                    child: tileContent,
+                  ),
+          );
+        },
     ),
   );
 }
