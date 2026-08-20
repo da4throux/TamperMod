@@ -56,7 +56,7 @@ Please read and apply .agenrules
 * **Card Visibility & Spacers:** Controlled by dragging tiles between the Active Canvas and Available Pool. Spacer cards can be added to the active pool using the "ADD SPACER" button. Spacers show with a dashed outline, spacebar icon, name "SPACER", size letter, and a delete icon. Dragging a spacer to the available pool deletes it.
 * **Drag-and-Drop:** Long Press on a tile initiates drag to reorder within the canvas or move between zones.
 * Interactive gestures:
-  * **Single Tap:** Scrolls main view to and pulses the target card.
+  * **Single Tap:** Scrolls main view to and pulses the target card (uses Flutter `Scrollable.ensureVisible` with a dynamic `GlobalKey` registry to reliably scroll to cards regardless of line breaks, spacers, or variable card heights).
   * **Double Tap:** Cycles layout size (C→R→E→C) for any active tile (including loopers and spacers). Double-tapping an inactive tile in the pool opens its neon glow color picker.
   * **Long Press:** Initiates Drag-and-Drop to rearrange cards or change active/inactive status.
 * **Color consistency rule:** Drawer tile colors MUST always match the workspace card color. All plugins use the same color assignment logic — no type-specific default overrides.

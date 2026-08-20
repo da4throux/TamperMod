@@ -78,9 +78,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   List<String> _enabledPluginInstances = [];
 
   final ScrollController _cardsScrollController = ScrollController();
+  final Map<String, GlobalKey> _cardKeys = {};
   final Map<String, String> _pedalGlowColors = {};
   final Map<String, bool> _pedalGlowEnabled = {};
   final Map<String, String> _pedalSizes = {};
+
+  GlobalKey _getCardKey(String instanceId) {
+    return _cardKeys.putIfAbsent(instanceId, () => GlobalKey());
+  }
 
   // Inline puzzle organizer panel state (replaces overlay endDrawer)
   bool _isPuzzleOpen = false;
@@ -3043,6 +3048,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   }
 
                   return SizedBox(
+                    key: _getCardKey(pedal.instance),
                     width: cardWidth,
                     height: cardHeight,
                     child: cardWidget,
@@ -5281,56 +5287,24 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _scrollToCard(String instanceId) {
-    final int index = _enabledPluginInstances.indexOf(instanceId);
-    if (index == -1) return;
-
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final bool isSplit = _showControls && _showWeb;
-
-    double controlsWidth = screenWidth;
-    if (isSplit) {
-      controlsWidth = isLandscape ? (screenWidth * 5 / 11) : screenWidth;
+    if (!_showControls) {
+      setState(() {
+        _showControls = true;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToCard(instanceId);
+      });
+      return;
     }
 
-    // Calculate card dimensions based on screen width
-    final double sidePadding = 8.0;
-    final double availableWidth = controlsWidth - sidePadding * 2;
-    final double spacing = 16.0;
-
-    double cardHeight = 240.0;
-    int crossAxisCount = 1;
-
-    if (controlsWidth >= 600) {
-      final double netWidth = availableWidth - (spacing * 3);
-      final double colWidth = netWidth / 4;
-      crossAxisCount = 2;
-      // Average card height (some may be compact, regular, or expanded)
-      cardHeight = 240.0;
-    } else {
-      crossAxisCount = 1;
-      cardHeight = 240.0;
-    }
-
-    // Calculate which row the card is in
-    final int rowIndex = index ~/ crossAxisCount;
-
-    // Calculate scroll offset to position the card
-    // Account for padding and spacing
-    final double scrollOffset = (rowIndex * (cardHeight + spacing)) - spacing;
-
-    if (_cardsScrollController.hasClients) {
-      // Scroll to position with some margin to ensure full visibility
-      final double targetOffset = scrollOffset.clamp(
-        0.0,
-        _cardsScrollController.position.maxScrollExtent,
-      );
-
-      _cardsScrollController.animateTo(
-        targetOffset,
+    final key = _cardKeys[instanceId];
+    final targetContext = key?.currentContext;
+    if (targetContext != null) {
+      Scrollable.ensureVisible(
+        targetContext,
         duration: const Duration(milliseconds: 450),
         curve: Curves.easeInOutCubic,
+        alignment: 0.0,
       );
     }
   }
