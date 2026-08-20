@@ -83,6 +83,15 @@ Please read and apply .agenrules
 * **Auto-assignment rule:** When a new plugin appears with no saved color, it is automatically assigned the color currently **least used** across all active plugins.
 * The color picker shows all 10 colors with a usage-count badge.
 
+### 3.6 Pedal Search Mode (WebView Click-to-Focus & Multi-View Synchronized Blinking)
+* **Floating Switch:** A pill badge switch `[ 🔍 PEDAL SEARCH ]` floats at `top: 48, left: 10` on the WebView pedalboard view directly below the MOD logo.
+* **Click Interception:** JavaScript interceptor posts clicked pedal `mod-instance` to Flutter via `PedalClickChannel`.
+* **Multi-View Synchronization:**
+  * Auto-scrolls the dashboard cards list to bring the clicked card to the top (`Scrollable.ensureVisible`).
+  * Auto-scrolls the active puzzle canvas in the Puzzle Organizer (if open) to bring the matching puzzle tile into view.
+  * Triggers a 2-second synchronized visual blink: the pedal on the webboard, the dashboard card (white/neon halo), and the puzzle tile border.
+* **Toggle Persistence:** Enabled state is persisted in SharedPreferences (`pedal_search_mode`).
+
 ---
 
 ## 4. MOD Dwarf Protocol & Communication Reference

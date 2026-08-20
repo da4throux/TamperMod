@@ -30,6 +30,7 @@ class SettingsDrawer extends StatefulWidget {
   final Function(String) onDeleteSpacer;
   final VoidCallback onAddLineBreak;
   final Function(String) onDeleteLineBreak;
+  final String? highlightedInstanceId;
 
   const SettingsDrawer({
     super.key,
@@ -56,6 +57,7 @@ class SettingsDrawer extends StatefulWidget {
     required this.onDeleteSpacer,
     required this.onAddLineBreak,
     required this.onDeleteLineBreak,
+    this.highlightedInstanceId,
   });
 
   @override
@@ -64,6 +66,33 @@ class SettingsDrawer extends StatefulWidget {
 
 class _SettingsDrawerState extends State<SettingsDrawer> {
   bool _isInactivePoolCollapsed = false;
+  final Map<String, GlobalKey> _activeTileKeys = {};
+
+  GlobalKey _getTileKey(String instanceId) {
+    return _activeTileKeys.putIfAbsent(instanceId, () => GlobalKey());
+  }
+
+  @override
+  void didUpdateWidget(covariant SettingsDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.highlightedInstanceId != null &&
+        widget.highlightedInstanceId != oldWidget.highlightedInstanceId) {
+      _scrollToHighlightedTile(widget.highlightedInstanceId!);
+    }
+  }
+
+  void _scrollToHighlightedTile(String instanceId) {
+    final key = _activeTileKeys[instanceId];
+    final targetContext = key?.currentContext;
+    if (targetContext != null) {
+      Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
+        alignment: 0.1,
+      );
+    }
+  }
 
   Widget _buildMiniPuzzleTile({
     required PluginInstance pedal,
@@ -175,23 +204,38 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isLineBreak
-              ? const Color(0xFF00FFCC).withValues(alpha: 0.6)
-              : isSpacer
-                  ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
-                  : glowColor.withOpacity(isActive ? 0.9 : 0.4),
-          width: isActive ? 1.5 : 1.0,
+          color: (widget.highlightedInstanceId == instanceId)
+              ? Colors.white
+              : (isLineBreak
+                  ? const Color(0xFF00FFCC).withValues(alpha: 0.6)
+                  : isSpacer
+                      ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
+                      : glowColor.withOpacity(isActive ? 0.9 : 0.4)),
+          width: (widget.highlightedInstanceId == instanceId) ? 2.5 : (isActive ? 1.5 : 1.0),
           style: BorderStyle.solid,
         ),
-        boxShadow: isActive && !isSpacer && !isLineBreak
+        boxShadow: (widget.highlightedInstanceId == instanceId)
             ? [
                 BoxShadow(
-                  color: glowColor.withOpacity(0.3),
-                  blurRadius: 4,
-                  spreadRadius: 0.5,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: glowColor.withValues(alpha: 0.9),
+                  blurRadius: 16,
+                  spreadRadius: 3,
                 ),
               ]
-            : null,
+            : (isActive && !isSpacer && !isLineBreak
+                ? [
+                    BoxShadow(
+                      color: glowColor.withOpacity(0.3),
+                      blurRadius: 4,
+                      spreadRadius: 0.5,
+                    ),
+                  ]
+                : null),
       ),
       child: Row(
         children: [
@@ -298,7 +342,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     );
 
     // Draggable wrapping with live interactive reordering while moving
-    return DragTarget<String>(
+    return KeyedSubtree(
+      key: _getTileKey(instanceId),
+      child: DragTarget<String>(
       onWillAccept: (data) => data != instanceId,
       onMove: (details) {
         final draggedId = details.data;
@@ -431,8 +477,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           ),
         );
       },
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildDrawerContent() {
     return LayoutBuilder(

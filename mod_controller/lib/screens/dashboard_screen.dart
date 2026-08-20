@@ -83,6 +83,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, bool> _pedalGlowEnabled = {};
   final Map<String, String> _pedalSizes = {};
 
+  // Pedal Search mode (click on pedal in WebView to focus/scroll & blink)
+  bool _isPedalSearchMode = true;
+  String? _highlightedInstanceId;
+  Timer? _highlightTimer;
+
   GlobalKey _getCardKey(String instanceId) {
     return _cardKeys.putIfAbsent(instanceId, () => GlobalKey());
   }
@@ -528,6 +533,37 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  void _injectPedalClickListener() {
+    const String jsCode = r'''
+      (function() {
+        if (window._hasInstalledPedalClickListener) return;
+        window._hasInstalledPedalClickListener = true;
+        console.log("TAMPER: Installing Pedal Click Interceptor into WebView context");
+
+        document.addEventListener('click', function(e) {
+          const pedal = e.target.closest('[mod-instance], .mod-pedal');
+          if (pedal) {
+            let inst = pedal.getAttribute('mod-instance');
+            if (!inst) {
+              const child = pedal.querySelector('[mod-instance]');
+              if (child) inst = child.getAttribute('mod-instance');
+            }
+            if (inst && window.PedalClickChannel) {
+              console.log("TAMPER_PEDAL_CLICK: " + inst);
+              window.PedalClickChannel.postMessage(inst);
+            }
+          }
+        }, true);
+      })();
+    ''';
+
+    try {
+      _webViewController.runJavaScript(jsCode);
+    } catch (e) {
+      debugPrint('Error injecting pedal click listener: $e');
+    }
+  }
+
 
   // Fading and BPM Parameter State
   double _bpm = 120.0;
@@ -645,6 +681,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           _handleDiscoveryData(message.message);
         },
       )
+      ..addJavaScriptChannel(
+        'PedalClickChannel',
+        onMessageReceived: (JavaScriptMessage message) {
+          final String instanceId = message.message.trim();
+          if (instanceId.isNotEmpty) {
+            _handlePedalSearchClick(instanceId);
+          }
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (String url) {
@@ -654,6 +699,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             _injectBpmMonitor();
             // Inject Metadata discovery scraper
             _injectMetadataDiscovery();
+            // Inject Pedal Click Interceptor
+            _injectPedalClickListener();
           },
         ),
       );
@@ -1656,6 +1703,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     HardwareKeyboard.instance.removeHandler(_handleGlobalKeyEvents);
     WidgetsBinding.instance.removeObserver(this);
     _webSocketService.gainPedals.removeListener(_initializeLocalVolumes);
@@ -2409,6 +2457,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           onDeleteSpacer: _deleteSpacer,
                           onAddLineBreak: _addLineBreak,
                           onDeleteLineBreak: _deleteLineBreak,
+                          highlightedInstanceId: _highlightedInstanceId,
                         ),
                       ),
                     ),
@@ -3047,10 +3096,34 @@ class _DashboardScreenState extends State<DashboardScreen>
                     );
                   }
 
-                  return SizedBox(
+                  final bool isHighlighted = _highlightedInstanceId == pedal.instance;
+
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
                     key: _getCardKey(pedal.instance),
                     width: cardWidth,
                     height: cardHeight,
+                    decoration: isHighlighted
+                        ? BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                blurRadius: 16,
+                                spreadRadius: 3,
+                              ),
+                              BoxShadow(
+                                color: glowColor.withValues(alpha: 0.9),
+                                blurRadius: 28,
+                                spreadRadius: 6,
+                              ),
+                            ],
+                          )
+                        : null,
                     child: cardWidget,
                   );
                 }).toList(),
@@ -3955,7 +4028,112 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildWebView() {
-    return WebViewWidget(controller: _webViewController);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: WebViewWidget(controller: _webViewController),
+        ),
+        Positioned(
+          top: 48,
+          left: 10,
+          child: _buildPedalSearchBadge(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPedalSearchBadge() {
+    final bool isOn = _isPedalSearchMode;
+    final Color activeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
+    final Color bg = _isDarkMode
+        ? const Color(0xFF0D111A).withValues(alpha: 0.88)
+        : const Color(0xFFF0F4F8).withValues(alpha: 0.92);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _isPedalSearchMode = !_isPedalSearchMode;
+          });
+          _savePedalSearchMode();
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isOn ? activeColor : Colors.grey.withValues(alpha: 0.4),
+              width: isOn ? 1.5 : 1.0,
+            ),
+            boxShadow: isOn
+                ? [
+                    BoxShadow(
+                      color: activeColor.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isOn ? Icons.radar : Icons.search_off_rounded,
+                size: 14,
+                color: isOn ? activeColor : Colors.grey,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'PEDAL SEARCH',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.6,
+                  color: isOn
+                      ? (_isDarkMode ? Colors.white : Colors.black87)
+                      : Colors.grey,
+                ),
+              ),
+              const SizedBox(width: 6),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isOn ? activeColor : Colors.grey[600],
+                  boxShadow: isOn
+                      ? [
+                          BoxShadow(
+                            color: activeColor,
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildAppBarViewChip({
@@ -4000,13 +4178,24 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedDark = prefs.getBool('is_dark_mode');
-      if (savedDark != null && mounted) {
+      final savedSearch = prefs.getBool('pedal_search_mode');
+      if (mounted) {
         setState(() {
-          _isDarkMode = savedDark;
+          if (savedDark != null) _isDarkMode = savedDark;
+          if (savedSearch != null) _isPedalSearchMode = savedSearch;
         });
       }
     } catch (e) {
       debugPrint('Error loading theme settings: $e');
+    }
+  }
+
+  Future<void> _savePedalSearchMode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('pedal_search_mode', _isPedalSearchMode);
+    } catch (e) {
+      debugPrint('Error saving pedal search mode: $e');
     }
   }
 
@@ -5284,6 +5473,47 @@ class _DashboardScreenState extends State<DashboardScreen>
       _pedalSizes.remove(lineBreakId);
     });
     _saveLayoutSettings();
+  }
+
+  void _handlePedalSearchClick(String rawInstanceId) {
+    if (!_isPedalSearchMode) return;
+
+    final plugins = _webSocketService.allPlugins.value;
+    PluginInstance? matchingPedal;
+    for (final p in plugins) {
+      if (p.instance == rawInstanceId ||
+          p.instance.endsWith('/${rawInstanceId.split('/').last}') ||
+          rawInstanceId.endsWith('/${p.instance.split('/').last}')) {
+        matchingPedal = p;
+        break;
+      }
+    }
+
+    final String targetId = matchingPedal?.instance ?? rawInstanceId;
+
+    // Blink physical pedal in WebView
+    if (matchingPedal != null) {
+      _highlightPedalInWebView(matchingPedal);
+    }
+
+    // Scroll dashboard card into view
+    _scrollToCard(targetId);
+
+    // Trigger synchronized blinking on dashboard card and puzzle tile
+    setState(() {
+      _highlightedInstanceId = targetId;
+    });
+
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 2400), () {
+      if (mounted) {
+        setState(() {
+          if (_highlightedInstanceId == targetId) {
+            _highlightedInstanceId = null;
+          }
+        });
+      }
+    });
   }
 
   void _scrollToCard(String instanceId) {
