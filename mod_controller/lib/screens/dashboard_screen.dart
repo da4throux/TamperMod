@@ -28,6 +28,7 @@ import '../widgets/cards/looper_card.dart';
 import '../widgets/cards/looper_regular_card.dart';
 import '../widgets/cards/placeholder_card.dart';
 import '../utils/color_utils.dart';
+import '../utils/plugin_category.dart';
 import '../models/parameter_metadata.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -139,10 +140,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     final Map<String, Map<String, dynamic>> titlesMap = {};
     for (final p in _webSocketService.allPlugins.value) {
       final bool isPlaced = _enabledPluginInstances.contains(p.instance);
+      final cat = PluginCategoryHelper.getCategoryForPlugin(p);
       titlesMap[p.instance] = {
         'title': p.title,
         'custom': _customTitles[p.instance] ?? '',
         'isPlaced': isPlaced,
+        'categoryCode': cat.shortCode,
+        'categoryLabel': cat.label,
+        'categoryColor': cat.defaultColor.toARGB32().toRadixString(16).substring(2),
+        'categoryEmoji': PluginCategoryHelper.getCategoryEmoji(cat.type),
       };
     }
 
@@ -654,6 +660,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             let title = '';
             let custom = '';
             let isPlaced = true;
+            let categoryCode = 'FX';
+            let categoryColor = '#00FFCC';
+            let categoryEmoji = '🔊';
             if (window._tamperPedalTitles && typeof window._tamperPedalTitles === 'object' && inst) {
               const cleanInst = String(inst).replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
               for (const [k, v] of Object.entries(window._tamperPedalTitles)) {
@@ -663,6 +672,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   title = v.title || '';
                   custom = v.custom || '';
                   if (typeof v.isPlaced === 'boolean') isPlaced = v.isPlaced;
+                  if (v.categoryCode) categoryCode = v.categoryCode;
+                  if (v.categoryColor) categoryColor = '#' + v.categoryColor;
+                  if (v.categoryEmoji) categoryEmoji = v.categoryEmoji;
                   break;
                 }
               }
@@ -678,9 +690,15 @@ class _DashboardScreenState extends State<DashboardScreen>
             if (custom && custom.trim().toUpperCase() !== title.trim().toUpperCase()) {
               displayName = title + ' / ' + custom;
             }
-            return { displayName: displayName, isPlaced: isPlaced };
+            return {
+              displayName: displayName,
+              isPlaced: isPlaced,
+              categoryCode: categoryCode,
+              categoryColor: categoryColor,
+              categoryEmoji: categoryEmoji
+            };
           } catch(err) {
-            return { displayName: String(inst || ''), isPlaced: true };
+            return { displayName: String(inst || ''), isPlaced: true, categoryCode: 'FX', categoryColor: '#00FFCC', categoryEmoji: '🔊' };
           }
         }
 
@@ -697,6 +715,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               currentActiveInst = inst;
               const details = getPedalDetails(pedalEl, inst);
               
+              const catEmoji = details.categoryEmoji || '🧩';
+              const catCode = details.categoryCode || 'FX';
+              const catColor = details.categoryColor || '#00FFCC';
               const statusIcon = details.isPlaced ? '🧩' : '📦';
               const statusLabel = details.isPlaced ? 'PLACED' : 'AVAILABLE POOL';
               const statusColor = details.isPlaced ? '#00FFCC' : '#FFAA00';
@@ -704,9 +725,10 @@ class _DashboardScreenState extends State<DashboardScreen>
               const statusBorder = details.isPlaced ? 'rgba(0,255,204,0.5)' : 'rgba(255,170,0,0.5)';
 
               hoverTag.innerHTML = `
-                <span style="font-size:13px;line-height:1;">${statusIcon}</span>
+                <span style="font-size:15px;line-height:1;margin-right:2px;">${catEmoji}</span>
                 <span style="color:#FFFFFF;font-weight:bold;">${details.displayName.toUpperCase()}</span>
-                <span style="background:${statusBg};color:${statusColor};border:1px solid ${statusBorder};border-radius:4px;padding:2px 5px;font-size:8px;font-weight:900;letter-spacing:0.5px;">${statusLabel}</span>
+                <span style="background:rgba(255,255,255,0.1);color:${catColor};border:1px solid ${catColor};border-radius:4px;padding:2px 5px;font-size:8.5px;font-weight:900;letter-spacing:0.5px;">${catCode}</span>
+                <span style="background:${statusBg};color:${statusColor};border:1px solid ${statusBorder};border-radius:4px;padding:2px 5px;font-size:8px;font-weight:900;letter-spacing:0.5px;">${statusIcon} ${statusLabel}</span>
               `;
               
               // Position directly below the pedal visual
@@ -797,6 +819,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, String> _switchPathANames = {}; // Path A name (0.0/Down)
   final Map<String, String> _switchPathBNames = {}; // Path B name (1.0/Up)
   final Map<String, bool> _switchInverted = {}; // false: 1=ON, true: 0=ON
+
+  // Gain card configuration maps
+  final Map<String, String> _gainCardModes = {}; // 'fade' or 'direct'
 
   bool _isMuted(PluginInstance pedal) {
     final double currentValue =
@@ -1000,6 +1025,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       final String? savedSwitchPathANamesJson = prefs.getString('${effectiveKey}_switch_path_a_names');
       final String? savedSwitchPathBNamesJson = prefs.getString('${effectiveKey}_switch_path_b_names');
       final String? savedSwitchInvertedJson = prefs.getString('${effectiveKey}_switch_inverted');
+      final String? savedGainCardModesJson = prefs.getString('${effectiveKey}_gain_card_modes');
       final String? savedFadeStart = prefs.getString('${effectiveKey}_fadeRangeStart');
       final String? savedFadeEnd = prefs.getString('${effectiveKey}_fadeRangeEnd');
       final String? savedFadeShapes = prefs.getString('${effectiveKey}_fadeShapes');
@@ -1183,6 +1209,17 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       }
 
+      // 5.8. Gain Card Modes ('fade' or 'direct')
+      final Map<String, String> newGainCardModes = {};
+      if (savedGainCardModesJson != null) {
+        try {
+          final Map<String, dynamic> decoded = jsonDecode(savedGainCardModesJson);
+          decoded.forEach((k, v) => newGainCardModes[k] = v.toString());
+        } catch (e) {
+          debugPrint('Error decoding gain_card_modes: $e');
+        }
+      }
+
       // 6. Glow Enabled
       final Map<String, bool> newGlowEnabled = {};
       if (savedGlowEnabledJson != null) {
@@ -1272,6 +1309,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
           _switchInverted.clear();
           _switchInverted.addAll(newSwitchInverted);
+
+          _gainCardModes.clear();
+          _gainCardModes.addAll(newGainCardModes);
 
           _pedalGlowEnabled.clear();
           _pedalGlowEnabled.addAll(newGlowEnabled);
@@ -3339,6 +3379,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       isFadingIn: isFadingIn,
                       isFadingOut: isFadingOut,
                       fadeProgress: _fadeProgress[pedal.instance] ?? 0.0,
+                      mode: _gainCardModes[pedal.instance] ?? 'fade',
+                      onModeChanged: (newMode) {
+                        setState(() {
+                          _gainCardModes[pedal.instance] = newMode;
+                        });
+                        _saveLayoutSettings();
+                      },
                       isFadePaused: isFadePaused,
                       onPauseResumeFade: () => _pauseResumeFade(pedal),
                       onStopFade: () => _stopFade(pedal),
@@ -5035,6 +5082,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       await prefs.setString('${key}_switch_path_a_names', jsonEncode(_switchPathANames));
       await prefs.setString('${key}_switch_path_b_names', jsonEncode(_switchPathBNames));
       await prefs.setString('${key}_switch_inverted', jsonEncode(_switchInverted));
+      await prefs.setString('${key}_gain_card_modes', jsonEncode(_gainCardModes));
       await prefs.setString('${key}_glow_enabled', jsonEncode(_pedalGlowEnabled));
       await prefs.setInt('${key}_fade_bars', _fadeBars);
       // Fade settings

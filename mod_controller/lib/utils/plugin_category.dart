@@ -155,6 +155,38 @@ class PluginCategoryHelper {
     ),
   };
 
+  static String getCategoryEmoji(PluginCategoryType type) {
+    switch (type) {
+      case PluginCategoryType.drive:
+        return '⚡';
+      case PluginCategoryType.delay:
+        return '⏱️';
+      case PluginCategoryType.reverb:
+        return '🌊';
+      case PluginCategoryType.modulation:
+        return '🔄';
+      case PluginCategoryType.ampCab:
+        return '📢';
+      case PluginCategoryType.eqFilter:
+        return '🎚️';
+      case PluginCategoryType.compressor:
+        return '🗜️';
+      case PluginCategoryType.pitchSynth:
+        return '🎹';
+      case PluginCategoryType.switcher:
+        return '🔀';
+      case PluginCategoryType.gainVolume:
+        return '🔊';
+      case PluginCategoryType.looper:
+        return '🔁';
+      case PluginCategoryType.utility:
+        return '🎛️';
+      case PluginCategoryType.lineBreak:
+      case PluginCategoryType.spacer:
+        return '🧩';
+    }
+  }
+
   static PluginCategoryInfo getCategoryForPlugin(PluginInstance pedal) {
     final String instanceId = pedal.instance;
     if (instanceId.startsWith('__linebreak_')) {

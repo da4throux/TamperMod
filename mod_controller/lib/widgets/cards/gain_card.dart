@@ -51,6 +51,9 @@ class GainCard extends StatefulWidget {
   final void Function(bool fadeIn) onTriggerFade;
   final ValueChanged<String> onOpenUri;
 
+  final String mode;
+  final ValueChanged<String>? onModeChanged;
+
   final bool isFadePaused;
   final VoidCallback? onPauseResumeFade;
   final VoidCallback? onStopFade;
@@ -68,6 +71,8 @@ class GainCard extends StatefulWidget {
     required this.isFadingIn,
     required this.isFadingOut,
     required this.fadeProgress,
+    this.mode = 'fade',
+    this.onModeChanged,
     this.isFadePaused = false,
     this.onPauseResumeFade,
     this.onStopFade,
@@ -370,7 +375,39 @@ class _GainCardState extends State<GainCard> {
           ),
           const SizedBox(width: 4),
 
-          // 4. Edit Button
+          // 4. Mode Toggle (Fade Automation vs Direct Gain & Mute)
+          GestureDetector(
+            onTap: () {
+              final nextMode = widget.mode == 'direct' ? 'fade' : 'direct';
+              widget.onModeChanged?.call(nextMode);
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: widget.mode == 'direct'
+                    ? accentColor.withOpacity(widget.isDarkMode ? 0.25 : 0.18)
+                    : (widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200]),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.mode == 'direct'
+                      ? accentColor
+                      : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!),
+                  width: widget.mode == 'direct' ? 1.2 : 0.8,
+                ),
+              ),
+              child: Icon(
+                widget.mode == 'direct' ? Icons.tune : Icons.auto_graph,
+                size: 13,
+                color: widget.mode == 'direct'
+                    ? accentColor
+                    : (widget.isDarkMode ? Colors.grey[300] : Colors.grey[700]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // 5. Edit Button
           GestureDetector(
             onTap: widget.onRenamePressed,
             behavior: HitTestBehavior.opaque,
@@ -393,7 +430,7 @@ class _GainCardState extends State<GainCard> {
           ),
           const SizedBox(width: 4),
 
-          // 5. Focus Button
+          // 6. Focus Button
           GestureDetector(
             onTap: widget.onHighlightPressed,
             behavior: HitTestBehavior.opaque,
@@ -416,7 +453,7 @@ class _GainCardState extends State<GainCard> {
           ),
           const SizedBox(width: 4),
 
-          // 6. Power Button
+          // 7. Power Button
           GestureDetector(
             onTap: () => widget.onBypassToggle(!isBypassed),
             behavior: HitTestBehavior.opaque,
@@ -440,6 +477,228 @@ class _GainCardState extends State<GainCard> {
             ),
           ),
         ],
+      );
+    }
+
+    // ── Direct Gain & Mute UI Components ──────────────────────────────
+    Widget buildDirectGainDisplay({required bool isCompact}) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 12, vertical: isCompact ? 5 : 6),
+        decoration: BoxDecoration(
+          color: widget.isDarkMode ? Colors.black : Colors.grey[900],
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: accentColor.withOpacity(0.6), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withOpacity(0.18),
+              blurRadius: 6,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              'GAIN LEVEL',
+              style: TextStyle(
+                fontSize: 7.5,
+                fontWeight: FontWeight.bold,
+                color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+              style: TextStyle(
+                fontSize: isCompact ? 13 : 16,
+                fontWeight: FontWeight.w900,
+                color: accentColor,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget buildBigMuteButton({required bool isCompact}) {
+      final bool isMuted = widget.isMuted;
+      final Color muteColor = isMuted
+          ? const Color(0xFFFF007F)
+          : (widget.isDarkMode ? Colors.grey[300]! : Colors.grey[700]!);
+      final Color muteBg = isMuted
+          ? const Color(0xFFFF007F).withOpacity(0.25)
+          : (widget.isDarkMode ? const Color(0xFF161B22) : Colors.grey[200]!);
+
+      return GestureDetector(
+        onTap: widget.onMuteToggled,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 12, vertical: isCompact ? 5 : 6),
+          decoration: BoxDecoration(
+            color: muteBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isMuted ? const Color(0xFFFF007F) : (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[350]!),
+              width: isMuted ? 1.5 : 1.0,
+            ),
+            boxShadow: isMuted
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFFF007F).withOpacity(0.35),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isMuted ? Icons.volume_off : Icons.volume_up,
+                    size: isCompact ? 14 : 16,
+                    color: muteColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isMuted ? 'MUTED' : 'MUTE',
+                    style: TextStyle(
+                      fontSize: isCompact ? 10 : 12,
+                      fontWeight: FontWeight.w900,
+                      color: muteColor,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 1),
+              Text(
+                isMuted ? 'TAP TO UNMUTE' : 'TAP TO SILENCE',
+                style: TextStyle(
+                  fontSize: 7.0,
+                  fontWeight: FontWeight.bold,
+                  color: isMuted ? const Color(0xFFFF007F).withOpacity(0.8) : Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget buildDirectSliderRow({required bool compact}) {
+      return Row(
+        children: [
+          // Step Down Button [-1.0 dB]
+          GestureDetector(
+            onTap: isBypassed
+                ? null
+                : () {
+                    final double newVal = (clampedValue - 1.0).clamp(minRange, maxRange);
+                    widget.onVolumeChanged(newVal);
+                  },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+              decoration: BoxDecoration(
+                color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: const Text(
+                '-1 dB',
+                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: buildVolumeSlider(compact: compact),
+          ),
+          const SizedBox(width: 4),
+          // Step Up Button [+1.0 dB]
+          GestureDetector(
+            onTap: isBypassed
+                ? null
+                : () {
+                    final double newVal = (clampedValue + 1.0).clamp(minRange, maxRange);
+                    widget.onVolumeChanged(newVal);
+                  },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+              decoration: BoxDecoration(
+                color: widget.isDarkMode ? const Color(0xFF1C2433) : Colors.grey[200],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!,
+                  width: 0.8,
+                ),
+              ),
+              child: const Text(
+                '+1 dB',
+                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget buildQuickStepsRow() {
+      final steps = [-6.0, -3.0, -1.0, 0.0, 1.0, 3.0, 6.0];
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: steps.map((db) {
+            final bool isSelected = (clampedValue - db).abs() < 0.1;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+              child: GestureDetector(
+                onTap: isBypassed
+                    ? null
+                    : () {
+                        final double newVal = db.clamp(minRange, maxRange);
+                        widget.onVolumeChanged(newVal);
+                      },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? accentColor.withOpacity(0.25)
+                        : (widget.isDarkMode ? const Color(0xFF161B22) : Colors.grey[200]),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: isSelected
+                          ? accentColor
+                          : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    '${db >= 0 ? "+" : ""}${db.toStringAsFixed(0)} dB',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.normal,
+                      color: isSelected ? accentColor : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       );
     }
 
@@ -585,7 +844,137 @@ class _GainCardState extends State<GainCard> {
           horizontal: widget.size == 'compact' ? 10.0 : 12.0,
           vertical: widget.size == 'compact' ? 8.0 : 8.0,
         ),
-        child: widget.size == 'compact'
+        child: widget.mode == 'direct'
+            ? (widget.size == 'compact'
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      buildStandardHeaderRow(context),
+                      const SizedBox(height: 6),
+                      // Gain Level Display + Big Mute Button
+                      Row(
+                        children: [
+                          Expanded(child: buildDirectGainDisplay(isCompact: true)),
+                          const SizedBox(width: 6),
+                          Expanded(child: buildBigMuteButton(isCompact: true)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Direct Slider Row with [-1 dB] / [+1 dB] Nudge Buttons
+                      buildDirectSliderRow(compact: true),
+                      const SizedBox(height: 4),
+                      // Quick Steps Row
+                      buildQuickStepsRow(),
+                    ],
+                  )
+                : widget.size == 'regular'
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header
+                          buildStandardHeaderRow(context),
+                          const SizedBox(height: 4),
+                          // URI + Direct Mode Badge
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => widget.onOpenUri(widget.pedal.uri),
+                                  child: Text(
+                                    widget.pedal.uri,
+                                    style: TextStyle(
+                                      fontSize: 8.5,
+                                      color: widget.isDarkMode
+                                          ? const Color(0xFF00FFCC)
+                                          : const Color(0xFF00B3FF),
+                                      decoration: TextDecoration.underline,
+                                      fontFamily: 'monospace',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: accentColor.withOpacity(0.4), width: 0.8),
+                                ),
+                                child: Text(
+                                  'DIRECT CONTROL',
+                                  style: TextStyle(
+                                    fontSize: 7.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: accentColor,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          // Gain Level Display + Big Mute Button
+                          Row(
+                            children: [
+                              Expanded(child: buildDirectGainDisplay(isCompact: false)),
+                              const SizedBox(width: 8),
+                              Expanded(child: buildBigMuteButton(isCompact: false)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Direct Slider Row
+                          buildDirectSliderRow(compact: false),
+                          const SizedBox(height: 6),
+                          // Quick Step Presets Row
+                          buildQuickStepsRow(),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header
+                          buildStandardHeaderRow(context),
+                          const SizedBox(height: 6),
+                          // Gain Level Display + Big Mute Button
+                          Row(
+                            children: [
+                              Expanded(child: buildDirectGainDisplay(isCompact: false)),
+                              const SizedBox(width: 8),
+                              Expanded(child: buildBigMuteButton(isCompact: false)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Direct Slider Row
+                          buildDirectSliderRow(compact: false),
+                          const SizedBox(height: 8),
+                          // Quick Step Presets
+                          buildQuickStepsRow(),
+                          const SizedBox(height: 10),
+                          // Range & Unity info bar
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: widget.isDarkMode ? const Color(0xFF0F141C) : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: widget.isDarkMode ? Colors.grey[850]! : Colors.grey[300]!,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Text('MIN: ${minRange.toStringAsFixed(1)} dB', style: TextStyle(fontSize: 9.5, color: Colors.grey[500], fontFamily: 'monospace')),
+                                Text('UNITY: 0.0 dB', style: TextStyle(fontSize: 9.5, color: accentColor, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                                Text('MAX: ${maxRange.toStringAsFixed(1)} dB', style: TextStyle(fontSize: 9.5, color: Colors.grey[500], fontFamily: 'monospace')),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ))
+            : widget.size == 'compact'
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
