@@ -802,23 +802,67 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
       return KeyedSubtree(
         key: _getTileKey(instanceId),
-        child: Draggable<String>(
-          data: instanceId,
-          feedback: Material(
-            color: Colors.transparent,
-            child: Opacity(
-              opacity: 0.9,
-              child: SizedBox(
-                width: eWidth,
+        child: DragTarget<String>(
+          onWillAccept: (data) => data != instanceId,
+          onMove: (details) {
+            final draggedId = details.data;
+            if (draggedId == instanceId) return;
+
+            final idxA = widget.orderedPluginInstances.indexOf(draggedId);
+            final idxB = widget.orderedPluginInstances.indexOf(instanceId);
+            if (idxA != -1 && idxB != -1 && idxA != idxB) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                final curA = widget.orderedPluginInstances.indexOf(draggedId);
+                final curB = widget.orderedPluginInstances.indexOf(instanceId);
+                if (curA != -1 && curB != -1 && curA != curB) {
+                  setState(() {
+                    final item = widget.orderedPluginInstances.removeAt(curA);
+                    widget.orderedPluginInstances.insert(curB, item);
+
+                    // If dragging into available pool: deactivate so it joins the pool
+                    if (widget.enabledPluginInstances.contains(draggedId)) {
+                      widget.enabledPluginInstances.remove(draggedId);
+                    }
+                  });
+                }
+              });
+            }
+          },
+          onAccept: (draggedId) {
+            setState(() {
+              final idxA = widget.orderedPluginInstances.indexOf(draggedId);
+              final idxB = widget.orderedPluginInstances.indexOf(instanceId);
+              if (idxA != -1 && idxB != -1 && idxA != idxB) {
+                final item = widget.orderedPluginInstances.removeAt(idxA);
+                widget.orderedPluginInstances.insert(idxB, item);
+              }
+              if (widget.enabledPluginInstances.contains(draggedId)) {
+                widget.enabledPluginInstances.remove(draggedId);
+              }
+            });
+            widget.onLayoutSettingsChanged();
+          },
+          builder: (context, _, __) {
+            return Draggable<String>(
+              data: instanceId,
+              feedback: Material(
+                color: Colors.transparent,
+                child: Opacity(
+                  opacity: 0.9,
+                  child: SizedBox(
+                    width: eWidth,
+                    child: inactiveContent,
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
                 child: inactiveContent,
               ),
-            ),
-          ),
-          childWhenDragging: Opacity(
-            opacity: 0.3,
-            child: inactiveContent,
-          ),
-          child: inactiveContent,
+              child: inactiveContent,
+            );
+          },
         ),
       );
     }
@@ -1815,58 +1859,70 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 if (_inactivePoolExpansion != InactivePoolExpansion.minimal)
                   Expanded(
                     flex: inactiveFlex,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 2,
-                      ),
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: widget.isDarkMode
-                            ? const Color(0xFF0B0E14).withOpacity(0.6)
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: (widget.isDarkMode
-                              ? Colors.grey[900]
-                              : Colors.grey[300])!,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: inactivePedals.isEmpty
-                          ? Center(
-                              child: Text(
-                                'All pedals are currently active on dashboard',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: widget.isDarkMode
-                                      ? Colors.grey[600]
-                                      : Colors.grey[500],
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            )
-                          : ListView(
-                              padding: EdgeInsets.zero,
-                              children: (_selectedCategoryFilters.isEmpty
-                                      ? inactivePedals
-                                      : inactivePedals.where((pedal) {
-                                          final cat = PluginCategoryHelper.getCategoryForPlugin(pedal);
-                                          if (cat.type == PluginCategoryType.lineBreak || cat.type == PluginCategoryType.spacer) {
-                                            return true;
-                                          }
-                                          return _selectedCategoryFilters.contains(cat.type);
-                                        }).toList())
-                                  .map((pedal) {
-                                return _buildMiniPuzzleTile(
-                                  pedal: pedal,
-                                  isActive: false,
-                                  cWidth: compactWidth,
-                                  rWidth: regularWidth,
-                                  eWidth: expandedWidth,
-                                );
-                              }).toList(),
+                    child: DragTarget<String>(
+                      onAccept: (draggedId) {
+                        setState(() {
+                          if (widget.enabledPluginInstances.contains(draggedId)) {
+                            widget.enabledPluginInstances.remove(draggedId);
+                          }
+                        });
+                        widget.onLayoutSettingsChanged();
+                      },
+                      builder: (context, _, __) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 2,
+                          ),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: widget.isDarkMode
+                                ? const Color(0xFF0B0E14).withOpacity(0.6)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: (widget.isDarkMode
+                                  ? Colors.grey[900]
+                                  : Colors.grey[300])!,
+                              width: 1.5,
                             ),
+                          ),
+                          child: inactivePedals.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'All pedals are currently active on dashboard',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: widget.isDarkMode
+                                          ? Colors.grey[600]
+                                          : Colors.grey[500],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                )
+                              : ListView(
+                                  padding: EdgeInsets.zero,
+                                  children: (_selectedCategoryFilters.isEmpty
+                                          ? inactivePedals
+                                          : inactivePedals.where((pedal) {
+                                              final cat = PluginCategoryHelper.getCategoryForPlugin(pedal);
+                                              if (cat.type == PluginCategoryType.lineBreak || cat.type == PluginCategoryType.spacer) {
+                                                return true;
+                                              }
+                                              return _selectedCategoryFilters.contains(cat.type);
+                                            }).toList())
+                                      .map((pedal) {
+                                    return _buildMiniPuzzleTile(
+                                      pedal: pedal,
+                                      isActive: false,
+                                      cWidth: compactWidth,
+                                      rWidth: regularWidth,
+                                      eWidth: expandedWidth,
+                                    );
+                                  }).toList(),
+                                ),
+                        );
+                      },
                     ),
                   ),
               ],
