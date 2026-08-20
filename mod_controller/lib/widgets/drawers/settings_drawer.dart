@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../../models/plugin_instance.dart';
 import '../../utils/color_utils.dart';
+import '../../utils/plugin_category.dart';
 
 /// Settings drawer widget (puzzle organizer)
 class SettingsDrawer extends StatefulWidget {
@@ -67,6 +68,7 @@ class SettingsDrawer extends StatefulWidget {
 class _SettingsDrawerState extends State<SettingsDrawer> {
   bool _isInactivePoolCollapsed = false;
   final Map<String, GlobalKey> _activeTileKeys = {};
+  final Set<PluginCategoryType> _selectedCategoryFilters = {};
 
   GlobalKey _getTileKey(String instanceId) {
     return _activeTileKeys.putIfAbsent(instanceId, () => GlobalKey());
@@ -94,6 +96,272 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     }
   }
 
+  void _showCategoryHelpDialog({PluginCategoryType? initialCategory}) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: widget.isDarkMode ? const Color(0xFF131822) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: widget.isDarkMode
+                  ? const Color(0xFF00FFCC).withValues(alpha: 0.3)
+                  : const Color(0xFF00B3FF).withValues(alpha: 0.3),
+              width: 1.5,
+            ),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.category_rounded,
+                color: widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Effect Categories Guide',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: PluginCategoryHelper.categories.values
+                    .where((cat) => cat.type != PluginCategoryType.lineBreak && cat.type != PluginCategoryType.spacer)
+                    .map((cat) {
+                  final bool isHighlighted = initialCategory == cat.type;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: isHighlighted
+                          ? cat.defaultColor.withValues(alpha: 0.2)
+                          : (widget.isDarkMode ? Colors.grey[900]!.withValues(alpha: 0.4) : Colors.grey[100]),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isHighlighted
+                            ? cat.defaultColor
+                            : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!),
+                        width: isHighlighted ? 1.5 : 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: cat.defaultColor.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(cat.icon, size: 15, color: cat.defaultColor),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: cat.defaultColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: cat.defaultColor.withValues(alpha: 0.5), width: 0.8),
+                          ),
+                          child: Text(
+                            cat.shortCode,
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w900,
+                              color: cat.defaultColor,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                cat.label,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                cat.description,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('GOT IT', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryFilterBar(List<PluginInstance> allPedals) {
+    final Set<PluginCategoryType> presentCategories = {};
+    for (final p in allPedals) {
+      final cat = PluginCategoryHelper.getCategoryForPlugin(p);
+      if (cat.type != PluginCategoryType.lineBreak && cat.type != PluginCategoryType.spacer) {
+        presentCategories.add(cat.type);
+      }
+    }
+
+    if (presentCategories.isEmpty) return const SizedBox.shrink();
+
+    final isAllSelected = _selectedCategoryFilters.isEmpty;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      height: 26,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          // ALL chip
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedCategoryFilters.clear();
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: isAllSelected
+                    ? (widget.isDarkMode
+                        ? const Color(0xFF00FFCC).withValues(alpha: 0.2)
+                        : const Color(0xFF00B3FF).withValues(alpha: 0.2))
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(
+                  color: isAllSelected
+                      ? (widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                      : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!),
+                  width: isAllSelected ? 1.2 : 0.8,
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  'ALL',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w900,
+                    color: isAllSelected
+                        ? (widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF))
+                        : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Individual category chips
+          ...presentCategories.map((catType) {
+            final catInfo = PluginCategoryHelper.categories[catType]!;
+            final isSelected = _selectedCategoryFilters.contains(catType);
+
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedCategoryFilters.remove(catType);
+                  } else {
+                    _selectedCategoryFilters.add(catType);
+                  }
+                });
+              },
+              onLongPress: () {
+                setState(() {
+                  _selectedCategoryFilters.clear();
+                  _selectedCategoryFilters.add(catType);
+                });
+              },
+              child: Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? catInfo.defaultColor.withValues(alpha: 0.25)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(
+                    color: isSelected
+                        ? catInfo.defaultColor
+                        : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[400]!),
+                    width: isSelected ? 1.2 : 0.8,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      catInfo.icon,
+                      size: 11,
+                      color: isSelected
+                          ? catInfo.defaultColor
+                          : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      catInfo.shortCode,
+                      style: TextStyle(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected
+                            ? (widget.isDarkMode ? Colors.white : Colors.black87)
+                            : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+
+          // Help / Legend Button
+          GestureDetector(
+            onTap: () => _showCategoryHelpDialog(),
+            child: Container(
+              margin: const EdgeInsets.only(left: 2, right: 4),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.isDarkMode ? Colors.grey[900] : Colors.grey[200],
+                border: Border.all(
+                  color: widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!,
+                  width: 0.8,
+                ),
+              ),
+              child: Icon(
+                Icons.help_outline_rounded,
+                size: 11,
+                color: widget.isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMiniPuzzleTile({
     required PluginInstance pedal,
     required bool isActive,
@@ -105,31 +373,143 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     final bool isSpacer = instanceId.startsWith('__spacer_');
     final bool isLineBreak = instanceId.startsWith('__linebreak_');
 
-    final uriLower = (isSpacer || isLineBreak) ? '' : pedal.uri.toLowerCase();
-    final titleLower = (isSpacer || isLineBreak) ? '' : pedal.title.toLowerCase();
-    final isLooper = !isSpacer && !isLineBreak && (
-        uriLower.contains('alo') ||
-        titleLower.contains('alo') ||
-        instanceId.toLowerCase().contains('alo'));
-    final isSwitch = !isSpacer && !isLineBreak && (
-        uriLower.contains('switch') || titleLower.contains('switch'));
+    final category = PluginCategoryHelper.getCategoryForPlugin(pedal);
+    final size = widget.pedalSizes[instanceId] ?? (category.type == PluginCategoryType.looper ? 'expanded' : 'regular');
 
-    final isGainOrVolume = !isSpacer && !isLineBreak && (
-        uriLower.contains('gain') ||
-        uriLower.contains('volume') ||
-        uriLower.contains('amp') ||
-        titleLower.contains('gain') ||
-        titleLower.contains('volume'));
+    // Handle Slim "Chain Divider" Line Breaks
+    if (isLineBreak) {
+      final lineBreakWidget = Container(
+        width: eWidth,
+        height: 18.0,
+        alignment: Alignment.center,
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 1.0,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.transparent,
+                      const Color(0xFF00FFCC).withValues(alpha: widget.isDarkMode ? 0.6 : 0.8),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00FFCC).withValues(alpha: widget.isDarkMode ? 0.12 : 0.2),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: const Color(0xFF00FFCC).withValues(alpha: 0.5),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wrap_text, size: 9, color: Color(0xFF00FFCC)),
+                  const SizedBox(width: 3),
+                  const Text(
+                    'ROW BREAK',
+                    style: TextStyle(
+                      fontSize: 7.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF00FFCC),
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  if (isActive) ...[
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => widget.onDeleteLineBreak(instanceId),
+                      child: const Icon(
+                        Icons.close,
+                        size: 9,
+                        color: Color(0xFFFF0055),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Expanded(
+              child: Container(
+                height: 1.0,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF00FFCC).withValues(alpha: widget.isDarkMode ? 0.6 : 0.8),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 
-    final size = widget.pedalSizes[instanceId] ?? (isLooper ? 'expanded' : 'regular');
+      return KeyedSubtree(
+        key: _getTileKey(instanceId),
+        child: DragTarget<String>(
+          onWillAccept: (data) => data != instanceId,
+          onMove: (details) {
+            final draggedId = details.data;
+            if (draggedId == instanceId) return;
+
+            final idxA = widget.orderedPluginInstances.indexOf(draggedId);
+            final idxB = widget.orderedPluginInstances.indexOf(instanceId);
+            if (idxA != -1 && idxB != -1 && idxA != idxB) {
+              setState(() {
+                final item = widget.orderedPluginInstances.removeAt(idxA);
+                widget.orderedPluginInstances.insert(idxB, item);
+                if (isActive) {
+                  if (!widget.enabledPluginInstances.contains(draggedId)) {
+                    widget.enabledPluginInstances.add(draggedId);
+                  }
+                  final activeA = widget.enabledPluginInstances.indexOf(draggedId);
+                  final activeB = widget.enabledPluginInstances.indexOf(instanceId);
+                  if (activeA != -1 && activeB != -1 && activeA != activeB) {
+                    final aItem = widget.enabledPluginInstances.removeAt(activeA);
+                    widget.enabledPluginInstances.insert(activeB, aItem);
+                  }
+                }
+              });
+              widget.onLayoutSettingsChanged();
+            }
+          },
+          onAccept: (draggedId) {
+            widget.onLayoutSettingsChanged();
+          },
+          builder: (context, _, __) {
+            return Draggable<String>(
+              data: instanceId,
+              feedback: Material(
+                color: Colors.transparent,
+                child: Opacity(
+                  opacity: 0.9,
+                  child: lineBreakWidget,
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: lineBreakWidget,
+              ),
+              child: lineBreakWidget,
+            );
+          },
+        ),
+      );
+    }
 
     double width = rWidth;
     double height = 46.0;
     if (isActive) {
-      if (isLineBreak) {
-        width = eWidth;
-        height = 28.0;
-      } else if (isSpacer) {
+      if (isSpacer) {
         if (size == 'compact') {
           width = cWidth;
           height = 40.0;
@@ -140,7 +520,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           width = eWidth;
           height = 56.0;
         }
-      } else if (isLooper) {
+      } else if (category.type == PluginCategoryType.looper) {
         if (size == 'regular') {
           width = rWidth;
           height = 48.0;
@@ -159,58 +539,40 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
         height = 56.0;
       }
     } else {
-      // Inactive tiles always show regular sizing for grid visual consistency in pool
       width = rWidth;
       height = 46.0;
     }
 
-    final String colorHex = (isSpacer || isLineBreak)
+    final String colorHex = isSpacer
         ? ''
         : (widget.pedalGlowColors[instanceId] ??
             getLeastUsedColor(widget.pedalGlowColors));
-    final Color glowColor = isLineBreak
-        ? const Color(0xFF00FFCC)
-        : isSpacer
-            ? (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!)
-            : hexToColor(colorHex);
+    final Color glowColor = isSpacer
+        ? (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[400]!)
+        : hexToColor(colorHex);
 
-    IconData typeIcon = Icons.tune;
-    if (isLineBreak) {
-      typeIcon = Icons.wrap_text;
-    } else if (isSpacer) {
-      typeIcon = Icons.space_bar;
-    } else if (isLooper) {
-      typeIcon = Icons.fiber_manual_record; // red looper dot
-    } else if (isSwitch) {
-      typeIcon = Icons.swap_horiz;
-    } else if (isGainOrVolume) {
-      typeIcon = Icons.adjust; // rotary volume knob
-    }
+    final IconData typeIcon = category.icon;
 
     final tileContent = Container(
       width: width,
       height: height,
-      padding: EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 6,
-        vertical: isLineBreak ? 2 : 4,
+        vertical: 4,
       ),
       decoration: BoxDecoration(
         color: isActive
-            ? (isLineBreak
-                ? const Color(0xFF00FFCC).withValues(alpha: widget.isDarkMode ? 0.08 : 0.15)
-                : isSpacer
-                    ? Colors.transparent
-                    : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18))
+            ? (isSpacer
+                ? Colors.transparent
+                : glowColor.withOpacity(widget.isDarkMode ? 0.12 : 0.18))
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: (widget.highlightedInstanceId == instanceId)
               ? Colors.white
-              : (isLineBreak
-                  ? const Color(0xFF00FFCC).withValues(alpha: 0.6)
-                  : isSpacer
-                      ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
-                      : glowColor.withOpacity(isActive ? 0.9 : 0.4)),
+              : (isSpacer
+                  ? (widget.isDarkMode ? Colors.grey[600]! : Colors.grey[400]!)
+                  : glowColor.withOpacity(isActive ? 0.9 : 0.4)),
           width: (widget.highlightedInstanceId == instanceId) ? 2.5 : (isActive ? 1.5 : 1.0),
           style: BorderStyle.solid,
         ),
@@ -227,7 +589,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   spreadRadius: 3,
                 ),
               ]
-            : (isActive && !isSpacer && !isLineBreak
+            : (isActive && !isSpacer
                 ? [
                     BoxShadow(
                       color: glowColor.withOpacity(0.3),
@@ -240,7 +602,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
       child: Row(
         children: [
           // Size Toggle C/R/E (Top Left, before title)
-          if (!isLineBreak) ...[
+          if (!isSpacer) ...[
             GestureDetector(
               onTap: () => widget.onCyclePedalSize(instanceId),
               child: Container(
@@ -264,78 +626,85 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
             ),
           ],
 
-          // Device Type Icon
-          Icon(
-            typeIcon,
-            size: isLineBreak ? 13 : (size == 'compact' && isActive ? 11 : 13),
-            color: isLineBreak
-                ? const Color(0xFF00FFCC)
-                : isSpacer
-                    ? (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600])
-                    : (isLooper && isActive ? const Color(0xFFFF0055) : glowColor),
+          // Device Type Icon (tap to see category guide)
+          GestureDetector(
+            onTap: isSpacer ? null : () => _showCategoryHelpDialog(initialCategory: category.type),
+            child: Icon(
+              typeIcon,
+              size: (size == 'compact' && isActive ? 11 : 13),
+              color: isSpacer
+                  ? (widget.isDarkMode ? Colors.grey[500] : Colors.grey[600])
+                  : (category.type == PluginCategoryType.looper && isActive ? const Color(0xFFFF0055) : glowColor),
+            ),
           ),
           const SizedBox(width: 4),
 
           // Title
           Expanded(
             child: Text(
-              isLineBreak
-                  ? '--- LINE BREAK ---'
-                  : isSpacer
-                      ? 'SPACER'
-                      : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
+              isSpacer
+                  ? 'SPACER'
+                  : (widget.customTitles[instanceId] ?? pedal.title).toUpperCase(),
               style: TextStyle(
-                color: isLineBreak
-                    ? const Color(0xFF00FFCC)
-                    : isSpacer
-                        ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
-                        : (isActive
-                            ? (widget.isDarkMode ? Colors.white : Colors.black)
-                            : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700])),
+                color: isSpacer
+                    ? (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600])
+                    : (isActive
+                        ? (widget.isDarkMode ? Colors.white : Colors.black)
+                        : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700])),
                 fontWeight: FontWeight.bold,
-                fontSize: isLineBreak ? 8.5 : (size == 'compact' && isActive ? 8 : 9.5),
-                letterSpacing: isLineBreak ? 1.0 : 0.5,
+                fontSize: (size == 'compact' && isActive ? 8 : 9.5),
+                letterSpacing: 0.5,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
 
-          // Right panel options
-          if (isActive) ...[
-            if (isSpacer)
-              GestureDetector(
-                onTap: () => widget.onDeleteSpacer(instanceId),
-                child: Container(
-                  margin: const EdgeInsets.only(left: 4),
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFF0055),
-                    shape: BoxShape.circle,
+          // Category Micro-Badge Pill (tap to view effect guide)
+          if (!isSpacer && size != 'compact') ...[
+            GestureDetector(
+              onTap: () => _showCategoryHelpDialog(initialCategory: category.type),
+              child: Container(
+                margin: const EdgeInsets.only(left: 3, right: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 3.5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: category.defaultColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: category.defaultColor.withValues(alpha: 0.5),
+                    width: 0.6,
                   ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 8,
-                    color: Colors.white,
+                ),
+                child: Text(
+                  category.shortCode,
+                  style: TextStyle(
+                    fontSize: 7.0,
+                    fontWeight: FontWeight.w900,
+                    color: category.defaultColor,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ),
-            if (isLineBreak)
-              GestureDetector(
-                onTap: () => widget.onDeleteLineBreak(instanceId),
-                child: Container(
-                  margin: const EdgeInsets.only(left: 4),
-                  padding: const EdgeInsets.all(2.5),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFF0055),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 8,
-                    color: Colors.white,
-                  ),
+            ),
+          ],
+
+          // Right panel options (Delete for Spacer)
+          if (isActive && isSpacer) ...[
+            GestureDetector(
+              onTap: () => widget.onDeleteSpacer(instanceId),
+              child: Container(
+                margin: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsets.all(2.5),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFF0055),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 8,
+                  color: Colors.white,
                 ),
               ),
+            ),
           ],
         ],
       ),
@@ -894,6 +1263,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                   ),
                 ),
 
+                // Category Filter Bar (Icons & Category Chips)
+                _buildCategoryFilterBar(allPlugins),
+
                 Expanded(
                   child: DragTarget<String>(
                     onMove: (details) {
@@ -953,6 +1325,16 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                       widget.onLayoutSettingsChanged();
                     },
                     builder: (context, _, __) {
+                      final List<PluginInstance> displayedActivePedals = _selectedCategoryFilters.isEmpty
+                          ? activePedals
+                          : activePedals.where((pedal) {
+                              final cat = PluginCategoryHelper.getCategoryForPlugin(pedal);
+                              if (cat.type == PluginCategoryType.lineBreak || cat.type == PluginCategoryType.spacer) {
+                                return true;
+                              }
+                              return _selectedCategoryFilters.contains(cat.type);
+                            }).toList();
+
                       return Container(
                         margin: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -971,10 +1353,12 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             width: 1.5,
                           ),
                         ),
-                        child: activePedals.isEmpty
+                        child: displayedActivePedals.isEmpty
                             ? Center(
                                 child: Text(
-                                  'Drag cards here or toggle below to activate.',
+                                  activePedals.isEmpty
+                                      ? 'Drag cards here or toggle below to activate.'
+                                      : 'No pedals match selected category filter.',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: widget.isDarkMode
@@ -991,7 +1375,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                                   alignment: WrapAlignment.start,
                                   runAlignment: WrapAlignment.start,
                                   crossAxisAlignment: WrapCrossAlignment.start,
-                                  children: activePedals.map((pedal) {
+                                  children: displayedActivePedals.map((pedal) {
                                     return _buildMiniPuzzleTile(
                                       pedal: pedal,
                                       isActive: true,
@@ -1052,22 +1436,32 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: (widget.isDarkMode ? Colors.grey[850] : Colors.grey[300])!,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Text(
-                                    '${inactivePedals.length}',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                      color: widget.isDarkMode ? Colors.white70 : Colors.black87,
+                                if (inactivePedals.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1.5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: (widget.isDarkMode
+                                              ? const Color(0xFFFF007F)
+                                              : const Color(0xFFFF0055))
+                                          .withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      '${inactivePedals.length}',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: widget.isDarkMode
+                                            ? const Color(0xFFFF007F)
+                                            : const Color(0xFFFF0055),
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),
@@ -1075,8 +1469,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                             _isInactivePoolCollapsed
                                 ? Icons.expand_more_rounded
                                 : Icons.expand_less_rounded,
-                            size: 18,
-                            color: widget.isDarkMode ? Colors.grey : Colors.grey[700],
+                            size: 16,
+                            color: widget.isDarkMode
+                                ? Colors.grey[400]
+                                : Colors.grey[600],
                           ),
                         ],
                       ),
@@ -1085,87 +1481,65 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 ),
 
                 if (!_isInactivePoolCollapsed)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 155),
-                    child: DragTarget<String>(
-                      onMove: (details) {
-                        final draggedId = details.data;
-                        if (widget.enabledPluginInstances.contains(draggedId)) {
-                          setState(() {
-                            widget.enabledPluginInstances.remove(draggedId);
-                          });
-                        }
-                      },
-                      onAccept: (draggedId) {
-                        // Drag from Active to Inactive
-                        if (draggedId.startsWith('__spacer_')) {
-                          widget.onDeleteSpacer(draggedId);
-                          return;
-                        }
-                        if (draggedId.startsWith('__linebreak_')) {
-                          widget.onDeleteLineBreak(draggedId);
-                          return;
-                        }
-                        if (widget.enabledPluginInstances.contains(draggedId)) {
-                          setState(() {
-                            widget.enabledPluginInstances.remove(draggedId);
-                          });
-                          widget.onLayoutSettingsChanged();
-                        }
-                      },
-                      builder: (context, _, __) {
-                        return Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 2,
-                          ),
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: widget.isDarkMode
-                                ? const Color(0xFF0F141C).withOpacity(0.3)
-                                : Colors.grey[50],
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: (widget.isDarkMode
-                                  ? Colors.grey[900]
-                                  : Colors.grey[200])!,
-                              style: BorderStyle.solid,
+                  Container(
+                    height: 120,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 2,
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: widget.isDarkMode
+                          ? const Color(0xFF0B0E14).withOpacity(0.6)
+                          : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: (widget.isDarkMode
+                            ? Colors.grey[900]
+                            : Colors.grey[300])!,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: inactivePedals.isEmpty
+                        ? Center(
+                            child: Text(
+                              'All pedals are currently active on dashboard',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: widget.isDarkMode
+                                    ? Colors.grey[600]
+                                    : Colors.grey[500],
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            child: Wrap(
+                              spacing: spacing,
+                              runSpacing: spacing,
+                              alignment: WrapAlignment.start,
+                              runAlignment: WrapAlignment.start,
+                              crossAxisAlignment: WrapCrossAlignment.start,
+                              children: (_selectedCategoryFilters.isEmpty
+                                      ? inactivePedals
+                                      : inactivePedals.where((pedal) {
+                                          final cat = PluginCategoryHelper.getCategoryForPlugin(pedal);
+                                          if (cat.type == PluginCategoryType.lineBreak || cat.type == PluginCategoryType.spacer) {
+                                            return true;
+                                          }
+                                          return _selectedCategoryFilters.contains(cat.type);
+                                        }).toList())
+                                  .map((pedal) {
+                                return _buildMiniPuzzleTile(
+                                  pedal: pedal,
+                                  isActive: false,
+                                  cWidth: compactWidth,
+                                  rWidth: regularWidth,
+                                  eWidth: expandedWidth,
+                                );
+                              }).toList(),
                             ),
                           ),
-                          child: inactivePedals.isEmpty
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
-                                  child: Center(
-                                    child: Text(
-                                      'All components are active.',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: widget.isDarkMode
-                                            ? Colors.grey[600]
-                                            : Colors.grey[500],
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : SingleChildScrollView(
-                                  child: Wrap(
-                                    spacing: spacing,
-                                    runSpacing: spacing,
-                                    children: inactivePedals.map((pedal) {
-                                      return _buildMiniPuzzleTile(
-                                        pedal: pedal,
-                                        isActive: false,
-                                        cWidth: compactWidth,
-                                        rWidth: regularWidth,
-                                        eWidth: expandedWidth,
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                        );
-                      },
-                    ),
                   ),
               ],
             );

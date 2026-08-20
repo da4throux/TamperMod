@@ -85,12 +85,24 @@ Please read and apply .agenrules
 
 ### 3.6 Pedal Search Mode (WebView Click-to-Focus & Multi-View Synchronized Blinking)
 * **Floating Switch:** A pill badge switch `[ 🔍 PEDAL SEARCH ]` floats at `top: 48, left: 10` on the WebView pedalboard view directly below the MOD logo.
-* **Click Interception:** JavaScript interceptor posts clicked pedal `mod-instance` to Flutter via `PedalClickChannel`.
+* **Click Interception:** Multi-event (`pointerdown`, `mousedown`, `touchstart`, `click`) JavaScript interceptor in capture mode transmits clicked pedal `mod-instance` to Flutter via `PedalClickChannel`.
 * **Multi-View Synchronization:**
   * Auto-scrolls the dashboard cards list to bring the clicked card to the top (`Scrollable.ensureVisible`).
   * Auto-scrolls the active puzzle canvas in the Puzzle Organizer (if open) to bring the matching puzzle tile into view.
   * Triggers a 2-second synchronized visual blink: the pedal on the webboard, the dashboard card (white/neon halo), and the puzzle tile border.
 * **Toggle Persistence:** Enabled state is persisted in SharedPreferences (`pedal_search_mode`).
+
+### 3.7 Intelligent Effect Categories, Micro-Badges & Category Filter Bar
+* **Automatic Categorization:** Plugins are automatically classified into standard audio effect categories (`DRIVE`, `DELAY`, `REVERB`, `MOD`, `AMP/CAB`, `EQ/FLT`, `COMP`, `SYNTH`, `SWITCH`, `GAIN`, `LOOPER`, `UTIL`) based on URI, port symbols, and titles.
+* **Dedicated Effect Icons:** Dedicated high-contrast icons (e.g. `bolt`, `waves`, `blur_on`, `vibration`, `speaker`, `equalizer`, `compress`, `loop`, `volume_up`) replace generic slider icons.
+* **Category Micro-Badges:** Compact colored badge pills (e.g. `[DRIVE]`, `[DELAY]`) on tiles and cards allow instant identification even for cryptic plugin names.
+* **Category Filter Bar:** A horizontal chip bar at the top of the Puzzle Canvas allows filtering tiles by category:
+  * **Tap:** Toggles category visibility.
+  * **Long Press:** Isolates only that category.
+  * **Help/Guide Dialog:** Tapping any category icon or the `[?]` button displays the complete Effect Categories Guide.
+* **Slim Chain Divider Line Breaks:**
+  * In Puzzle Organizer: Rendered as a slim 18px horizontal glowing dashed divider bar with `[ ↵ ROW BREAK ]` tag and `[✕]` delete button.
+  * In Dashboard Workspace: Rendered as a 18px glowing horizontal chain break divider across the cards list.
 
 ---
 

@@ -538,22 +538,53 @@ class _DashboardScreenState extends State<DashboardScreen>
       (function() {
         if (window._hasInstalledPedalClickListener) return;
         window._hasInstalledPedalClickListener = true;
-        console.log("TAMPER: Installing Pedal Click Interceptor into WebView context");
+        console.log("TAMPER: Installing robust multi-event Pedal Click Interceptor into WebView context");
 
-        document.addEventListener('click', function(e) {
-          const pedal = e.target.closest('[mod-instance], .mod-pedal');
-          if (pedal) {
-            let inst = pedal.getAttribute('mod-instance');
-            if (!inst) {
-              const child = pedal.querySelector('[mod-instance]');
-              if (child) inst = child.getAttribute('mod-instance');
+        function findPedalInstance(el) {
+          let curr = el;
+          for (let i = 0; i < 12 && curr && curr !== document && curr !== window; i++) {
+            if (curr.getAttribute) {
+              const inst = curr.getAttribute('mod-instance');
+              if (inst) return inst;
+              const uri = curr.getAttribute('mod-uri');
+              if (uri) {
+                const child = curr.querySelector && curr.querySelector('[mod-instance]');
+                if (child && child.getAttribute) {
+                  const cInst = child.getAttribute('mod-instance');
+                  if (cInst) return cInst;
+                }
+              }
             }
-            if (inst && window.PedalClickChannel) {
-              console.log("TAMPER_PEDAL_CLICK: " + inst);
+            if (curr.classList && (curr.classList.contains('mod-pedal') || curr.classList.contains('pedal'))) {
+              const inst = curr.getAttribute('mod-instance') || (curr.dataset && curr.dataset.instance);
+              if (inst) return inst;
+            }
+            curr = curr.parentElement;
+          }
+          return null;
+        }
+
+        let lastSentTime = 0;
+        let lastSentInst = '';
+
+        function handleInteraction(e) {
+          const inst = findPedalInstance(e.target);
+          if (inst) {
+            const now = Date.now();
+            if (inst === lastSentInst && (now - lastSentTime < 350)) return;
+            lastSentTime = now;
+            lastSentInst = inst;
+            console.log("TAMPER_PEDAL_CLICK_DISPATCH: " + inst);
+            if (window.PedalClickChannel) {
               window.PedalClickChannel.postMessage(inst);
             }
           }
-        }, true);
+        }
+
+        ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach(function(evt) {
+          document.addEventListener(evt, handleInteraction, true);
+          window.addEventListener(evt, handleInteraction, true);
+        });
       })();
     ''';
 
@@ -2709,7 +2740,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   if (isLineBreak) {
                     cardWidth = availableWidth;
-                    cardHeight = 0.0;
+                    cardHeight = 18.0;
                   } else if (isSpacer) {
                     if (size == 'compact') {
                       cardWidth = compactWidth;
@@ -2767,9 +2798,68 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Widget cardWidget;
 
                   if (isLineBreak) {
-                    cardWidget = SizedBox(
+                    cardWidget = Container(
                       width: availableWidth,
-                      height: 0.0,
+                      height: 18.0,
+                      alignment: Alignment.center,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1.0,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    const Color(0xFF00FFCC).withValues(alpha: _isDarkMode ? 0.4 : 0.6),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00FFCC).withValues(alpha: _isDarkMode ? 0.08 : 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(0xFF00FFCC).withValues(alpha: 0.35),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.wrap_text, size: 10, color: Color(0xFF00FFCC)),
+                                SizedBox(width: 4),
+                                Text(
+                                  'SIGNAL CHAIN ROW BREAK',
+                                  style: TextStyle(
+                                    fontSize: 8.0,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.0,
+                                    color: Color(0xFF00FFCC),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 1.0,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    const Color(0xFF00FFCC).withValues(alpha: _isDarkMode ? 0.4 : 0.6),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   } else if (isSpacer) {
                     cardWidget = SizedBox(
@@ -5476,12 +5566,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _handlePedalSearchClick(String rawInstanceId) {
+    debugPrint('PedalClickChannel received rawInstanceId: $rawInstanceId, isPedalSearchMode: $_isPedalSearchMode');
     if (!_isPedalSearchMode) return;
 
     final plugins = _webSocketService.allPlugins.value;
     PluginInstance? matchingPedal;
+    final String cleanRaw = rawInstanceId.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
     for (final p in plugins) {
+      final String cleanP = p.instance.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
       if (p.instance == rawInstanceId ||
+          cleanP == cleanRaw ||
+          p.instance.toLowerCase().endsWith(cleanRaw) ||
+          rawInstanceId.toLowerCase().endsWith(cleanP) ||
           p.instance.endsWith('/${rawInstanceId.split('/').last}') ||
           rawInstanceId.endsWith('/${p.instance.split('/').last}')) {
         matchingPedal = p;
@@ -5490,13 +5586,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     final String targetId = matchingPedal?.instance ?? rawInstanceId;
+    debugPrint('PedalSearch matched targetId: $targetId');
 
     // Blink physical pedal in WebView
     if (matchingPedal != null) {
       _highlightPedalInWebView(matchingPedal);
     }
 
-    // Scroll dashboard card into view
+    // Scroll dashboard card into view if card is present
     _scrollToCard(targetId);
 
     // Trigger synchronized blinking on dashboard card and puzzle tile
