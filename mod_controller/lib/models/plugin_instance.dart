@@ -45,6 +45,27 @@ class PluginInstance {
     );
   }
 
+  double? get liveMeterValue {
+    for (final entry in parameters.entries) {
+      final keyLower = entry.key.toLowerCase();
+      if (keyLower != ':bypass' &&
+          (keyLower.contains('meter') ||
+           keyLower.contains('vu') ||
+           keyLower.contains('peak') ||
+           keyLower.contains('display') ||
+           keyLower.contains('in_level') ||
+           keyLower.contains('level_in') ||
+           keyLower.contains('input') ||
+           keyLower.contains('out_level') ||
+           keyLower.contains('level') ||
+           keyLower.contains('output') ||
+           keyLower.contains('vol_out'))) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
   double get minGain {
     final uriLower = uri.toLowerCase();
     final titleLower = title.toLowerCase();

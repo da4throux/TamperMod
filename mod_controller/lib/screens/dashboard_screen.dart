@@ -3375,6 +3375,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       glowColor: glowColor,
                       displayName: displayName,
                       currentValue: currentValue,
+                      liveMeterValue: pedal.liveMeterValue,
                       isMuted: _isMuted(pedal),
                       isFading: isFading,
                       isFadingIn: isFadingIn,

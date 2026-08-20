@@ -51,6 +51,7 @@ class GainCard extends StatefulWidget {
   final void Function(bool fadeIn) onTriggerFade;
   final ValueChanged<String> onOpenUri;
 
+  final double? liveMeterValue;
   final String mode;
   final ValueChanged<String>? onModeChanged;
 
@@ -66,6 +67,7 @@ class GainCard extends StatefulWidget {
     required this.glowColor,
     required this.displayName,
     required this.currentValue,
+    this.liveMeterValue,
     required this.isMuted,
     required this.isFading,
     required this.isFadingIn,
@@ -483,12 +485,15 @@ class _GainCardState extends State<GainCard> {
     // ── Direct Gain & Mute UI Component ──────────────────────────────
     Widget buildGiantMuteGainButton({required bool isCompact, bool takeFullHeight = false}) {
       final bool isMuted = widget.isMuted;
-      final Color activeColor = isMuted ? const Color(0xFFFF007F) : accentColor;
+      final double displayDb = widget.liveMeterValue ?? clampedValue;
+      
+      // Neutral muted colors (greyish/charcoal, NO bright red/pink glow)
+      final Color activeColor = isMuted ? const Color(0xFF8B949E) : accentColor;
       final Color bg = isMuted
-          ? const Color(0xFFFF007F).withOpacity(widget.isDarkMode ? 0.22 : 0.16)
-          : activeColor.withOpacity(widget.isDarkMode ? 0.14 : 0.10);
+          ? (widget.isDarkMode ? const Color(0xFF161B22) : const Color(0xFFE5E7EB))
+          : (widget.isDarkMode ? const Color(0xFF0F141C) : Colors.grey[100]!);
       final Color border = isMuted
-          ? const Color(0xFFFF007F)
+          ? (widget.isDarkMode ? const Color(0xFF30363D) : const Color(0xFFCBD5E1))
           : activeColor.withOpacity(widget.isDarkMode ? 0.7 : 0.5);
 
       final Widget buttonContent = Container(
@@ -500,14 +505,15 @@ class _GainCardState extends State<GainCard> {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: border, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: activeColor.withOpacity(isMuted ? 0.35 : 0.18),
-              blurRadius: isMuted ? 10 : 6,
-              spreadRadius: isMuted ? 1 : 0,
-            ),
-          ],
+          border: Border.all(color: border, width: isMuted ? 1.2 : 1.5),
+          boxShadow: isMuted
+              ? null
+              : [
+                  BoxShadow(
+                    color: activeColor.withOpacity(0.18),
+                    blurRadius: 6,
+                  ),
+                ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -517,13 +523,15 @@ class _GainCardState extends State<GainCard> {
             Container(
               padding: EdgeInsets.all(isCompact ? 6 : 8),
               decoration: BoxDecoration(
-                color: activeColor.withOpacity(0.18),
+                color: isMuted
+                    ? (widget.isDarkMode ? const Color(0xFF21262D) : const Color(0xFFD1D5DB))
+                    : activeColor.withOpacity(0.18),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isMuted ? Icons.volume_off : Icons.volume_up,
                 size: isCompact ? 18 : 22,
-                color: activeColor,
+                color: isMuted ? const Color(0xFF8B949E) : activeColor,
               ),
             ),
             const SizedBox(width: 10),
@@ -538,11 +546,13 @@ class _GainCardState extends State<GainCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+                        '${displayDb >= 0 ? "+" : ""}${displayDb.toStringAsFixed(1)} dB',
                         style: TextStyle(
                           fontSize: isCompact ? 15 : 18,
                           fontWeight: FontWeight.w900,
-                          color: activeColor,
+                          color: isMuted
+                              ? (widget.isDarkMode ? const Color(0xFFC9D1D9) : Colors.grey[800])
+                              : activeColor,
                           fontFamily: 'monospace',
                           letterSpacing: 0.5,
                         ),
@@ -550,13 +560,11 @@ class _GainCardState extends State<GainCard> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isMuted
-                              ? const Color(0xFFFF007F).withOpacity(0.25)
-                              : activeColor.withOpacity(0.2),
+                          color: widget.isDarkMode ? const Color(0xFF21262D) : const Color(0xFFD1D5DB),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
                             color: isMuted
-                                ? const Color(0xFFFF007F).withOpacity(0.6)
+                                ? (widget.isDarkMode ? const Color(0xFF30363D) : const Color(0xFF9CA3AF))
                                 : activeColor.withOpacity(0.5),
                             width: 0.8,
                           ),
@@ -566,7 +574,9 @@ class _GainCardState extends State<GainCard> {
                           style: TextStyle(
                             fontSize: 8,
                             fontWeight: FontWeight.w900,
-                            color: activeColor,
+                            color: isMuted
+                                ? (widget.isDarkMode ? const Color(0xFF8B949E) : Colors.grey[700])
+                                : activeColor,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -582,7 +592,7 @@ class _GainCardState extends State<GainCard> {
                       fontSize: isCompact ? 8.0 : 8.5,
                       fontWeight: FontWeight.bold,
                       color: isMuted
-                          ? const Color(0xFFFF007F).withOpacity(0.9)
+                          ? (widget.isDarkMode ? const Color(0xFF6E7681) : Colors.grey[600])
                           : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
                       letterSpacing: 0.4,
                     ),
