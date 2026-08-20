@@ -83,8 +83,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   final Map<String, bool> _pedalGlowEnabled = {};
   final Map<String, String> _pedalSizes = {};
 
-  // Pedal Search mode (click on pedal in WebView to focus/scroll & blink, off by default)
-  bool _isPedalSearchMode = false;
   String? _highlightedInstanceId;
   Timer? _highlightTimer;
   Timer? _flashStrobeTimer;
@@ -138,11 +136,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       debugPrint('Error accessing looper controller: $e');
     }
 
-    final Map<String, Map<String, String>> titlesMap = {};
+    final Map<String, Map<String, dynamic>> titlesMap = {};
     for (final p in _webSocketService.allPlugins.value) {
+      final bool isPlaced = _enabledPluginInstances.contains(p.instance);
       titlesMap[p.instance] = {
         'title': p.title,
         'custom': _customTitles[p.instance] ?? '',
+        'isPlaced': isPlaced,
       };
     }
 
@@ -151,7 +151,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       (function() {
         const configs = ${jsonEncode(configs)};
         window._tamperPedalTitles = ${jsonEncode(titlesMap)};
-        window._tamperPedalSearchMode = ${_isPedalSearchMode ? 'true' : 'false'};
         console.log("TamperMod: Updating permanent glows and pedal titles", configs);
         
         // Remove all previous glows
@@ -545,22 +544,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  void _syncPedalSearchModeToWebView() {
-    try {
-      _webViewController.runJavaScript(
-        'window._tamperPedalSearchMode = ${_isPedalSearchMode ? 'true' : 'false'};',
-      );
-    } catch (e) {
-      debugPrint('Error syncing search mode to WebView: $e');
-    }
-  }
-
   void _injectPedalClickListener() {
     const String jsCode = r'''
       (function() {
         if (window._hasInstalledPedalClickListener) return;
         window._hasInstalledPedalClickListener = true;
-        console.log("TAMPER: Installing robust multi-event Pedal Click Interceptor into WebView context");
+        console.log("TAMPER: Installing interactive sub-pedal Hover Name Tag into WebView context");
 
         function findPedalElementAndInstance(el) {
           let curr = el;
@@ -586,67 +575,81 @@ class _DashboardScreenState extends State<DashboardScreen>
           return null;
         }
 
-        let lastSentTime = 0;
-        let lastSentInst = '';
+        // Interactive Hover Name Tag
+        let hoverTag = document.getElementById('tamper-pedal-hover-tag');
+        if (!hoverTag) {
+          hoverTag = document.createElement('div');
+          hoverTag.id = 'tamper-pedal-hover-tag';
+          hoverTag.style.position = 'fixed';
+          hoverTag.style.pointerEvents = 'auto';
+          hoverTag.style.cursor = 'pointer';
+          hoverTag.style.userSelect = 'none';
+          hoverTag.style.zIndex = '999999';
+          hoverTag.style.padding = '6px 12px';
+          hoverTag.style.borderRadius = '8px';
+          hoverTag.style.backgroundColor = 'rgba(11, 14, 20, 0.95)';
+          hoverTag.style.border = '1.5px solid #00FFCC';
+          hoverTag.style.color = '#FFFFFF';
+          hoverTag.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+          hoverTag.style.fontSize = '12px';
+          hoverTag.style.fontWeight = 'bold';
+          hoverTag.style.letterSpacing = '0.5px';
+          hoverTag.style.boxShadow = '0 6px 22px rgba(0, 255, 204, 0.4), 0 0 12px rgba(0, 0, 0, 0.9)';
+          hoverTag.style.opacity = '0';
+          hoverTag.style.transition = 'opacity 0.2s ease, transform 0.15s ease, border-color 0.15s ease';
+          hoverTag.style.transform = 'translate(-50%, 0)';
+          hoverTag.style.whiteSpace = 'nowrap';
+          hoverTag.style.display = 'flex';
+          hoverTag.style.alignItems = 'center';
+          hoverTag.style.gap = '6px';
+          document.body.appendChild(hoverTag);
+        }
 
-        function handleInteraction(e) {
-          try {
-            const isSearchMode = !!window._tamperPedalSearchMode;
-            const targetPedal = findPedalElementAndInstance(e.target);
+        let currentActiveInst = '';
+        let isHoveringTag = false;
+        let fadeTimer = null;
 
-            if (isSearchMode) {
-              // IN SEARCH MODE:
-              // 1. Pedalboard is unresponsive to default MOD UI events (prevent zooming, dragging, opening edit windows)
-              e.preventDefault();
-              e.stopPropagation();
-              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        hoverTag.addEventListener('mouseenter', function() {
+          isHoveringTag = true;
+          if (fadeTimer) {
+            clearTimeout(fadeTimer);
+            fadeTimer = null;
+          }
+          hoverTag.style.opacity = '1';
+          hoverTag.style.transform = 'translate(-50%, -2px) scale(1.03)';
+          hoverTag.style.borderColor = '#FFFFFF';
+        });
 
-              // 2. Tapping a pedal dispatches search highlight
-              if (targetPedal) {
-                const now = Date.now();
-                if (targetPedal.inst === lastSentInst && (now - lastSentTime < 300)) return;
-                lastSentTime = now;
-                lastSentInst = targetPedal.inst;
-                console.log("TAMPER_PEDAL_CLICK_DISPATCH: " + targetPedal.inst);
-                if (window.PedalClickChannel) {
-                  window.PedalClickChannel.postMessage(targetPedal.inst);
-                }
-              }
+        hoverTag.addEventListener('mouseleave', function() {
+          isHoveringTag = false;
+          hoverTag.style.transform = 'translate(-50%, 0) scale(1.0)';
+          hoverTag.style.borderColor = '#00FFCC';
+          fadeTimer = setTimeout(function() {
+            if (!isHoveringTag) {
+              hoverTag.style.opacity = '0';
             }
-          } catch(err) {
-            console.error('Tamper click error:', err);
+          }, 1200);
+        });
+
+        function handleTagClick(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          if (currentActiveInst && window.PedalClickChannel) {
+            console.log("TAMPER_TAG_CLICK_DISPATCH: " + currentActiveInst);
+            window.PedalClickChannel.postMessage(currentActiveInst);
           }
         }
 
-        // Hover Tooltip
-        let hoverTooltip = document.getElementById('tamper-pedal-hover-tooltip');
-        if (!hoverTooltip) {
-          hoverTooltip = document.createElement('div');
-          hoverTooltip.id = 'tamper-pedal-hover-tooltip';
-          hoverTooltip.style.position = 'fixed';
-          hoverTooltip.style.pointerEvents = 'none';
-          hoverTooltip.style.zIndex = '999999';
-          hoverTooltip.style.padding = '5px 12px';
-          hoverTooltip.style.borderRadius = '8px';
-          hoverTooltip.style.backgroundColor = 'rgba(11, 14, 20, 0.94)';
-          hoverTooltip.style.border = '1.5px solid #00FFCC';
-          hoverTooltip.style.color = '#FFFFFF';
-          hoverTooltip.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-          hoverTooltip.style.fontSize = '12px';
-          hoverTooltip.style.fontWeight = 'bold';
-          hoverTooltip.style.letterSpacing = '0.8px';
-          hoverTooltip.style.boxShadow = '0 4px 20px rgba(0, 255, 204, 0.45), 0 0 10px rgba(0, 0, 0, 0.8)';
-          hoverTooltip.style.opacity = '0';
-          hoverTooltip.style.transition = 'opacity 0.2s ease, left 0.1s ease, top 0.1s ease';
-          hoverTooltip.style.transform = 'translate(-50%, 0)';
-          hoverTooltip.style.whiteSpace = 'nowrap';
-          document.body.appendChild(hoverTooltip);
-        }
+        ['click', 'pointerdown', 'mousedown', 'touchstart'].forEach(function(evt) {
+          hoverTag.addEventListener(evt, handleTagClick, true);
+        });
 
-        function getPedalDisplayName(el, inst) {
+        function getPedalDetails(el, inst) {
           try {
             let title = '';
             let custom = '';
+            let isPlaced = true;
             if (window._tamperPedalTitles && typeof window._tamperPedalTitles === 'object' && inst) {
               const cleanInst = String(inst).replace(/^\/graph\//, '').replace(/^\//, '').toLowerCase();
               for (const [k, v] of Object.entries(window._tamperPedalTitles)) {
@@ -655,6 +658,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 if (String(k).toLowerCase() === String(inst).toLowerCase() || cleanK === cleanInst || cleanK.endsWith(cleanInst) || cleanInst.endsWith(cleanK)) {
                   title = v.title || '';
                   custom = v.custom || '';
+                  if (typeof v.isPlaced === 'boolean') isPlaced = v.isPlaced;
                   break;
                 }
               }
@@ -666,91 +670,81 @@ class _DashboardScreenState extends State<DashboardScreen>
               title = String(inst).split('/').pop().replace(/_/g, ' ');
             }
             
+            let displayName = title || inst;
             if (custom && custom.trim().toUpperCase() !== title.trim().toUpperCase()) {
-              return title + ' / ' + custom;
+              displayName = title + ' / ' + custom;
             }
-            return title || inst;
+            return { displayName: displayName, isPlaced: isPlaced };
           } catch(err) {
-            return String(inst || '');
+            return { displayName: String(inst || ''), isPlaced: true };
           }
         }
 
-        let hoverFadeTimeout = null;
-        let lastHoveredPedalEl = null;
-
         function handlePointerMove(e) {
           try {
+            if (isHoveringTag) return;
             const targetPedal = findPedalElementAndInstance(e.target);
-            const isSearchMode = !!window._tamperPedalSearchMode;
 
             if (targetPedal) {
               const pedalEl = targetPedal.el;
               const inst = targetPedal.inst;
-              const displayName = getPedalDisplayName(pedalEl, inst);
+              currentActiveInst = inst;
+              const details = getPedalDetails(pedalEl, inst);
               
-              hoverTooltip.innerHTML = '<span style="color:#00FFCC;margin-right:4px;">🔍</span> ' + displayName.toUpperCase();
+              const statusIcon = details.isPlaced ? '🧩' : '📦';
+              const statusLabel = details.isPlaced ? 'PLACED' : 'AVAILABLE POOL';
+              const statusColor = details.isPlaced ? '#00FFCC' : '#FFAA00';
+              const statusBg = details.isPlaced ? 'rgba(0,255,204,0.18)' : 'rgba(255,170,0,0.18)';
+              const statusBorder = details.isPlaced ? 'rgba(0,255,204,0.5)' : 'rgba(255,170,0,0.5)';
+
+              hoverTag.innerHTML = `
+                <span style="font-size:13px;line-height:1;">${statusIcon}</span>
+                <span style="color:#FFFFFF;font-weight:bold;">${details.displayName.toUpperCase()}</span>
+                <span style="background:${statusBg};color:${statusColor};border:1px solid ${statusBorder};border-radius:4px;padding:2px 5px;font-size:8px;font-weight:900;letter-spacing:0.5px;">${statusLabel}</span>
+              `;
               
-              // Position just below the pedal visual
+              // Position directly below the pedal visual
               const rect = pedalEl.getBoundingClientRect();
               const centerX = rect.left + (rect.width / 2);
-              const bottomY = rect.bottom + 8; // 8px below pedal bottom
+              const bottomY = rect.bottom + 6; // 6px below bottom of pedal visual
 
-              // If below viewport, flip to above the pedal
-              if (bottomY + 36 > window.innerHeight) {
-                hoverTooltip.style.top = Math.max(6, rect.top - 36) + 'px';
-                hoverTooltip.style.transform = 'translate(-50%, 0)';
+              if (bottomY + 38 > window.innerHeight) {
+                hoverTag.style.top = Math.max(6, rect.top - 38) + 'px';
               } else {
-                hoverTooltip.style.top = bottomY + 'px';
-                hoverTooltip.style.transform = 'translate(-50%, 0)';
+                hoverTag.style.top = bottomY + 'px';
               }
-              hoverTooltip.style.left = Math.max(20, Math.min(window.innerWidth - 20, centerX)) + 'px';
-              hoverTooltip.style.opacity = '1';
+              hoverTag.style.left = Math.max(30, Math.min(window.innerWidth - 30, centerX)) + 'px';
+              hoverTag.style.opacity = '1';
 
-              if (lastHoveredPedalEl !== pedalEl) {
-                lastHoveredPedalEl = pedalEl;
-                if (hoverFadeTimeout) {
-                  clearTimeout(hoverFadeTimeout);
-                  hoverFadeTimeout = null;
-                }
+              if (fadeTimer) {
+                clearTimeout(fadeTimer);
               }
-
-              // When Pedal Search is NOT ON, the hovering name disappears after 2.5 seconds
-              if (!isSearchMode) {
-                if (hoverFadeTimeout) clearTimeout(hoverFadeTimeout);
-                hoverFadeTimeout = setTimeout(function() {
-                  if (!window._tamperPedalSearchMode) {
-                    hoverTooltip.style.opacity = '0';
-                  }
-                }, 2500);
-              } else {
-                // When Pedal Search is ON: permanent while pointer is exploring
-                if (hoverFadeTimeout) {
-                  clearTimeout(hoverFadeTimeout);
-                  hoverFadeTimeout = null;
+              fadeTimer = setTimeout(function() {
+                if (!isHoveringTag) {
+                  hoverTag.style.opacity = '0';
                 }
-              }
+              }, 2200);
             } else {
-              // Not over a pedal
-              lastHoveredPedalEl = null;
-              if (!hoverFadeTimeout && hoverTooltip.style.opacity !== '0') {
-                hoverTooltip.style.opacity = '0';
+              // Not on a pedal
+              if (!fadeTimer && !isHoveringTag) {
+                fadeTimer = setTimeout(function() {
+                  if (!isHoveringTag) {
+                    hoverTag.style.opacity = '0';
+                  }
+                }, 300);
               }
             }
           } catch(err) {
-            console.error('Tamper pointer error:', err);
+            console.error('Tamper pointer move error:', err);
           }
         }
 
         document.addEventListener('pointermove', handlePointerMove, true);
         document.addEventListener('mousemove', handlePointerMove, true);
         document.addEventListener('mouseleave', function() {
-          if (hoverTooltip) hoverTooltip.style.opacity = '0';
-          lastHoveredPedalEl = null;
-        });
-
-        ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick', 'contextmenu'].forEach(function(evt) {
-          document.addEventListener(evt, handleInteraction, true);
-          window.addEventListener(evt, handleInteraction, true);
+          if (!isHoveringTag) {
+            hoverTag.style.opacity = '0';
+          }
         });
       })();
     ''';
@@ -2733,26 +2727,186 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildUnifiedControlsList() {
     if (_webSocketService.status != ConnectionStatus.connected) {
+      final String targetIp = _ipController.text.trim();
+      final bool isBridge = targetIp.startsWith('100.115.92.');
+
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.link_off,
-              size: 64,
-              color: const Color(0xFFFF007F).withOpacity(0.5),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Not connected to MOD Dwarf',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please verify IP and connection',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF007F).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFFFF007F).withOpacity(0.4),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.link_off,
+                  size: 48,
+                  color: Color(0xFFFF007F),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Not connected to MOD Dwarf',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Target IP: $targetIp',
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+
+              // Troubleshooting advice card
+              Container(
+                constraints: const BoxConstraints(maxWidth: 480),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _isDarkMode
+                      ? const Color(0xFF141A24)
+                      : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _isDarkMode ? Colors.grey[800]! : Colors.grey[400]!,
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.lightbulb_outline, size: 18, color: Color(0xFF00FFCC)),
+                        const SizedBox(width: 8),
+                        Text(
+                          isBridge
+                              ? 'Chromebook Bridge Troubleshooting'
+                              : 'Connection Troubleshooting',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF00FFCC),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      isBridge
+                          ? '1. Ensure the bridge script is active in Crostini Linux terminal.\n'
+                            '2. If ChromeOS Wi-Fi or network changed, Android network routing may stall. Run the reset command below in terminal:'
+                          : '1. Ensure MOD Dwarf is connected via USB.\n'
+                            '2. Turn off Wi-Fi if using direct USB IP (192.168.51.1).',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: _isDarkMode ? Colors.grey[300] : Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Copy Network Reset Command Button
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00FFCC).withOpacity(0.15),
+                        foregroundColor: const Color(0xFF00FFCC),
+                        side: const BorderSide(color: Color(0xFF00FFCC)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text(
+                        'COPY ANDROID NETWORK FIX COMMAND',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(const ClipboardData(
+                          text: 'adb shell "svc wifi disable; sleep 1; svc wifi enable"',
+                        ));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              'Copied: adb shell "svc wifi disable; sleep 1; svc wifi enable"',
+                              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                            ),
+                            backgroundColor: const Color(0xFF00FFCC),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      },
+                    ),
+                    if (isBridge) ...[
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber.withOpacity(0.12),
+                          foregroundColor: Colors.amber,
+                          side: const BorderSide(color: Colors.amber),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.terminal, size: 16),
+                        label: const Text(
+                          'COPY BRIDGE SCRIPT COMMAND',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(const ClipboardData(
+                            text: './scripts/bridge_dwarf.sh',
+                          ));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Copied: ./scripts/bridge_dwarf.sh',
+                                style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                              ),
+                              backgroundColor: Colors.amber,
+                              behavior: SnackBarBehavior.floating,
+                              duration: Duration(seconds: 4),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF007F),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text(
+                  'RETRY CONNECTION',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                onPressed: _connectWithWifiCheck,
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -3053,7 +3207,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         onColorPickerPressed: () =>
                             _showColorPickerDialog(pedal),
                         onHighlightPressed: () =>
-                            _triggerSearchHighlight(pedal.instance, pedal: pedal),
+                            _triggerSearchHighlight(pedal.instance, pedal: pedal, shouldScroll: false),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
                         onBpmTap: _showBpmDialog,
                         onBypassToggle: (val) {
@@ -3085,7 +3239,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         onColorPickerPressed: () =>
                             _showColorPickerDialog(pedal),
                         onHighlightPressed: () =>
-                            _triggerSearchHighlight(pedal.instance, pedal: pedal),
+                            _triggerSearchHighlight(pedal.instance, pedal: pedal, shouldScroll: false),
                         onSizeToggled: () => _cyclePedalSize(pedal.instance),
                         onBpmTap: _showBpmDialog,
                         onBypassToggle: (val) {
@@ -3132,7 +3286,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       },
                       onRenamePressed: () => _showSwitchConfigDialog(pedal),
                       onHighlightPressed: () =>
-                          _triggerSearchHighlight(pedal.instance, pedal: pedal),
+                          _triggerSearchHighlight(pedal.instance, pedal: pedal, shouldScroll: false),
                       onColorPickerPressed: () => _showSwitchConfigDialog(pedal),
                       onOpenUri: _openPluginUri,
                       onSwitchPathChanged: (port, val) {
@@ -3222,7 +3376,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       onRenamePressed: () => _showRenameDialog(pedal),
                       onColorPickerPressed: () => _showColorPickerDialog(pedal),
                       onHighlightPressed: () =>
-                          _triggerSearchHighlight(pedal.instance, pedal: pedal),
+                          _triggerSearchHighlight(pedal.instance, pedal: pedal, shouldScroll: false),
                       onSizeToggled: () {
                         setState(() {
                           final current =
@@ -3306,7 +3460,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       },
                       onRenamePressed: () => _showRenameDialog(pedal),
                       onHighlightPressed: () =>
-                          _triggerSearchHighlight(pedal.instance, pedal: pedal),
+                          _triggerSearchHighlight(pedal.instance, pedal: pedal, shouldScroll: false),
                       onColorPickerPressed: () => _showColorPickerDialog(pedal),
                       onSizeToggled: () {
                         setState(() {
@@ -4299,113 +4453,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildWebView() {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: WebViewWidget(controller: _webViewController),
-        ),
-        Positioned(
-          top: 48,
-          left: 10,
-          child: _buildPedalSearchBadge(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPedalSearchBadge() {
-    final bool isOn = _isPedalSearchMode;
-    final Color activeColor = _isDarkMode ? const Color(0xFF00FFCC) : const Color(0xFF00B3FF);
-    final Color bg = _isDarkMode
-        ? const Color(0xFF0D111A).withValues(alpha: 0.88)
-        : const Color(0xFFF0F4F8).withValues(alpha: 0.92);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _isPedalSearchMode = !_isPedalSearchMode;
-          });
-          _syncPedalSearchModeToWebView();
-          _savePedalSearchMode();
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isOn ? activeColor : Colors.grey.withValues(alpha: 0.4),
-              width: isOn ? 1.5 : 1.0,
-            ),
-            boxShadow: isOn
-                ? [
-                    BoxShadow(
-                      color: activeColor.withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isOn ? Icons.radar : Icons.search_off_rounded,
-                size: 14,
-                color: isOn ? activeColor : Colors.grey,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'PEDAL SEARCH',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.6,
-                  color: isOn
-                      ? (_isDarkMode ? Colors.white : Colors.black87)
-                      : Colors.grey,
-                ),
-              ),
-              const SizedBox(width: 6),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isOn ? activeColor : Colors.grey[600],
-                  boxShadow: isOn
-                      ? [
-                          BoxShadow(
-                            color: activeColor,
-                            blurRadius: 6,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return WebViewWidget(controller: _webViewController);
   }
 
   Widget _buildAppBarViewChip({
@@ -4450,25 +4498,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedDark = prefs.getBool('is_dark_mode');
-      final savedSearch = prefs.getBool('pedal_search_mode');
       if (mounted) {
         setState(() {
           if (savedDark != null) _isDarkMode = savedDark;
-          if (savedSearch != null) _isPedalSearchMode = savedSearch;
         });
-        _syncPedalSearchModeToWebView();
       }
     } catch (e) {
       debugPrint('Error loading theme settings: $e');
-    }
-  }
-
-  Future<void> _savePedalSearchMode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('pedal_search_mode', _isPedalSearchMode);
-    } catch (e) {
-      debugPrint('Error saving pedal search mode: $e');
     }
   }
 
@@ -5749,18 +5785,29 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _handlePedalSearchClick(String rawInstanceId) {
-    debugPrint('PedalClickChannel received rawInstanceId: $rawInstanceId, isPedalSearchMode: $_isPedalSearchMode');
-    if (!_isPedalSearchMode) return;
-    _triggerSearchHighlight(rawInstanceId);
+    debugPrint('PedalClickChannel received rawInstanceId: $rawInstanceId');
+    _triggerSearchHighlight(rawInstanceId, shouldScroll: true);
   }
 
-  void _triggerSearchHighlight(String rawTargetId, {PluginInstance? pedal}) {
+  void _triggerSearchHighlight(
+    String rawTargetId, {
+    PluginInstance? pedal,
+    bool shouldScroll = true,
+  }) {
     final plugins = _webSocketService.allPlugins.value;
     PluginInstance? matchingPedal = pedal;
     if (matchingPedal == null) {
-      final String cleanRaw = rawTargetId.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
+      final String cleanRaw = rawTargetId
+          .replaceAll('/graph/', '')
+          .replaceAll('/', '')
+          .toLowerCase()
+          .trim();
       for (final p in plugins) {
-        final String cleanP = p.instance.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase().trim();
+        final String cleanP = p.instance
+            .replaceAll('/graph/', '')
+            .replaceAll('/', '')
+            .toLowerCase()
+            .trim();
         if (p.instance == rawTargetId ||
             cleanP == cleanRaw ||
             p.instance.toLowerCase().endsWith(cleanRaw) ||
@@ -5774,15 +5821,17 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     final String targetId = matchingPedal?.instance ?? rawTargetId;
-    debugPrint('triggerSearchHighlight targetId: $targetId');
+    debugPrint('triggerSearchHighlight targetId: $targetId (shouldScroll: $shouldScroll)');
 
     // Blink physical pedal in WebView for 5 seconds
     if (matchingPedal != null) {
       _highlightPedalInWebView(matchingPedal);
     }
 
-    // Scroll dashboard card into view if card is present
-    _scrollToCard(targetId);
+    // Scroll dashboard card into view ONLY when requested (e.g. from tag click, not card target button)
+    if (shouldScroll) {
+      _scrollToCard(targetId);
+    }
 
     // Trigger synchronized flashing strobe on dashboard card and puzzle tile for 5 seconds
     setState(() {

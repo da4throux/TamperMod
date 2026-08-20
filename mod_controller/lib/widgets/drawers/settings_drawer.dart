@@ -694,11 +694,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                     ])
               : null,
         ),
-        child: InkWell(
-          onTap: () {
-            widget.onHighlightPedal(pedal);
-          },
-          child: Row(
+        child: Row(
             children: [
               // Category Icon with glow circle
               Container(
@@ -800,7 +796,6 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               ),
             ],
           ),
-        ),
       );
 
       return KeyedSubtree(
@@ -1251,12 +1246,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           ),
           child: GestureDetector(
             onTap: () {
-              if (!isSpacer && !isLineBreak) {
-                widget.onHighlightPedal(pedal);
-              }
-              if (isActive) {
-                widget.onScrollToCard(instanceId);
-              }
+              // Simple tap on tile board does not trigger strobe highlight or scrolling
             },
             onDoubleTap: () {
               if (isActive) {
