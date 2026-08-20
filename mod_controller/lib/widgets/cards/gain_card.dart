@@ -480,117 +480,119 @@ class _GainCardState extends State<GainCard> {
       );
     }
 
-    // ── Direct Gain & Mute UI Components ──────────────────────────────
-    Widget buildDirectGainDisplay({required bool isCompact}) {
-      return Container(
-        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 12, vertical: isCompact ? 5 : 6),
+    // ── Direct Gain & Mute UI Component ──────────────────────────────
+    Widget buildGiantMuteGainButton({required bool isCompact, bool takeFullHeight = false}) {
+      final bool isMuted = widget.isMuted;
+      final Color activeColor = isMuted ? const Color(0xFFFF007F) : accentColor;
+      final Color bg = isMuted
+          ? const Color(0xFFFF007F).withOpacity(widget.isDarkMode ? 0.22 : 0.16)
+          : activeColor.withOpacity(widget.isDarkMode ? 0.14 : 0.10);
+      final Color border = isMuted
+          ? const Color(0xFFFF007F)
+          : activeColor.withOpacity(widget.isDarkMode ? 0.7 : 0.5);
+
+      final Widget buttonContent = Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 10 : 14,
+          vertical: isCompact ? (takeFullHeight ? 12 : 8) : 10,
+        ),
         decoration: BoxDecoration(
-          color: widget.isDarkMode ? Colors.black : Colors.grey[900],
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: accentColor.withOpacity(0.6), width: 1.2),
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: border, width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withOpacity(0.18),
-              blurRadius: 6,
+              color: activeColor.withOpacity(isMuted ? 0.35 : 0.18),
+              blurRadius: isMuted ? 10 : 6,
+              spreadRadius: isMuted ? 1 : 0,
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              'GAIN LEVEL',
-              style: TextStyle(
-                fontSize: 7.5,
-                fontWeight: FontWeight.bold,
-                color: widget.isDarkMode ? Colors.grey[400] : Colors.grey[500],
-                letterSpacing: 0.5,
+            // Speaker Icon Circle
+            Container(
+              padding: EdgeInsets.all(isCompact ? 6 : 8),
+              decoration: BoxDecoration(
+                color: activeColor.withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isMuted ? Icons.volume_off : Icons.volume_up,
+                size: isCompact ? 18 : 22,
+                color: activeColor,
               ),
             ),
-            const SizedBox(height: 1),
-            Text(
-              '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
-              style: TextStyle(
-                fontSize: isCompact ? 13 : 16,
-                fontWeight: FontWeight.w900,
-                color: accentColor,
-                fontFamily: 'monospace',
+            const SizedBox(width: 10),
+            // Text & Gain Readout
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        isMuted
+                            ? 'MUTED'
+                            : '${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)} dB',
+                        style: TextStyle(
+                          fontSize: isCompact ? 15 : 18,
+                          fontWeight: FontWeight.w900,
+                          color: activeColor,
+                          fontFamily: 'monospace',
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: activeColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: activeColor.withOpacity(0.5), width: 0.8),
+                        ),
+                        child: Text(
+                          isMuted ? 'MUTED' : 'ACTIVE',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: activeColor,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isMuted
+                        ? 'TAP TO UNMUTE'
+                        : 'TAP TO MUTE / SILENCE',
+                    style: TextStyle(
+                      fontSize: isCompact ? 8.0 : 8.5,
+                      fontWeight: FontWeight.bold,
+                      color: isMuted
+                          ? const Color(0xFFFF007F).withOpacity(0.9)
+                          : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       );
-    }
-
-    Widget buildBigMuteButton({required bool isCompact}) {
-      final bool isMuted = widget.isMuted;
-      final Color muteColor = isMuted
-          ? const Color(0xFFFF007F)
-          : (widget.isDarkMode ? Colors.grey[300]! : Colors.grey[700]!);
-      final Color muteBg = isMuted
-          ? const Color(0xFFFF007F).withOpacity(0.25)
-          : (widget.isDarkMode ? const Color(0xFF161B22) : Colors.grey[200]!);
 
       return GestureDetector(
-        onTap: widget.onMuteToggled,
+        onTap: isBypassed ? null : widget.onMuteToggled,
         behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 12, vertical: isCompact ? 5 : 6),
-          decoration: BoxDecoration(
-            color: muteBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isMuted ? const Color(0xFFFF007F) : (widget.isDarkMode ? Colors.grey[700]! : Colors.grey[350]!),
-              width: isMuted ? 1.5 : 1.0,
-            ),
-            boxShadow: isMuted
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFF007F).withOpacity(0.35),
-                      blurRadius: 8,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isMuted ? Icons.volume_off : Icons.volume_up,
-                    size: isCompact ? 14 : 16,
-                    color: muteColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isMuted ? 'MUTED' : 'MUTE',
-                    style: TextStyle(
-                      fontSize: isCompact ? 10 : 12,
-                      fontWeight: FontWeight.w900,
-                      color: muteColor,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 1),
-              Text(
-                isMuted ? 'TAP TO UNMUTE' : 'TAP TO SILENCE',
-                style: TextStyle(
-                  fontSize: 7.0,
-                  fontWeight: FontWeight.bold,
-                  color: isMuted ? const Color(0xFFFF007F).withOpacity(0.8) : Colors.grey[500],
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: buttonContent,
       );
     }
 
@@ -653,52 +655,6 @@ class _GainCardState extends State<GainCard> {
             ),
           ),
         ],
-      );
-    }
-
-    Widget buildQuickStepsRow() {
-      final steps = [-6.0, -3.0, -1.0, 0.0, 1.0, 3.0, 6.0];
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: steps.map((db) {
-            final bool isSelected = (clampedValue - db).abs() < 0.1;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2.0),
-              child: GestureDetector(
-                onTap: isBypassed
-                    ? null
-                    : () {
-                        final double newVal = db.clamp(minRange, maxRange);
-                        widget.onVolumeChanged(newVal);
-                      },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? accentColor.withOpacity(0.25)
-                        : (widget.isDarkMode ? const Color(0xFF161B22) : Colors.grey[200]),
-                    borderRadius: BorderRadius.circular(5),
-                    border: Border.all(
-                      color: isSelected
-                          ? accentColor
-                          : (widget.isDarkMode ? Colors.grey[800]! : Colors.grey[300]!),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Text(
-                    '${db >= 0 ? "+" : ""}${db.toStringAsFixed(0)} dB',
-                    style: TextStyle(
-                      fontSize: 8.5,
-                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.normal,
-                      color: isSelected ? accentColor : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[700]),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
       );
     }
 
@@ -852,20 +808,13 @@ class _GainCardState extends State<GainCard> {
                       // Header
                       buildStandardHeaderRow(context),
                       const SizedBox(height: 6),
-                      // Gain Level Display + Big Mute Button
-                      Row(
-                        children: [
-                          Expanded(child: buildDirectGainDisplay(isCompact: true)),
-                          const SizedBox(width: 6),
-                          Expanded(child: buildBigMuteButton(isCompact: true)),
-                        ],
+                      // Big Mute & Gain Button
+                      Expanded(
+                        child: buildGiantMuteGainButton(isCompact: true, takeFullHeight: true),
                       ),
                       const SizedBox(height: 6),
                       // Direct Slider Row with [-1 dB] / [+1 dB] Nudge Buttons
                       buildDirectSliderRow(compact: true),
-                      const SizedBox(height: 4),
-                      // Quick Steps Row
-                      buildQuickStepsRow(),
                     ],
                   )
                 : widget.size == 'regular'
@@ -915,21 +864,12 @@ class _GainCardState extends State<GainCard> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          // Gain Level Display + Big Mute Button
-                          Row(
-                            children: [
-                              Expanded(child: buildDirectGainDisplay(isCompact: false)),
-                              const SizedBox(width: 8),
-                              Expanded(child: buildBigMuteButton(isCompact: false)),
-                            ],
-                          ),
                           const SizedBox(height: 8),
+                          // Giant Mute & Gain Button
+                          buildGiantMuteGainButton(isCompact: false),
+                          const SizedBox(height: 10),
                           // Direct Slider Row
                           buildDirectSliderRow(compact: false),
-                          const SizedBox(height: 6),
-                          // Quick Step Presets Row
-                          buildQuickStepsRow(),
                         ],
                       )
                     : Column(
@@ -937,25 +877,16 @@ class _GainCardState extends State<GainCard> {
                         children: [
                           // Header
                           buildStandardHeaderRow(context),
-                          const SizedBox(height: 6),
-                          // Gain Level Display + Big Mute Button
-                          Row(
-                            children: [
-                              Expanded(child: buildDirectGainDisplay(isCompact: false)),
-                              const SizedBox(width: 8),
-                              Expanded(child: buildBigMuteButton(isCompact: false)),
-                            ],
-                          ),
                           const SizedBox(height: 8),
+                          // Giant Mute & Gain Button
+                          buildGiantMuteGainButton(isCompact: false),
+                          const SizedBox(height: 12),
                           // Direct Slider Row
                           buildDirectSliderRow(compact: false),
-                          const SizedBox(height: 8),
-                          // Quick Step Presets
-                          buildQuickStepsRow(),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           // Range & Unity info bar
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
                               color: widget.isDarkMode ? const Color(0xFF0F141C) : Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
@@ -966,9 +897,9 @@ class _GainCardState extends State<GainCard> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                Text('MIN: ${minRange.toStringAsFixed(1)} dB', style: TextStyle(fontSize: 9.5, color: Colors.grey[500], fontFamily: 'monospace')),
-                                Text('UNITY: 0.0 dB', style: TextStyle(fontSize: 9.5, color: accentColor, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
-                                Text('MAX: ${maxRange.toStringAsFixed(1)} dB', style: TextStyle(fontSize: 9.5, color: Colors.grey[500], fontFamily: 'monospace')),
+                                Text('MIN: ${minRange.toStringAsFixed(1)} dB', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontFamily: 'monospace')),
+                                Text('UNITY: 0.0 dB', style: TextStyle(fontSize: 10, color: accentColor, fontWeight: FontWeight.bold, fontFamily: 'monospace')),
+                                Text('MAX: ${maxRange >= 0 ? "+" : ""}${maxRange.toStringAsFixed(1)} dB', style: TextStyle(fontSize: 10, color: Colors.grey[500], fontFamily: 'monospace')),
                               ],
                             ),
                           ),
