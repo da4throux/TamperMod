@@ -486,21 +486,22 @@ class _GainCardState extends State<GainCard> {
     Widget buildGiantMuteGainButton({required bool isCompact, bool takeFullHeight = false}) {
       final bool isMuted = widget.isMuted;
       final double displayDb = widget.liveMeterValue ?? clampedValue;
+      final bool hasDistinctMeter = widget.liveMeterValue != null && (widget.liveMeterValue! - clampedValue).abs() > 0.05;
       
       // Neutral muted colors (greyish/charcoal, NO bright red/pink glow)
       final Color activeColor = isMuted ? const Color(0xFF8B949E) : accentColor;
       final Color bg = isMuted
           ? (widget.isDarkMode ? const Color(0xFF161B22) : const Color(0xFFE5E7EB))
-          : (widget.isDarkMode ? const Color(0xFF0F141C) : Colors.grey[100]!);
+          : activeColor.withOpacity(widget.isDarkMode ? 0.20 : 0.14);
       final Color border = isMuted
           ? (widget.isDarkMode ? const Color(0xFF30363D) : const Color(0xFFCBD5E1))
-          : activeColor.withOpacity(widget.isDarkMode ? 0.7 : 0.5);
+          : activeColor.withOpacity(widget.isDarkMode ? 0.8 : 0.6);
 
       final Widget buttonContent = Container(
         width: double.infinity,
         padding: EdgeInsets.symmetric(
           horizontal: isCompact ? 10 : 14,
-          vertical: isCompact ? (takeFullHeight ? 12 : 8) : 10,
+          vertical: isCompact ? (takeFullHeight ? 10 : 7) : 9,
         ),
         decoration: BoxDecoration(
           color: bg,
@@ -510,8 +511,8 @@ class _GainCardState extends State<GainCard> {
               ? null
               : [
                   BoxShadow(
-                    color: activeColor.withOpacity(0.18),
-                    blurRadius: 6,
+                    color: activeColor.withOpacity(0.22),
+                    blurRadius: 8,
                   ),
                 ],
         ),
@@ -525,8 +526,14 @@ class _GainCardState extends State<GainCard> {
               decoration: BoxDecoration(
                 color: isMuted
                     ? (widget.isDarkMode ? const Color(0xFF21262D) : const Color(0xFFD1D5DB))
-                    : activeColor.withOpacity(0.18),
+                    : (widget.isDarkMode ? const Color(0xFF0F141C) : Colors.white),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: isMuted
+                      ? (widget.isDarkMode ? const Color(0xFF30363D) : Colors.grey[400]!)
+                      : activeColor.withOpacity(0.4),
+                  width: 0.8,
+                ),
               ),
               child: Icon(
                 isMuted ? Icons.volume_off : Icons.volume_up,
@@ -535,69 +542,113 @@ class _GainCardState extends State<GainCard> {
               ),
             ),
             const SizedBox(width: 10),
-            // Text & Gain Readout
+            // Text & Gain Readout Container (Solid dark base to preserve high contrast and readability)
             Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${displayDb >= 0 ? "+" : ""}${displayDb.toStringAsFixed(1)} dB',
-                        style: TextStyle(
-                          fontSize: isCompact ? 15 : 18,
-                          fontWeight: FontWeight.w900,
-                          color: isMuted
-                              ? (widget.isDarkMode ? const Color(0xFFC9D1D9) : Colors.grey[800])
-                              : activeColor,
-                          fontFamily: 'monospace',
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: widget.isDarkMode ? const Color(0xFF21262D) : const Color(0xFFD1D5DB),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: isMuted
-                                ? (widget.isDarkMode ? const Color(0xFF30363D) : const Color(0xFF9CA3AF))
-                                : activeColor.withOpacity(0.5),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          isMuted ? 'MUTED' : 'ACTIVE',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900,
-                            color: isMuted
-                                ? (widget.isDarkMode ? const Color(0xFF8B949E) : Colors.grey[700])
-                                : activeColor,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 8 : 10,
+                  vertical: isCompact ? 4 : 5,
+                ),
+                decoration: BoxDecoration(
+                  color: widget.isDarkMode ? const Color(0xFF0D1117) : Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isMuted
+                        ? (widget.isDarkMode ? const Color(0xFF21262D) : const Color(0xFFE2E8F0))
+                        : activeColor.withOpacity(widget.isDarkMode ? 0.35 : 0.25),
+                    width: 0.8,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    isMuted
-                        ? 'MUTED • TAP TO RESTORE'
-                        : 'ACTIVE • TAP TO MUTE',
-                    style: TextStyle(
-                      fontSize: isCompact ? 8.0 : 8.5,
-                      fontWeight: FontWeight.bold,
-                      color: isMuted
-                          ? (widget.isDarkMode ? const Color(0xFF6E7681) : Colors.grey[600])
-                          : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                      letterSpacing: 0.4,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${displayDb >= 0 ? "+" : ""}${displayDb.toStringAsFixed(1)} dB',
+                                style: TextStyle(
+                                  fontSize: isCompact ? 14 : 17,
+                                  fontWeight: FontWeight.w900,
+                                  color: isMuted
+                                      ? (widget.isDarkMode ? const Color(0xFFC9D1D9) : Colors.grey[800])
+                                      : activeColor,
+                                  fontFamily: 'monospace',
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              if (hasDistinctMeter) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: activeColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    'KNOB: ${clampedValue >= 0 ? "+" : ""}${clampedValue.toStringAsFixed(1)}',
+                                    style: TextStyle(
+                                      fontSize: 7.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isMuted ? Colors.grey[500] : activeColor.withOpacity(0.9),
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isMuted
+                                ? (widget.isDarkMode ? const Color(0xFF21262D) : const Color(0xFFD1D5DB))
+                                : activeColor.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: isMuted
+                                  ? (widget.isDarkMode ? const Color(0xFF30363D) : const Color(0xFF9CA3AF))
+                                  : activeColor.withOpacity(0.5),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            isMuted ? 'MUTED' : 'ACTIVE',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              color: isMuted
+                                  ? (widget.isDarkMode ? const Color(0xFF8B949E) : Colors.grey[700])
+                                  : activeColor,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      isMuted
+                          ? 'MUTED • TAP TO RESTORE'
+                          : 'ACTIVE • TAP TO MUTE',
+                      style: TextStyle(
+                        fontSize: isCompact ? 8.0 : 8.5,
+                        fontWeight: FontWeight.bold,
+                        color: isMuted
+                            ? (widget.isDarkMode ? const Color(0xFF6E7681) : Colors.grey[600])
+                            : (widget.isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

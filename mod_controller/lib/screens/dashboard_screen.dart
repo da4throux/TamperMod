@@ -57,6 +57,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Track volume slider values locally to make the slider extremely responsive
   final Map<String, double> _localVolumes = {};
   final Map<String, double> _mutedVolumes = {};
+  final Map<String, double> _scrapedPedalDisplays = {};
 
   // Fade range cursors: fractional [0.0–1.0] position within min..max gain range
   final Map<String, double> _fadeRangeStart = {};
@@ -541,6 +542,31 @@ class _DashboardScreenState extends State<DashboardScreen>
             }
           } catch(e) {}
         }, 3000);
+
+        if (window.tamperMeterIntervalId) {
+          clearInterval(window.tamperMeterIntervalId);
+        }
+        window.tamperMeterIntervalId = setInterval(function() {
+          try {
+            if (window.PedalMeterChannel) {
+              var displays = {};
+              document.querySelectorAll('.mod-pedal, [mod\\:instance], [data-instance]').forEach(function(el) {
+                var inst = el.getAttribute('mod:instance') || (el.dataset && el.dataset.instance) || el.id;
+                if (inst) {
+                  var disp = el.querySelector('.mod-display, .mod-display-text, text.display, text, [class*="display"], [class*="meter"]');
+                  if (disp) {
+                    var t = (disp.textContent || disp.innerText || '').trim();
+                    var n = parseFloat(t.replace(/[^0-9.-]/g, ''));
+                    if (!isNaN(n)) displays[inst] = n;
+                  }
+                }
+              });
+              if (Object.keys(displays).length > 0) {
+                window.PedalMeterChannel.postMessage(JSON.stringify(displays));
+              }
+            }
+          } catch(e) {}
+        }, 350);
       })();
     ''';
 
@@ -908,6 +934,31 @@ class _DashboardScreenState extends State<DashboardScreen>
           final String instanceId = message.message.trim();
           if (instanceId.isNotEmpty) {
             _handlePedalSearchClick(instanceId);
+          }
+        },
+      )
+      ..addJavaScriptChannel(
+        'PedalMeterChannel',
+        onMessageReceived: (JavaScriptMessage message) {
+          try {
+            final Map<String, dynamic> decoded = jsonDecode(message.message);
+            bool updated = false;
+            decoded.forEach((k, v) {
+              final double? numVal = double.tryParse(v.toString());
+              if (numVal != null) {
+                final String cleanKey = k.startsWith('/') ? k : '/graph/$k';
+                if (_scrapedPedalDisplays[cleanKey] != numVal || _scrapedPedalDisplays[k] != numVal) {
+                  _scrapedPedalDisplays[cleanKey] = numVal;
+                  _scrapedPedalDisplays[k] = numVal;
+                  updated = true;
+                }
+              }
+            });
+            if (updated && mounted) {
+              setState(() {});
+            }
+          } catch (e) {
+            // Ignore parse errors
           }
         },
       )
@@ -3375,7 +3426,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                       glowColor: glowColor,
                       displayName: displayName,
                       currentValue: currentValue,
-                      liveMeterValue: pedal.liveMeterValue,
+                      liveMeterValue: _scrapedPedalDisplays[pedal.instance] ??
+                          _scrapedPedalDisplays[pedal.instance.replaceAll('/graph/', '')] ??
+                          pedal.liveMeterValue,
                       isMuted: _isMuted(pedal),
                       isFading: isFading,
                       isFadingIn: isFadingIn,
