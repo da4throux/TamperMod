@@ -162,7 +162,7 @@ class ModWebSocketService extends ChangeNotifier {
             }
           }
         }
-      } else if (cmd == 'param_set') {
+      } else if (cmd == 'param_set' || cmd == 'output_set' || cmd == 'output' || cmd == 'meter' || cmd == 'monitor') {
         // Format can be:
         // 1. param_set <instance> <portsymbol> <value>
         // 2. param_set <instance>/<portsymbol> <value>

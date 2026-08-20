@@ -575,24 +575,31 @@ class _DashboardScreenState extends State<DashboardScreen>
                 }
               } catch(e) {}
 
-              // 2. Check DOM elements (specifically LCD / display / meter elements)
-              document.querySelectorAll('.mod-pedal, [mod\\:instance], [data-instance]').forEach(function(el) {
-                var inst = el.getAttribute('mod:instance') || (el.dataset && el.dataset.instance) || el.id;
-                if (inst) {
-                  var candidates = el.querySelectorAll('.mod-display, .mod-display-text, [class*="lcd"], [class*="display"], [class*="meter"], g.display text, g.lcd text, g.meter text, text[class*="display"], text[class*="meter"], text[class*="lcd"]');
-                  var found = null;
-                  candidates.forEach(function(disp) {
-                    if (found !== null) return;
-                    var t = (disp.textContent || disp.innerText || '').trim();
-                    var match = t.match(/[-+]?\d+(\.\d+)?/);
-                    if (match) {
-                      var n = parseFloat(match[0]);
-                      if (!isNaN(n)) found = n;
+              // 2. Check DOM elements (spatial search: top-most text in pedal is the LCD)
+              document.querySelectorAll('.mod-pedal, [mod-instance], [data-instance], [mod\\:instance]').forEach(function(pedalEl) {
+                var inst = pedalEl.getAttribute('mod-instance') || (pedalEl.dataset && pedalEl.dataset.instance) || pedalEl.getAttribute('mod:instance') || pedalEl.id;
+                if (!inst) return;
+
+                var allTexts = pedalEl.querySelectorAll('text, span, div, p');
+                var foundNumbers = [];
+                allTexts.forEach(function(tNode) {
+                  if (tNode.children.length === 0) {
+                    var raw = (tNode.textContent || tNode.innerText || '').trim();
+                    var numMatch = raw.match(/^[-+]?\d+(\.\d+)?$/);
+                    if (numMatch) {
+                      foundNumbers.push({ val: parseFloat(numMatch[0]), el: tNode, text: raw });
                     }
-                  });
-                  if (found !== null) {
-                    displays[inst] = found;
                   }
+                });
+
+                if (foundNumbers.length > 0) {
+                  // Sort by vertical position: top-most element is the LCD meter display
+                  foundNumbers.sort(function(a, b) {
+                    var rA = a.el.getBoundingClientRect();
+                    var rB = b.el.getBoundingClientRect();
+                    return rA.top - rB.top;
+                  });
+                  displays[inst] = foundNumbers[0].val;
                 }
               });
 
@@ -601,7 +608,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               }
             }
           } catch(e) {}
-        }, 250);
+        }, 200);
       })();
     ''';
 
@@ -843,6 +850,19 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+
+  double? _getMeterDisplayForPedal(PluginInstance pedal) {
+    final String fullInst = pedal.instance;
+    final String cleanInst = fullInst.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase();
+
+    for (final entry in _scrapedPedalDisplays.entries) {
+      final String kClean = entry.key.replaceAll('/graph/', '').replaceAll('/', '').toLowerCase();
+      if (kClean == cleanInst || kClean.endsWith(cleanInst) || cleanInst.endsWith(kClean)) {
+        return entry.value;
+      }
+    }
+    return pedal.liveMeterValue;
+  }
 
   // Fading and BPM Parameter State
   double _bpm = 120.0;
@@ -3461,9 +3481,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       glowColor: glowColor,
                       displayName: displayName,
                       currentValue: currentValue,
-                      liveMeterValue: _scrapedPedalDisplays[pedal.instance] ??
-                          _scrapedPedalDisplays[pedal.instance.replaceAll('/graph/', '')] ??
-                          pedal.liveMeterValue,
+                      liveMeterValue: _getMeterDisplayForPedal(pedal),
                       isMuted: _isMuted(pedal),
                       isFading: isFading,
                       isFadingIn: isFadingIn,
